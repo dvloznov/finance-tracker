@@ -5,6 +5,8 @@ bin/
 *.dll
 *.so
 *.dylib
-
-# Test binaries
 *.test
+
+# Local sample statements (keep folder, ignore files)
+static/*
+!static/.gitkeep
