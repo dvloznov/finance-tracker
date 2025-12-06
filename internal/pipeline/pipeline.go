@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,8 @@ import (
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/storage"
 	"github.com/google/uuid"
+	"google.golang.org/api/iterator"
+	"google.golang.org/genai"
 )
 
 type DocumentRow struct {
@@ -52,6 +55,14 @@ type ParsingRunRow struct {
 	TokensOutput bigquery.NullInt64 `bigquery:"tokens_output"`
 
 	Metadata bigquery.NullJSON `bigquery:"metadata"`
+}
+
+type CategoryRow struct {
+	CategoryID       string              `bigquery:"category_id"`
+	ParentCategoryID bigquery.NullString `bigquery:"parent_category_id"`
+	Depth            int64               `bigquery:"depth"`
+	Name             string              `bigquery:"name"`
+	IsActive         bool                `bigquery:"is_active"`
 }
 
 // IngestStatementFromGCS processes a single bank statement PDF stored in GCS.
@@ -366,10 +377,222 @@ func fetchFromGCS(ctx context.Context, gcsURI string) ([]byte, error) {
 	return data, nil
 }
 
-// parseStatementWithModel sends the PDF to the model (e.g. Gemini) and returns raw output.
+func buildCategoriesPrompt(ctx context.Context) (string, error) {
+	client, err := bigquery.NewClient(ctx, "studious-union-470122-v7")
+	if err != nil {
+		return "", fmt.Errorf("buildCategoriesPrompt: bigquery client: %w", err)
+	}
+	defer client.Close()
+
+	q := client.Query(`
+		SELECT
+		  category_id,
+		  parent_category_id,
+		  depth,
+		  name,
+		  is_active
+		FROM finance.categories
+		WHERE is_active = TRUE
+		ORDER BY depth, parent_category_id, name
+	`)
+
+	it, err := q.Read(ctx)
+	if err != nil {
+		return "", fmt.Errorf("buildCategoriesPrompt: query read: %w", err)
+	}
+
+	var rows []CategoryRow
+
+	for {
+		var r CategoryRow
+		err := it.Next(&r)
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("buildCategoriesPrompt: iter next: %w", err)
+		}
+		rows = append(rows, r)
+	}
+
+	if len(rows) == 0 {
+		return "", fmt.Errorf("buildCategoriesPrompt: no active categories found")
+	}
+
+	// Separate parents and children.
+	type parentInfo struct {
+		ID   string
+		Name string
+	}
+	var parentsOrder []parentInfo
+	parentNameByID := make(map[string]string)
+	childrenByParent := make(map[string][]string)
+
+	for _, r := range rows {
+		if r.Depth == 1 {
+			parentsOrder = append(parentsOrder, parentInfo{ID: r.CategoryID, Name: r.Name})
+			parentNameByID[r.CategoryID] = r.Name
+			if _, ok := childrenByParent[r.CategoryID]; !ok {
+				childrenByParent[r.CategoryID] = []string{}
+			}
+		}
+	}
+
+	for _, r := range rows {
+		if r.Depth == 2 && r.ParentCategoryID.Valid {
+			parentID := r.ParentCategoryID.StringVal
+			childrenByParent[parentID] = append(childrenByParent[parentID], r.Name)
+		}
+	}
+
+	var b strings.Builder
+	b.WriteString("Use ONLY the following Categories and Subcategories:\n\n")
+
+	for _, p := range parentsOrder {
+		b.WriteString(p.Name + ":\n")
+		subs := childrenByParent[p.ID]
+		if len(subs) == 0 {
+			// no subcategories defined – still list a placeholder so the model knows.
+			b.WriteString("  - Other\n\n")
+			continue
+		}
+		for _, s := range subs {
+			b.WriteString("  - " + s + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	// Additionally, constrain what the model is allowed to output.
+	b.WriteString("Category must be exactly one of the category names shown above.\n")
+	b.WriteString("Subcategory must be exactly one of the subcategory names listed under that category.\n")
+	b.WriteString("If you are unsure, default to category \"OTHER\" with subcategory \"Other\" if it exists.\n")
+
+	return b.String(), nil
+}
+
+const modelName = "gemini-2.5-flash"
+
+// parseStatementWithModel sends the PDF to Gemini and returns the parsed JSON output.
+// It expects the model to return a STRICT JSON array of transactions.
 func parseStatementWithModel(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
-	// TODO: call LLM / vision model and return raw parsed JSON as a generic map
-	return nil, nil
+	// 1) Build category prompt from BigQuery taxonomy.
+	catPrompt, err := buildCategoriesPrompt(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("parseStatementWithModel: loading categories: %w", err)
+	}
+
+	// 2) Base instructions (very close to your test code).
+	basePrompt :=
+		"You are a financial statement parser for Barclays UK PDF bank statements.\n\n" +
+			"Task:\n" +
+			"- Parse ALL transactions in the attached Barclays statement.\n" +
+			"- Output STRICT JSON only (no comments, no trailing commas, no extra text).\n" +
+			"- Output a JSON array of objects.\n\n" +
+			"Each object must have these fields:\n" +
+			"- \"account_name\": string or null\n" +
+			"- \"account_number\": string or null\n" +
+			"- \"date\": string, ISO format \"YYYY-MM-DD\"\n" +
+			"- \"description\": string\n" +
+			"- \"amount\": number (positive for money IN, negative for money OUT)\n" +
+			"- \"currency\": string (e.g. \"GBP\")\n" +
+			"- \"balance_after\": number or null\n" +
+			"- \"category\": string (one of the predefined categories)\n" +
+			"- \"subcategory\": string (one of the predefined subcategories below)\n\n"
+
+	rulesPrompt :=
+		"Rules:\n" +
+			"- Classify each transaction into the most appropriate category/subcategory.\n" +
+			"- If the statement has separate \"paid out\" / \"paid in\" columns, convert to a single signed \"amount\".\n" +
+			"- If the running balance is missing, set \"balance_after\" to null.\n" +
+			"- If account name or number cannot be determined, set them to null.\n" +
+			"- If the PDF contains multiple accounts, attribute transactions correctly.\n\n" +
+			"Return ONLY valid raw JSON.\n" +
+			"Do NOT wrap the response in code fences.\n" +
+			"Do NOT use ```json or any Markdown.\n" +
+			"Output must begin with \"[\" and end with \"]\".\n"
+
+	fullPrompt := basePrompt + "\n" + catPrompt + "\n\n" + rulesPrompt
+
+	// 3) Create GenAI client (same style as your test program).
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		HTTPOptions: genai.HTTPOptions{APIVersion: "v1"},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("parseStatementWithModel: create genai client: %w", err)
+	}
+
+	contents := []*genai.Content{
+		{
+			Role: "user",
+			Parts: []*genai.Part{
+				{Text: fullPrompt},
+				{
+					InlineData: &genai.Blob{
+						MIMEType: "application/pdf",
+						Data:     pdfBytes,
+					},
+				},
+			},
+		},
+	}
+
+	resp, err := client.Models.GenerateContent(ctx, modelName, contents, nil)
+	if err != nil {
+		return nil, fmt.Errorf("parseStatementWithModel: generate content: %w", err)
+	}
+
+	rawText := resp.Text()
+	if rawText == "" {
+		return nil, fmt.Errorf("parseStatementWithModel: empty response from model")
+	}
+
+	// Clean up Markdown fences / extra text if the model ignored instructions.
+	clean := cleanModelJSON(rawText)
+
+	// 4) Parse JSON into a generic value.
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(clean), &parsed); err != nil {
+		return nil, fmt.Errorf("parseStatementWithModel: unmarshal JSON: %w\nraw response: %s", err, rawText)
+	}
+
+	// Expect top-level array; for flexibility we just wrap it under "transactions".
+	return map[string]interface{}{
+		"transactions": parsed,
+	}, nil
+}
+
+func cleanModelJSON(raw string) string {
+	s := strings.TrimSpace(raw)
+
+	// Handle ```json ... ``` or ``` ... ``` wrappers.
+	if strings.HasPrefix(s, "```") {
+		// Drop the first line (``` or ```json).
+		if idx := strings.Index(s, "\n"); idx != -1 {
+			s = s[idx+1:]
+		} else {
+			// Single-line weirdness; just return as-is.
+			return s
+		}
+		s = strings.TrimSpace(s)
+	}
+
+	// Remove trailing ``` if present.
+	if idx := strings.LastIndex(s, "```"); idx != -1 {
+		s = s[:idx]
+	}
+
+	s = strings.TrimSpace(s)
+
+	// Extra safety: if there's still junk around the JSON array,
+	// try to keep only from the first '[' to the last ']'.
+	if start := strings.Index(s, "["); start != -1 {
+		if end := strings.LastIndex(s, "]"); end != -1 && end > start {
+			s = s[start : end+1]
+			s = strings.TrimSpace(s)
+		}
+	}
+
+	return s
 }
 
 // storeModelOutput inserts raw model output into the model_outputs table.
