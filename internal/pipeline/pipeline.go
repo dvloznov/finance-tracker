@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"log"
 	"path"
 	"strings"
 	"time"
@@ -29,6 +30,26 @@ type DocumentRow struct {
 	TextGCSURI       string                 `bigquery:"text_gcs_uri"`
 	ChecksumSHA256   string                 `bigquery:"checksum_sha256"`
 	Metadata         bigquery.NullJSON      `bigquery:"metadata"`
+}
+
+type ParsingRunRow struct {
+	ParsingRunID string `bigquery:"parsing_run_id"`
+	DocumentID   string `bigquery:"document_id"`
+
+	StartedAt  time.Time              `bigquery:"started_ts"`  // note: _ts
+	FinishedAt bigquery.NullTimestamp `bigquery:"finished_ts"` // note: _ts
+
+	ParserType    string `bigquery:"parser_type"`    // e.g. GEMINI_VISION
+	ParserVersion string `bigquery:"parser_version"` // e.g. v1
+
+	Status       string `bigquery:"status"`
+	ErrorMessage string `bigquery:"error_message"`
+
+	// Optional metrics (can be NULL)
+	TokensInput  bigquery.NullInt64 `bigquery:"tokens_input"`
+	TokensOutput bigquery.NullInt64 `bigquery:"tokens_output"`
+
+	Metadata bigquery.NullJSON `bigquery:"metadata"`
 }
 
 // IngestStatementFromGCS processes a single bank statement PDF stored in GCS.
@@ -150,19 +171,160 @@ func extractFilenameFromGCSURI(uri string) string {
 }
 
 // startParsingRun creates a parsing_runs row with status=RUNNING.
-func startParsingRun(ctx context.Context, documentID string) (parsingRunID string, err error) {
-	// TODO: insert into finance.parsing_runs and return parsing_run_id
-	return "", nil
+func startParsingRun(ctx context.Context, documentID string) (string, error) {
+	const (
+		projectID = "studious-union-470122-v7"
+		datasetID = "finance"
+		tableID   = "parsing_runs"
+	)
+
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return "", fmt.Errorf("startParsingRun: bigquery client: %w", err)
+	}
+	defer client.Close()
+
+	parsingRunID := uuid.NewString()
+	started := time.Now()
+
+	q := client.Query(fmt.Sprintf(`
+		INSERT %s.%s (
+			parsing_run_id,
+			document_id,
+			started_ts,
+			parser_type,
+			parser_version,
+			status
+		)
+		VALUES (
+			@parsing_run_id,
+			@document_id,
+			@started_ts,
+			@parser_type,
+			@parser_version,
+			@status
+		)
+	`, datasetID, tableID))
+
+	q.Parameters = []bigquery.QueryParameter{
+		{Name: "parsing_run_id", Value: parsingRunID},
+		{Name: "document_id", Value: documentID},
+		{Name: "started_ts", Value: started},
+		{Name: "parser_type", Value: "GEMINI_VISION"},
+		{Name: "parser_version", Value: "v1"},
+		{Name: "status", Value: "RUNNING"},
+	}
+
+	job, err := q.Run(ctx)
+	if err != nil {
+		return "", fmt.Errorf("startParsingRun: running insert query: %w", err)
+	}
+
+	status, err := job.Wait(ctx)
+	if err != nil {
+		return "", fmt.Errorf("startParsingRun: waiting for job: %w", err)
+	}
+	if err := status.Err(); err != nil {
+		return "", fmt.Errorf("startParsingRun: job error: %w", err)
+	}
+
+	return parsingRunID, nil
 }
 
 // markParsingRunFailed updates a parsing_runs row to status=FAILED.
 func markParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) {
-	// TODO: update finance.parsing_runs set status='FAILED', error_message=...
+	const (
+		projectID = "studious-union-470122-v7"
+		datasetID = "finance"
+	)
+
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		log.Printf("markParsingRunFailed: bigquery client error for run %s: %v", parsingRunID, err)
+		return
+	}
+	defer client.Close()
+
+	errMsg := ""
+	if parseErr != nil {
+		errMsg = parseErr.Error()
+		const maxLen = 2000
+		if len(errMsg) > maxLen {
+			errMsg = errMsg[:maxLen]
+		}
+	}
+
+	q := client.Query(fmt.Sprintf(`
+		UPDATE %s.parsing_runs
+		SET status = @status,
+		    finished_ts = @finished_ts,
+		    error_message = @error_message
+		WHERE parsing_run_id = @parsing_run_id
+	`, datasetID))
+
+	q.Parameters = []bigquery.QueryParameter{
+		{Name: "status", Value: "FAILED"},
+		{Name: "finished_ts", Value: time.Now()},
+		{Name: "error_message", Value: errMsg},
+		{Name: "parsing_run_id", Value: parsingRunID},
+	}
+
+	job, err := q.Run(ctx)
+	if err != nil {
+		log.Printf("markParsingRunFailed: running update query for run %s: %v", parsingRunID, err)
+		return
+	}
+
+	status, err := job.Wait(ctx)
+	if err != nil {
+		log.Printf("markParsingRunFailed: waiting for job for run %s: %v", parsingRunID, err)
+		return
+	}
+	if err := status.Err(); err != nil {
+		log.Printf("markParsingRunFailed: job completed with error for run %s: %v", parsingRunID, err)
+	}
 }
 
 // markParsingRunSucceeded updates a parsing_runs row to status=SUCCESS.
 func markParsingRunSucceeded(ctx context.Context, parsingRunID string) error {
-	// TODO: update finance.parsing_runs set status='SUCCESS'
+	const (
+		projectID = "studious-union-470122-v7"
+		datasetID = "finance"
+	)
+
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("markParsingRunSucceeded: bigquery client: %w", err)
+	}
+	defer client.Close()
+
+	q := client.Query(fmt.Sprintf(`
+		UPDATE %s.parsing_runs
+		SET status = @status,
+		    finished_ts = @finished_ts,
+		    error_message = ""
+		WHERE parsing_run_id = @parsing_run_id
+	`, datasetID))
+
+	q.Parameters = []bigquery.QueryParameter{
+		{Name: "status", Value: "SUCCESS"},
+		{Name: "finished_ts", Value: time.Now()},
+		{Name: "parsing_run_id", Value: parsingRunID},
+	}
+
+	job, err := q.Run(ctx)
+	if err != nil {
+		return fmt.Errorf("markParsingRunSucceeded: running update query: %w", err)
+	}
+
+	status, err := job.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("markParsingRunSucceeded: waiting for job: %w", err)
+	}
+	if err := status.Err(); err != nil {
+		return fmt.Errorf("markParsingRunSucceeded: job error: %w", err)
+	}
+
 	return nil
 }
 
