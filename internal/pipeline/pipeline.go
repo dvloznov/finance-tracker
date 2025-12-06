@@ -3,12 +3,14 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"path"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"cloud.google.com/go/storage"
 	"github.com/google/uuid"
 )
 
@@ -330,8 +332,38 @@ func markParsingRunSucceeded(ctx context.Context, parsingRunID string) error {
 
 // fetchFromGCS downloads the file bytes from the given GCS URI.
 func fetchFromGCS(ctx context.Context, gcsURI string) ([]byte, error) {
-	// TODO: download bytes from Google Cloud Storage
-	return nil, nil
+	// gcsURI example: gs://my-bucket/path/to/file.pdf
+	if !strings.HasPrefix(gcsURI, "gs://") {
+		return nil, fmt.Errorf("invalid GCS URI: %s", gcsURI)
+	}
+
+	trimmed := strings.TrimPrefix(gcsURI, "gs://")
+	parts := strings.SplitN(trimmed, "/", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid GCS URI (no object path): %s", gcsURI)
+	}
+
+	bucketName := parts[0]
+	objectPath := parts[1]
+
+	storageClient, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetchFromGCS: creating storage client: %w", err)
+	}
+	defer storageClient.Close()
+
+	rc, err := storageClient.Bucket(bucketName).Object(objectPath).NewReader(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetchFromGCS: reading object %s/%s: %w", bucketName, objectPath, err)
+	}
+	defer rc.Close()
+
+	data, err := io.ReadAll(rc)
+	if err != nil {
+		return nil, fmt.Errorf("fetchFromGCS: reading bytes: %w", err)
+	}
+
+	return data, nil
 }
 
 // parseStatementWithModel sends the PDF to the model (e.g. Gemini) and returns raw output.
