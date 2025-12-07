@@ -13,74 +13,11 @@ import (
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
 	"cloud.google.com/go/storage"
+	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/google/uuid"
 	"google.golang.org/api/iterator"
 	"google.golang.org/genai"
 )
-
-type DocumentRow struct {
-	DocumentID       string                 `bigquery:"document_id"`
-	UserID           string                 `bigquery:"user_id"`
-	GCSURI           string                 `bigquery:"gcs_uri"`
-	DocumentType     string                 `bigquery:"document_type"`
-	SourceSystem     string                 `bigquery:"source_system"`
-	InstitutionID    string                 `bigquery:"institution_id"`
-	AccountID        string                 `bigquery:"account_id"`
-	StatementStart   bigquery.NullDate      `bigquery:"statement_start_date"`
-	StatementEnd     bigquery.NullDate      `bigquery:"statement_end_date"`
-	UploadTS         time.Time              `bigquery:"upload_ts"`
-	ProcessedTS      bigquery.NullTimestamp `bigquery:"processed_ts"`
-	ParsingStatus    string                 `bigquery:"parsing_status"`
-	OriginalFilename string                 `bigquery:"original_filename"`
-	FileMimeType     string                 `bigquery:"file_mime_type"`
-	TextGCSURI       string                 `bigquery:"text_gcs_uri"`
-	ChecksumSHA256   string                 `bigquery:"checksum_sha256"`
-	Metadata         bigquery.NullJSON      `bigquery:"metadata"`
-}
-
-type ParsingRunRow struct {
-	ParsingRunID string `bigquery:"parsing_run_id"`
-	DocumentID   string `bigquery:"document_id"`
-
-	StartedAt  time.Time              `bigquery:"started_ts"`  // note: _ts
-	FinishedAt bigquery.NullTimestamp `bigquery:"finished_ts"` // note: _ts
-
-	ParserType    string `bigquery:"parser_type"`    // e.g. GEMINI_VISION
-	ParserVersion string `bigquery:"parser_version"` // e.g. v1
-
-	Status       string `bigquery:"status"`
-	ErrorMessage string `bigquery:"error_message"`
-
-	// Optional metrics (can be NULL)
-	TokensInput  bigquery.NullInt64 `bigquery:"tokens_input"`
-	TokensOutput bigquery.NullInt64 `bigquery:"tokens_output"`
-
-	Metadata bigquery.NullJSON `bigquery:"metadata"`
-}
-
-type CategoryRow struct {
-	CategoryID       string              `bigquery:"category_id"`
-	ParentCategoryID bigquery.NullString `bigquery:"parent_category_id"`
-	Depth            int64               `bigquery:"depth"`
-	Name             string              `bigquery:"name"`
-	IsActive         bool                `bigquery:"is_active"`
-}
-
-type ModelOutputRow struct {
-	OutputID     string `bigquery:"output_id"`
-	ParsingRunID string `bigquery:"parsing_run_id"`
-	DocumentID   string `bigquery:"document_id"`
-
-	ModelName    string              `bigquery:"model_name"`
-	ModelVersion bigquery.NullString `bigquery:"model_version"`
-
-	RawJSON bigquery.NullJSON `bigquery:"raw_json"`
-
-	ExtractedText bigquery.NullString `bigquery:"extracted_text"`
-	Notes         bigquery.NullString `bigquery:"notes"`
-
-	Metadata bigquery.NullJSON `bigquery:"metadata"`
-}
 
 // Transaction represents one normalized transaction produced by the model.
 // This is a domain struct, not a BigQuery row; insertTransactions will map it
@@ -97,32 +34,6 @@ type Transaction struct {
 
 	Category    string // from "category"
 	Subcategory string // from "subcategory"
-}
-
-// TransactionRow maps to the BigQuery finance.transactions table.
-type TransactionRow struct {
-	TransactionID string `bigquery:"transaction_id"`
-
-	UserID    string `bigquery:"user_id"`
-	AccountID string `bigquery:"account_id"`
-
-	DocumentID   string `bigquery:"document_id"`
-	ParsingRunID string `bigquery:"parsing_run_id"`
-
-	TransactionDate civil.Date `bigquery:"transaction_date"`
-
-	Amount   float64 `bigquery:"amount"`
-	Currency string  `bigquery:"currency"`
-
-	BalanceAfter bigquery.NullFloat64 `bigquery:"balance_after"`
-
-	Direction string `bigquery:"direction"`
-
-	RawDescription        string              `bigquery:"raw_description"`
-	NormalizedDescription bigquery.NullString `bigquery:"normalized_description"`
-
-	CategoryName    bigquery.NullString `bigquery:"category_name"`
-	SubcategoryName bigquery.NullString `bigquery:"subcategory_name"`
 }
 
 // IngestStatementFromGCS processes a single bank statement PDF stored in GCS.
@@ -205,7 +116,7 @@ func createDocument(ctx context.Context, gcsURI string) (string, error) {
 	filename := extractFilenameFromGCSURI(gcsURI)
 
 	// Prepare row to insert
-	row := &DocumentRow{
+	row := &infra.DocumentRow{
 		DocumentID:       documentID,
 		UserID:           "denis", // You can generalize this later
 		GCSURI:           gcsURI,
@@ -461,10 +372,10 @@ func buildCategoriesPrompt(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("buildCategoriesPrompt: query read: %w", err)
 	}
 
-	var rows []CategoryRow
+	var rows []infra.CategoryRow
 
 	for {
-		var r CategoryRow
+		var r infra.CategoryRow
 		err := it.Next(&r)
 		if err == iterator.Done {
 			break
@@ -681,7 +592,7 @@ func storeModelOutput(
 		return "", fmt.Errorf("storeModelOutput: marshal rawOutput: %w", err)
 	}
 
-	row := &ModelOutputRow{
+	row := &infra.ModelOutputRow{
 		OutputID:     outputID,
 		ParsingRunID: parsingRunID,
 		DocumentID:   documentID,
@@ -689,6 +600,11 @@ func storeModelOutput(
 		ModelName: "gemini-2.5-flash",
 		ModelVersion: bigquery.NullString{
 			Valid: false,
+		},
+
+		CreatedTS: bigquery.NullTimestamp{
+			Timestamp: time.Now(),
+			Valid:     true,
 		},
 
 		RawJSON: bigquery.NullJSON{
@@ -894,7 +810,7 @@ func insertTransactions(
 	}
 	defer client.Close()
 
-	rows := make([]*TransactionRow, 0, len(txs))
+	rows := make([]*infra.TransactionRow, 0, len(txs))
 
 	for _, t := range txs {
 		// Determine direction based on sign of amount
@@ -939,7 +855,7 @@ func insertTransactions(
 			}
 		}
 
-		row := &TransactionRow{
+		row := &infra.TransactionRow{
 			TransactionID: uuid.NewString(),
 
 			UserID:    "denis", // same as in documents
