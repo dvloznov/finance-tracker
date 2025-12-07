@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"path"
 	"strings"
 	"time"
@@ -46,7 +45,7 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 	}
 
 	// 2. Start a parsing run (status=RUNNING).
-	parsingRunID, err := startParsingRun(ctx, documentID)
+	parsingRunID, err := infra.StartParsingRun(ctx, documentID)
 	if err != nil {
 		return err
 	}
@@ -54,39 +53,39 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 	// 3. Fetch the PDF bytes from GCS.
 	pdfBytes, err := fetchFromGCS(ctx, gcsURI)
 	if err != nil {
-		markParsingRunFailed(ctx, parsingRunID, err)
+		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
 		return err
 	}
 
 	// 4. Call the statement parser (Gemini) with the PDF.
 	rawModelOutput, err := parseStatementWithModel(ctx, pdfBytes)
 	if err != nil {
-		markParsingRunFailed(ctx, parsingRunID, err)
+		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
 		return err
 	}
 
 	// 5. Store raw model output in model_outputs.
 	_, err = storeModelOutput(ctx, parsingRunID, documentID, rawModelOutput)
 	if err != nil {
-		markParsingRunFailed(ctx, parsingRunID, err)
+		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
 		return err
 	}
 
 	// 6. Transform raw model output into normalized transactions.
 	txs, err := transformModelOutputToTransactions(rawModelOutput)
 	if err != nil {
-		markParsingRunFailed(ctx, parsingRunID, err)
+		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
 		return err
 	}
 
 	// 7. Insert transactions into the transactions table.
 	if err := insertTransactions(ctx, documentID, parsingRunID, txs); err != nil {
-		markParsingRunFailed(ctx, parsingRunID, err)
+		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
 		return err
 	}
 
 	// 8. Mark parsing run as SUCCESS.
-	if err := markParsingRunSucceeded(ctx, parsingRunID); err != nil {
+	if err := infra.MarkParsingRunSucceeded(ctx, parsingRunID); err != nil {
 		return err
 	}
 
@@ -152,164 +151,6 @@ func extractFilenameFromGCSURI(uri string) string {
 
 	// Extract actual filename
 	return path.Base(parts[1])
-}
-
-// startParsingRun creates a parsing_runs row with status=RUNNING.
-func startParsingRun(ctx context.Context, documentID string) (string, error) {
-	const (
-		projectID = "studious-union-470122-v7"
-		datasetID = "finance"
-		tableID   = "parsing_runs"
-	)
-
-	client, err := bigquery.NewClient(ctx, projectID)
-	if err != nil {
-		return "", fmt.Errorf("startParsingRun: bigquery client: %w", err)
-	}
-	defer client.Close()
-
-	parsingRunID := uuid.NewString()
-	started := time.Now()
-
-	q := client.Query(fmt.Sprintf(`
-		INSERT %s.%s (
-			parsing_run_id,
-			document_id,
-			started_ts,
-			parser_type,
-			parser_version,
-			status
-		)
-		VALUES (
-			@parsing_run_id,
-			@document_id,
-			@started_ts,
-			@parser_type,
-			@parser_version,
-			@status
-		)
-	`, datasetID, tableID))
-
-	q.Parameters = []bigquery.QueryParameter{
-		{Name: "parsing_run_id", Value: parsingRunID},
-		{Name: "document_id", Value: documentID},
-		{Name: "started_ts", Value: started},
-		{Name: "parser_type", Value: "GEMINI_VISION"},
-		{Name: "parser_version", Value: "v1"},
-		{Name: "status", Value: "RUNNING"},
-	}
-
-	job, err := q.Run(ctx)
-	if err != nil {
-		return "", fmt.Errorf("startParsingRun: running insert query: %w", err)
-	}
-
-	status, err := job.Wait(ctx)
-	if err != nil {
-		return "", fmt.Errorf("startParsingRun: waiting for job: %w", err)
-	}
-	if err := status.Err(); err != nil {
-		return "", fmt.Errorf("startParsingRun: job error: %w", err)
-	}
-
-	return parsingRunID, nil
-}
-
-// markParsingRunFailed updates a parsing_runs row to status=FAILED.
-func markParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) {
-	const (
-		projectID = "studious-union-470122-v7"
-		datasetID = "finance"
-	)
-
-	client, err := bigquery.NewClient(ctx, projectID)
-	if err != nil {
-		log.Printf("markParsingRunFailed: bigquery client error for run %s: %v", parsingRunID, err)
-		return
-	}
-	defer client.Close()
-
-	errMsg := ""
-	if parseErr != nil {
-		errMsg = parseErr.Error()
-		const maxLen = 2000
-		if len(errMsg) > maxLen {
-			errMsg = errMsg[:maxLen]
-		}
-	}
-
-	q := client.Query(fmt.Sprintf(`
-		UPDATE %s.parsing_runs
-		SET status = @status,
-		    finished_ts = @finished_ts,
-		    error_message = @error_message
-		WHERE parsing_run_id = @parsing_run_id
-	`, datasetID))
-
-	q.Parameters = []bigquery.QueryParameter{
-		{Name: "status", Value: "FAILED"},
-		{Name: "finished_ts", Value: time.Now()},
-		{Name: "error_message", Value: errMsg},
-		{Name: "parsing_run_id", Value: parsingRunID},
-	}
-
-	job, err := q.Run(ctx)
-	if err != nil {
-		log.Printf("markParsingRunFailed: running update query for run %s: %v", parsingRunID, err)
-		return
-	}
-
-	status, err := job.Wait(ctx)
-	if err != nil {
-		log.Printf("markParsingRunFailed: waiting for job for run %s: %v", parsingRunID, err)
-		return
-	}
-	if err := status.Err(); err != nil {
-		log.Printf("markParsingRunFailed: job completed with error for run %s: %v", parsingRunID, err)
-	}
-}
-
-// markParsingRunSucceeded updates a parsing_runs row to status=SUCCESS.
-func markParsingRunSucceeded(ctx context.Context, parsingRunID string) error {
-	const (
-		projectID = "studious-union-470122-v7"
-		datasetID = "finance"
-	)
-
-	client, err := bigquery.NewClient(ctx, projectID)
-	if err != nil {
-		return fmt.Errorf("markParsingRunSucceeded: bigquery client: %w", err)
-	}
-	defer client.Close()
-
-	q := client.Query(fmt.Sprintf(`
-		UPDATE %s.parsing_runs
-		SET status = @status,
-		    finished_ts = @finished_ts,
-		    error_message = ""
-		WHERE parsing_run_id = @parsing_run_id
-	`, datasetID))
-
-	q.Parameters = []bigquery.QueryParameter{
-		{Name: "status", Value: "SUCCESS"},
-		{Name: "finished_ts", Value: time.Now()},
-		{Name: "parsing_run_id", Value: parsingRunID},
-	}
-
-	job, err := q.Run(ctx)
-	if err != nil {
-		return fmt.Errorf("markParsingRunSucceeded: running update query: %w", err)
-	}
-
-	status, err := job.Wait(ctx)
-	if err != nil {
-		return fmt.Errorf("markParsingRunSucceeded: waiting for job: %w", err)
-	}
-	if err := status.Err(); err != nil {
-		return fmt.Errorf("markParsingRunSucceeded: job error: %w", err)
-	}
-
-	return nil
 }
 
 // fetchFromGCS downloads the file bytes from the given GCS URI.
