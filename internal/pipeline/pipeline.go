@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"cloud.google.com/go/civil"
 	"cloud.google.com/go/storage"
 	"github.com/google/uuid"
 	"google.golang.org/api/iterator"
@@ -96,6 +97,32 @@ type Transaction struct {
 
 	Category    string // from "category"
 	Subcategory string // from "subcategory"
+}
+
+// TransactionRow maps to the BigQuery finance.transactions table.
+type TransactionRow struct {
+	TransactionID string `bigquery:"transaction_id"`
+
+	UserID    string `bigquery:"user_id"`
+	AccountID string `bigquery:"account_id"`
+
+	DocumentID   string `bigquery:"document_id"`
+	ParsingRunID string `bigquery:"parsing_run_id"`
+
+	TransactionDate civil.Date `bigquery:"transaction_date"`
+
+	Amount   float64 `bigquery:"amount"`
+	Currency string  `bigquery:"currency"`
+
+	BalanceAfter bigquery.NullFloat64 `bigquery:"balance_after"`
+
+	Direction string `bigquery:"direction"`
+
+	RawDescription        string              `bigquery:"raw_description"`
+	NormalizedDescription bigquery.NullString `bigquery:"normalized_description"`
+
+	CategoryName    bigquery.NullString `bigquery:"category_name"`
+	SubcategoryName bigquery.NullString `bigquery:"subcategory_name"`
 }
 
 // IngestStatementFromGCS processes a single bank statement PDF stored in GCS.
@@ -851,6 +878,99 @@ func insertTransactions(
 	parsingRunID string,
 	txs []*Transaction,
 ) error {
-	// TODO: insert into finance.transactions (streaming or batch)
+	if len(txs) == 0 {
+		return nil
+	}
+
+	const (
+		projectID = "studious-union-470122-v7"
+		datasetID = "finance"
+		tableID   = "transactions"
+	)
+
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("insertTransactions: bigquery client: %w", err)
+	}
+	defer client.Close()
+
+	rows := make([]*TransactionRow, 0, len(txs))
+
+	for _, t := range txs {
+		// Determine direction based on sign of amount
+		dir := ""
+		if t.Amount > 0 {
+			dir = "IN"
+		} else if t.Amount < 0 {
+			dir = "OUT"
+		}
+
+		txDate := civil.DateOf(t.Date)
+
+		var balanceAfter bigquery.NullFloat64
+		if t.BalanceAfter != nil {
+			balanceAfter = bigquery.NullFloat64{
+				Float64: *t.BalanceAfter,
+				Valid:   true,
+			}
+		}
+
+		var normalizedDescription bigquery.NullString
+		if t.Description != "" {
+			normalizedDescription = bigquery.NullString{
+				StringVal: t.Description,
+				Valid:     true,
+			}
+		}
+
+		var categoryName bigquery.NullString
+		if strings.TrimSpace(t.Category) != "" {
+			categoryName = bigquery.NullString{
+				StringVal: t.Category,
+				Valid:     true,
+			}
+		}
+
+		var subcategoryName bigquery.NullString
+		if strings.TrimSpace(t.Subcategory) != "" {
+			subcategoryName = bigquery.NullString{
+				StringVal: t.Subcategory,
+				Valid:     true,
+			}
+		}
+
+		row := &TransactionRow{
+			TransactionID: uuid.NewString(),
+
+			UserID:    "denis", // same as in documents
+			AccountID: "",      // can map accounts later
+
+			DocumentID:   documentID,
+			ParsingRunID: parsingRunID,
+
+			TransactionDate: txDate,
+
+			Amount:   t.Amount,
+			Currency: t.Currency,
+
+			BalanceAfter: balanceAfter,
+
+			Direction: dir,
+
+			RawDescription:        t.Description,
+			NormalizedDescription: normalizedDescription,
+
+			CategoryName:    categoryName,
+			SubcategoryName: subcategoryName,
+		}
+
+		rows = append(rows, row)
+	}
+
+	inserter := client.Dataset(datasetID).Table(tableID).Inserter()
+	if err := inserter.Put(ctx, rows); err != nil {
+		return fmt.Errorf("insertTransactions: inserting rows: %w", err)
+	}
+
 	return nil
 }
