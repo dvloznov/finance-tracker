@@ -9,12 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/bigquery"
+	bigquerylib "cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
 	"cloud.google.com/go/storage"
 	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/google/uuid"
-	"google.golang.org/api/iterator"
 	"google.golang.org/genai"
 )
 
@@ -100,13 +99,6 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 
 // createDocument inserts a row into the documents table for this file.
 func createDocument(ctx context.Context, gcsURI string) (string, error) {
-	// BigQuery client
-	client, err := bigquery.NewClient(ctx, "studious-union-470122-v7")
-	if err != nil {
-		return "", fmt.Errorf("createDocument: bigquery client: %w", err)
-	}
-	defer client.Close()
-
 	// Generate a UUID for this document
 	documentID := uuid.NewString()
 
@@ -126,13 +118,11 @@ func createDocument(ctx context.Context, gcsURI string) (string, error) {
 		ParsingStatus:    "PENDING",
 		UploadTS:         time.Now(),
 		OriginalFilename: filename,
-		FileMimeType:     "",                              // Fill later if you detect MIME
-		Metadata:         bigquery.NullJSON{Valid: false}, // NULL for now
+		FileMimeType:     "",                                 // Fill later if you detect MIME
+		Metadata:         bigquerylib.NullJSON{Valid: false}, // NULL for now
 	}
 
-	inserter := client.Dataset("finance").Table("documents").Inserter()
-
-	if err := inserter.Put(ctx, row); err != nil {
+	if err := infra.InsertDocument(ctx, row); err != nil {
 		return "", fmt.Errorf("createDocument: inserting row: %w", err)
 	}
 
@@ -190,41 +180,9 @@ func fetchFromGCS(ctx context.Context, gcsURI string) ([]byte, error) {
 }
 
 func buildCategoriesPrompt(ctx context.Context) (string, error) {
-	client, err := bigquery.NewClient(ctx, "studious-union-470122-v7")
+	rows, err := infra.ListActiveCategories(ctx)
 	if err != nil {
-		return "", fmt.Errorf("buildCategoriesPrompt: bigquery client: %w", err)
-	}
-	defer client.Close()
-
-	q := client.Query(`
-		SELECT
-		  category_id,
-		  parent_category_id,
-		  depth,
-		  name,
-		  is_active
-		FROM finance.categories
-		WHERE is_active = TRUE
-		ORDER BY depth, parent_category_id, name
-	`)
-
-	it, err := q.Read(ctx)
-	if err != nil {
-		return "", fmt.Errorf("buildCategoriesPrompt: query read: %w", err)
-	}
-
-	var rows []infra.CategoryRow
-
-	for {
-		var r infra.CategoryRow
-		err := it.Next(&r)
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return "", fmt.Errorf("buildCategoriesPrompt: iter next: %w", err)
-		}
-		rows = append(rows, r)
+		return "", fmt.Errorf("buildCategoriesPrompt: list categories: %w", err)
 	}
 
 	if len(rows) == 0 {
@@ -414,18 +372,6 @@ func storeModelOutput(
 	documentID string,
 	rawOutput map[string]interface{},
 ) (string, error) {
-	const (
-		projectID = "studious-union-470122-v7"
-		datasetID = "finance"
-		tableID   = "model_outputs"
-	)
-
-	client, err := bigquery.NewClient(ctx, projectID)
-	if err != nil {
-		return "", fmt.Errorf("storeModelOutput: bigquery client: %w", err)
-	}
-	defer client.Close()
-
 	outputID := uuid.NewString()
 
 	jsonBytes, err := json.Marshal(rawOutput)
@@ -439,30 +385,29 @@ func storeModelOutput(
 		DocumentID:   documentID,
 
 		ModelName: "gemini-2.5-flash",
-		ModelVersion: bigquery.NullString{
+		ModelVersion: bigquerylib.NullString{
 			Valid: false,
 		},
 
-		CreatedTS: bigquery.NullTimestamp{
+		CreatedTS: bigquerylib.NullTimestamp{
 			Timestamp: time.Now(),
 			Valid:     true,
 		},
 
-		RawJSON: bigquery.NullJSON{
+		RawJSON: bigquerylib.NullJSON{
 			JSONVal: string(jsonBytes), // <<<< correct
 			Valid:   true,
 		},
 
-		ExtractedText: bigquery.NullString{Valid: false},
-		Notes:         bigquery.NullString{Valid: false},
+		ExtractedText: bigquerylib.NullString{Valid: false},
+		Notes:         bigquerylib.NullString{Valid: false},
 
-		Metadata: bigquery.NullJSON{
+		Metadata: bigquerylib.NullJSON{
 			Valid: false,
 		},
 	}
 
-	inserter := client.Dataset(datasetID).Table(tableID).Inserter()
-	if err := inserter.Put(ctx, row); err != nil {
+	if err := infra.InsertModelOutput(ctx, row); err != nil {
 		return "", fmt.Errorf("storeModelOutput: inserting row: %w", err)
 	}
 
@@ -639,18 +584,6 @@ func insertTransactions(
 		return nil
 	}
 
-	const (
-		projectID = "studious-union-470122-v7"
-		datasetID = "finance"
-		tableID   = "transactions"
-	)
-
-	client, err := bigquery.NewClient(ctx, projectID)
-	if err != nil {
-		return fmt.Errorf("insertTransactions: bigquery client: %w", err)
-	}
-	defer client.Close()
-
 	rows := make([]*infra.TransactionRow, 0, len(txs))
 
 	for _, t := range txs {
@@ -664,33 +597,33 @@ func insertTransactions(
 
 		txDate := civil.DateOf(t.Date)
 
-		var balanceAfter bigquery.NullFloat64
+		var balanceAfter bigquerylib.NullFloat64
 		if t.BalanceAfter != nil {
-			balanceAfter = bigquery.NullFloat64{
+			balanceAfter = bigquerylib.NullFloat64{
 				Float64: *t.BalanceAfter,
 				Valid:   true,
 			}
 		}
 
-		var normalizedDescription bigquery.NullString
+		var normalizedDescription bigquerylib.NullString
 		if t.Description != "" {
-			normalizedDescription = bigquery.NullString{
+			normalizedDescription = bigquerylib.NullString{
 				StringVal: t.Description,
 				Valid:     true,
 			}
 		}
 
-		var categoryName bigquery.NullString
+		var categoryName bigquerylib.NullString
 		if strings.TrimSpace(t.Category) != "" {
-			categoryName = bigquery.NullString{
+			categoryName = bigquerylib.NullString{
 				StringVal: t.Category,
 				Valid:     true,
 			}
 		}
 
-		var subcategoryName bigquery.NullString
+		var subcategoryName bigquerylib.NullString
 		if strings.TrimSpace(t.Subcategory) != "" {
-			subcategoryName = bigquery.NullString{
+			subcategoryName = bigquerylib.NullString{
 				StringVal: t.Subcategory,
 				Valid:     true,
 			}
@@ -724,8 +657,7 @@ func insertTransactions(
 		rows = append(rows, row)
 	}
 
-	inserter := client.Dataset(datasetID).Table(tableID).Inserter()
-	if err := inserter.Put(ctx, rows); err != nil {
+	if err := infra.InsertTransactions(ctx, rows); err != nil {
 		return fmt.Errorf("insertTransactions: inserting rows: %w", err)
 	}
 

@@ -1,4 +1,4 @@
-package infra
+package bigquery
 
 import "cloud.google.com/go/bigquery"
 
