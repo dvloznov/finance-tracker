@@ -65,6 +65,22 @@ type CategoryRow struct {
 	IsActive         bool                `bigquery:"is_active"`
 }
 
+type ModelOutputRow struct {
+	OutputID     string `bigquery:"output_id"`
+	ParsingRunID string `bigquery:"parsing_run_id"`
+	DocumentID   string `bigquery:"document_id"`
+
+	ModelName    string              `bigquery:"model_name"`
+	ModelVersion bigquery.NullString `bigquery:"model_version"`
+
+	RawJSON bigquery.NullJSON `bigquery:"raw_json"`
+
+	ExtractedText bigquery.NullString `bigquery:"extracted_text"`
+	Notes         bigquery.NullString `bigquery:"notes"`
+
+	Metadata bigquery.NullJSON `bigquery:"metadata"`
+}
+
 // IngestStatementFromGCS processes a single bank statement PDF stored in GCS.
 // gcsURI should look like: "gs://bucket/path/to/statement.pdf".
 func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
@@ -601,9 +617,55 @@ func storeModelOutput(
 	parsingRunID string,
 	documentID string,
 	rawOutput map[string]interface{},
-) (outputID string, err error) {
-	// TODO: insert into finance.model_outputs and return output_id
-	return "", nil
+) (string, error) {
+	const (
+		projectID = "studious-union-470122-v7"
+		datasetID = "finance"
+		tableID   = "model_outputs"
+	)
+
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return "", fmt.Errorf("storeModelOutput: bigquery client: %w", err)
+	}
+	defer client.Close()
+
+	outputID := uuid.NewString()
+
+	jsonBytes, err := json.Marshal(rawOutput)
+	if err != nil {
+		return "", fmt.Errorf("storeModelOutput: marshal rawOutput: %w", err)
+	}
+
+	row := &ModelOutputRow{
+		OutputID:     outputID,
+		ParsingRunID: parsingRunID,
+		DocumentID:   documentID,
+
+		ModelName: "gemini-2.5-flash",
+		ModelVersion: bigquery.NullString{
+			Valid: false,
+		},
+
+		RawJSON: bigquery.NullJSON{
+			JSONVal: string(jsonBytes), // <<<< correct
+			Valid:   true,
+		},
+
+		ExtractedText: bigquery.NullString{Valid: false},
+		Notes:         bigquery.NullString{Valid: false},
+
+		Metadata: bigquery.NullJSON{
+			Valid: false,
+		},
+	}
+
+	inserter := client.Dataset(datasetID).Table(tableID).Inserter()
+	if err := inserter.Put(ctx, row); err != nil {
+		return "", fmt.Errorf("storeModelOutput: inserting row: %w", err)
+	}
+
+	return outputID, nil
 }
 
 // transformModelOutputToTransactions converts raw model output into normalized transaction structs.
