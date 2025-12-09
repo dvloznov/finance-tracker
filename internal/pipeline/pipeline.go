@@ -98,7 +98,7 @@ func storeModelOutput(
 		ParsingRunID: parsingRunID,
 		DocumentID:   documentID,
 
-		ModelName: "gemini-2.5-flash",
+		ModelName: DefaultModelName,
 		ModelVersion: bigquerylib.NullString{
 			Valid: false,
 		},
@@ -187,7 +187,7 @@ func insertTransactions(
 		row := &infra.TransactionRow{
 			TransactionID: uuid.NewString(),
 
-			UserID:    "denis", // same as in documents
+			UserID:    DefaultUserID,
 			AccountID: "",      // can map accounts later
 
 			DocumentID:   documentID,

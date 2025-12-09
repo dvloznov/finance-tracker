@@ -24,10 +24,10 @@ func createDocument(ctx context.Context, gcsURI string) (string, error) {
 	// Prepare row to insert
 	row := &infra.DocumentRow{
 		DocumentID:       documentID,
-		UserID:           "denis", // You can generalize this later
+		UserID:           DefaultUserID,
 		GCSURI:           gcsURI,
-		DocumentType:     "BANK_STATEMENT", // For now we assume this
-		SourceSystem:     "BARCLAYS",       // Later: detect automatically
+		DocumentType:     DefaultDocumentType,
+		SourceSystem:     DefaultSourceSystem,
 		InstitutionID:    "",               // Can be filled later
 		AccountID:        "",               // Can be filled later
 		ParsingStatus:    "PENDING",

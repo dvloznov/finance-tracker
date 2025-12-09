@@ -9,8 +9,6 @@ import (
 	"google.golang.org/genai"
 )
 
-const modelName = "gemini-2.5-flash"
-
 // parseStatementWithModel sends the PDF to Gemini and returns the parsed JSON output.
 // It expects the model to return a STRICT JSON array of transactions.
 func parseStatementWithModel(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
@@ -75,7 +73,7 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte) (map[string]i
 		},
 	}
 
-	resp, err := client.Models.GenerateContent(ctx, modelName, contents, nil)
+	resp, err := client.Models.GenerateContent(ctx, DefaultModelName, contents, nil)
 	if err != nil {
 		return nil, fmt.Errorf("parseStatementWithModel: generate content: %w", err)
 	}
