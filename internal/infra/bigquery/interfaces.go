@@ -20,6 +20,8 @@ type DocumentRepository interface {
 	StartParsingRun(ctx context.Context, documentID string) (string, error)
 
 	// MarkParsingRunFailed sets status=FAILED, finished_ts and error_message for a parsing run.
+	// Note: This method does not return an error. Failures are logged but not propagated
+	// to prevent cascading errors during error handling.
 	MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error)
 
 	// MarkParsingRunSucceeded sets status=SUCCESS and finished_ts for a parsing run.

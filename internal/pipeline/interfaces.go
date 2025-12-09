@@ -17,19 +17,15 @@ type StorageService interface {
 type AIParser interface {
 	// ParseStatement sends PDF bytes to an AI model and returns parsed JSON output.
 	ParseStatement(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error)
-
-	// BuildCategoriesPrompt constructs a prompt string containing all active categories
-	// and subcategories from the database, formatted for LLM consumption.
-	BuildCategoriesPrompt(ctx context.Context) (string, error)
 }
 
 // GeminiAIParser is the concrete implementation of AIParser that uses Gemini AI.
 type GeminiAIParser struct {
-	repo DocumentRepository
+	repo CategoryRepository
 }
 
 // NewGeminiAIParser creates a new instance of GeminiAIParser.
-func NewGeminiAIParser(repo DocumentRepository) *GeminiAIParser {
+func NewGeminiAIParser(repo CategoryRepository) *GeminiAIParser {
 	return &GeminiAIParser{
 		repo: repo,
 	}
@@ -40,14 +36,10 @@ func (p *GeminiAIParser) ParseStatement(ctx context.Context, pdfBytes []byte) (m
 	return parseStatementWithModel(ctx, pdfBytes, p.repo)
 }
 
-// BuildCategoriesPrompt delegates to the existing buildCategoriesPrompt function.
-func (p *GeminiAIParser) BuildCategoriesPrompt(ctx context.Context) (string, error) {
-	return buildCategoriesPromptWithRepo(ctx, p.repo)
-}
-
-// DocumentRepository is an interface for document-related database operations.
-// This is used by the AIParser to avoid circular dependencies.
-type DocumentRepository interface {
+// CategoryRepository is an interface for category-related database operations.
+// This is a minimal interface used by the AIParser to avoid circular dependencies.
+// For full document repository operations, see infra.DocumentRepository.
+type CategoryRepository interface {
 	ListActiveCategories(ctx context.Context) ([]infra.CategoryRow, error)
 }
 

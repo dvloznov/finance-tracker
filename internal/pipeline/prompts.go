@@ -8,7 +8,7 @@ import (
 
 // buildCategoriesPromptWithRepo constructs a prompt string containing all active categories
 // and subcategories from BigQuery, formatted for LLM consumption.
-func buildCategoriesPromptWithRepo(ctx context.Context, repo DocumentRepository) (string, error) {
+func buildCategoriesPromptWithRepo(ctx context.Context, repo CategoryRepository) (string, error) {
 	rows, err := repo.ListActiveCategories(ctx)
 	if err != nil {
 		return "", fmt.Errorf("buildCategoriesPrompt: list categories: %w", err)
