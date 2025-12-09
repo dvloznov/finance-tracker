@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 )
 
-// buildCategoriesPrompt constructs a prompt string containing all active categories
+// buildCategoriesPromptWithRepo constructs a prompt string containing all active categories
 // and subcategories from BigQuery, formatted for LLM consumption.
-func buildCategoriesPrompt(ctx context.Context) (string, error) {
-	rows, err := infra.ListActiveCategories(ctx)
+func buildCategoriesPromptWithRepo(ctx context.Context, repo DocumentRepository) (string, error) {
+	rows, err := repo.ListActiveCategories(ctx)
 	if err != nil {
 		return "", fmt.Errorf("buildCategoriesPrompt: list categories: %w", err)
 	}

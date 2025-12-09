@@ -9,6 +9,7 @@ import (
 
 	bigquerylib "cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
+	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
 	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/google/uuid"
 )
@@ -16,9 +17,29 @@ import (
 // IngestStatementFromGCS processes a single bank statement PDF stored in GCS.
 // gcsURI should look like: "gs://bucket/path/to/statement.pdf".
 func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
+	// Initialize concrete dependencies
+	repo := infra.NewBigQueryDocumentRepository()
+	storage := &gcsuploader.GCSStorageService{}
+	aiParser := NewGeminiAIParser(repo)
+
+	return IngestStatementFromGCSWithDeps(ctx, gcsURI, repo, storage, aiParser)
+}
+
+// IngestStatementFromGCSWithDeps processes a single bank statement PDF stored in GCS
+// using the provided dependencies. This enables dependency injection for testing.
+func IngestStatementFromGCSWithDeps(
+	ctx context.Context,
+	gcsURI string,
+	repo infra.DocumentRepository,
+	storage StorageService,
+	aiParser AIParser,
+) error {
 	// Initialize pipeline state
 	state := &PipelineState{
-		GCSURI: gcsURI,
+		GCSURI:         gcsURI,
+		DocumentRepo:   repo,
+		StorageService: storage,
+		AIParser:       aiParser,
 	}
 
 	// Create and execute the standard ingestion pipeline
@@ -38,6 +59,18 @@ func storeModelOutput(
 	parsingRunID string,
 	documentID string,
 	rawOutput map[string]interface{},
+) (string, error) {
+	repo := infra.NewBigQueryDocumentRepository()
+	return storeModelOutputWithRepo(ctx, parsingRunID, documentID, rawOutput, repo)
+}
+
+// storeModelOutputWithRepo inserts raw model output into the model_outputs table using the provided repository.
+func storeModelOutputWithRepo(
+	ctx context.Context,
+	parsingRunID string,
+	documentID string,
+	rawOutput map[string]interface{},
+	repo infra.DocumentRepository,
 ) (string, error) {
 	outputID := uuid.NewString()
 
@@ -74,7 +107,7 @@ func storeModelOutput(
 		},
 	}
 
-	if err := infra.InsertModelOutput(ctx, row); err != nil {
+	if err := repo.InsertModelOutput(ctx, row); err != nil {
 		return "", fmt.Errorf("storeModelOutput: inserting row: %w", err)
 	}
 
@@ -87,6 +120,18 @@ func insertTransactions(
 	documentID string,
 	parsingRunID string,
 	txs []*Transaction,
+) error {
+	repo := infra.NewBigQueryDocumentRepository()
+	return insertTransactionsWithRepo(ctx, documentID, parsingRunID, txs, repo)
+}
+
+// insertTransactionsWithRepo writes a batch of transactions to the transactions table using the provided repository.
+func insertTransactionsWithRepo(
+	ctx context.Context,
+	documentID string,
+	parsingRunID string,
+	txs []*Transaction,
+	repo infra.DocumentRepository,
 ) error {
 	if len(txs) == 0 {
 		return nil
@@ -165,7 +210,7 @@ func insertTransactions(
 		rows = append(rows, row)
 	}
 
-	if err := infra.InsertTransactions(ctx, rows); err != nil {
+	if err := repo.InsertTransactions(ctx, rows); err != nil {
 		return fmt.Errorf("insertTransactions: inserting rows: %w", err)
 	}
 
