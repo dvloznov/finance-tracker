@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
 	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 )
 
@@ -22,6 +21,11 @@ type PipelineState struct {
 	PDFBytes       []byte
 	RawModelOutput map[string]interface{}
 	Transactions   []*Transaction
+
+	// Injected dependencies
+	DocumentRepo   infra.DocumentRepository
+	StorageService StorageService
+	AIParser       AIParser
 }
 
 // Step 1: CreateDocumentStep creates a document record for the file.
@@ -32,7 +36,7 @@ func (s *CreateDocumentStep) Name() string {
 }
 
 func (s *CreateDocumentStep) Execute(ctx context.Context, state *PipelineState) error {
-	documentID, err := createDocument(ctx, state.GCSURI)
+	documentID, err := createDocumentWithRepo(ctx, state.GCSURI, state.DocumentRepo, state.StorageService)
 	if err != nil {
 		return err
 	}
@@ -48,7 +52,7 @@ func (s *StartParsingRunStep) Name() string {
 }
 
 func (s *StartParsingRunStep) Execute(ctx context.Context, state *PipelineState) error {
-	parsingRunID, err := infra.StartParsingRun(ctx, state.DocumentID)
+	parsingRunID, err := state.DocumentRepo.StartParsingRun(ctx, state.DocumentID)
 	if err != nil {
 		return err
 	}
@@ -64,9 +68,9 @@ func (s *FetchPDFStep) Name() string {
 }
 
 func (s *FetchPDFStep) Execute(ctx context.Context, state *PipelineState) error {
-	pdfBytes, err := gcsuploader.FetchFromGCS(ctx, state.GCSURI)
+	pdfBytes, err := state.StorageService.FetchFromGCS(ctx, state.GCSURI)
 	if err != nil {
-		infra.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	state.PDFBytes = pdfBytes
@@ -81,9 +85,9 @@ func (s *ParseStatementStep) Name() string {
 }
 
 func (s *ParseStatementStep) Execute(ctx context.Context, state *PipelineState) error {
-	rawModelOutput, err := parseStatementWithModel(ctx, state.PDFBytes)
+	rawModelOutput, err := state.AIParser.ParseStatement(ctx, state.PDFBytes)
 	if err != nil {
-		infra.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	state.RawModelOutput = rawModelOutput
@@ -98,9 +102,9 @@ func (s *StoreModelOutputStep) Name() string {
 }
 
 func (s *StoreModelOutputStep) Execute(ctx context.Context, state *PipelineState) error {
-	_, err := storeModelOutput(ctx, state.ParsingRunID, state.DocumentID, state.RawModelOutput)
+	_, err := storeModelOutputWithRepo(ctx, state.ParsingRunID, state.DocumentID, state.RawModelOutput, state.DocumentRepo)
 	if err != nil {
-		infra.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	return nil
@@ -116,7 +120,7 @@ func (s *TransformTransactionsStep) Name() string {
 func (s *TransformTransactionsStep) Execute(ctx context.Context, state *PipelineState) error {
 	txs, err := transformModelOutputToTransactions(state.RawModelOutput)
 	if err != nil {
-		infra.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	state.Transactions = txs
@@ -131,8 +135,8 @@ func (s *InsertTransactionsStep) Name() string {
 }
 
 func (s *InsertTransactionsStep) Execute(ctx context.Context, state *PipelineState) error {
-	if err := insertTransactions(ctx, state.DocumentID, state.ParsingRunID, state.Transactions); err != nil {
-		infra.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+	if err := insertTransactionsWithRepo(ctx, state.DocumentID, state.ParsingRunID, state.Transactions, state.DocumentRepo); err != nil {
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	return nil
@@ -146,7 +150,7 @@ func (s *MarkSuccessStep) Name() string {
 }
 
 func (s *MarkSuccessStep) Execute(ctx context.Context, state *PipelineState) error {
-	if err := infra.MarkParsingRunSucceeded(ctx, state.ParsingRunID); err != nil {
+	if err := state.DocumentRepo.MarkParsingRunSucceeded(ctx, state.ParsingRunID); err != nil {
 		return err
 	}
 	return nil

@@ -3,23 +3,29 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"path"
-	"strings"
 	"time"
 
 	bigquerylib "cloud.google.com/go/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
 	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/google/uuid"
 )
 
 // createDocument inserts a row into the documents table for this file.
 func createDocument(ctx context.Context, gcsURI string) (string, error) {
+	repo := infra.NewBigQueryDocumentRepository()
+	storage := gcsuploader.NewGCSStorageService()
+	return createDocumentWithRepo(ctx, gcsURI, repo, storage)
+}
+
+// createDocumentWithRepo inserts a row into the documents table using the provided repository.
+func createDocumentWithRepo(ctx context.Context, gcsURI string, repo infra.DocumentRepository, storage StorageService) (string, error) {
 	// Generate a UUID for this document
 	documentID := uuid.NewString()
 
 	// Extract filename from GCS URI
 	// e.g. "gs://bucket/folder/file.pdf" → "file.pdf"
-	filename := extractFilenameFromGCSURI(gcsURI)
+	filename := storage.ExtractFilenameFromGCSURI(gcsURI)
 
 	// Prepare row to insert
 	row := &infra.DocumentRow{
@@ -37,7 +43,7 @@ func createDocument(ctx context.Context, gcsURI string) (string, error) {
 		Metadata:         bigquerylib.NullJSON{Valid: false}, // NULL for now
 	}
 
-	if err := infra.InsertDocument(ctx, row); err != nil {
+	if err := repo.InsertDocument(ctx, row); err != nil {
 		return "", fmt.Errorf("createDocument: inserting row: %w", err)
 	}
 
@@ -46,16 +52,9 @@ func createDocument(ctx context.Context, gcsURI string) (string, error) {
 
 // extractFilenameFromGCSURI extracts the filename from a GCS URI.
 // e.g., "gs://bucket/folder/file.pdf" → "file.pdf"
+// DEPRECATED: Use StorageService.ExtractFilenameFromGCSURI instead.
 func extractFilenameFromGCSURI(uri string) string {
-	// Remove "gs://"
-	trimmed := strings.TrimPrefix(uri, "gs://")
-
-	// Remove bucket name
-	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) < 2 {
-		return trimmed
-	}
-
-	// Extract actual filename
-	return path.Base(parts[1])
+	return gcsuploader.ExtractFilenameFromGCSURI(uri)
 }
+
+

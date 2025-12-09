@@ -11,9 +11,9 @@ import (
 
 // parseStatementWithModel sends the PDF to Gemini and returns the parsed JSON output.
 // It expects the model to return a STRICT JSON array of transactions.
-func parseStatementWithModel(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo CategoryRepository) (map[string]interface{}, error) {
 	// 1) Build category prompt from BigQuery taxonomy.
-	catPrompt, err := buildCategoriesPrompt(ctx)
+	catPrompt, err := buildCategoriesPromptWithRepo(ctx, repo)
 	if err != nil {
 		return nil, fmt.Errorf("parseStatementWithModel: loading categories: %w", err)
 	}
