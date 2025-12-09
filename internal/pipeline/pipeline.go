@@ -77,37 +77,7 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 // ──────────────────────────────────────────────────────────────
 //
 
-// createDocument inserts a row into the documents table for this file.
-func createDocument(ctx context.Context, gcsURI string) (string, error) {
-	// Generate a UUID for this document
-	documentID := uuid.NewString()
 
-	// Extract filename from GCS URI
-	// e.g. "gs://bucket/folder/file.pdf" → "file.pdf"
-	filename := gcsuploader.ExtractFilenameFromGCSURI(gcsURI)
-
-	// Prepare row to insert
-	row := &infra.DocumentRow{
-		DocumentID:       documentID,
-		UserID:           "denis", // You can generalize this later
-		GCSURI:           gcsURI,
-		DocumentType:     "BANK_STATEMENT", // For now we assume this
-		SourceSystem:     "BARCLAYS",       // Later: detect automatically
-		InstitutionID:    "",               // Can be filled later
-		AccountID:        "",               // Can be filled later
-		ParsingStatus:    "PENDING",
-		UploadTS:         time.Now(),
-		OriginalFilename: filename,
-		FileMimeType:     "",                                 // Fill later if you detect MIME
-		Metadata:         bigquerylib.NullJSON{Valid: false}, // NULL for now
-	}
-
-	if err := infra.InsertDocument(ctx, row); err != nil {
-		return "", fmt.Errorf("createDocument: inserting row: %w", err)
-	}
-
-	return documentID, nil
-}
 
 // storeModelOutput inserts raw model output into the model_outputs table.
 func storeModelOutput(
