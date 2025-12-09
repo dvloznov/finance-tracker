@@ -13,7 +13,12 @@ import (
 
 // createDocument inserts a row into the documents table for this file.
 func createDocument(ctx context.Context, gcsURI string) (string, error) {
-	repo := infra.NewBigQueryDocumentRepository()
+	repo, err := infra.NewBigQueryDocumentRepository(ctx)
+	if err != nil {
+		return "", fmt.Errorf("createDocument: creating BigQuery repository: %w", err)
+	}
+	defer repo.Close()
+
 	storage := gcsuploader.NewGCSStorageService()
 	return createDocumentWithRepo(ctx, gcsURI, repo, storage)
 }

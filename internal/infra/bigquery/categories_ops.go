@@ -16,6 +16,12 @@ func ListActiveCategories(ctx context.Context) ([]CategoryRow, error) {
 	}
 	defer client.Close()
 
+	return ListActiveCategoriesWithClient(ctx, client)
+}
+
+// ListActiveCategoriesWithClient returns all active categories ordered by depth, parent, name
+// using the provided BigQuery client.
+func ListActiveCategoriesWithClient(ctx context.Context, client *bigquery.Client) ([]CategoryRow, error) {
 	q := client.Query(`
 		SELECT
 		  category_id,

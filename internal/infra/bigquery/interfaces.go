@@ -2,6 +2,9 @@ package bigquery
 
 import (
 	"context"
+	"fmt"
+
+	"cloud.google.com/go/bigquery"
 )
 
 // DocumentRepository provides an interface for document-related database operations.
@@ -32,45 +35,64 @@ type DocumentRepository interface {
 }
 
 // BigQueryDocumentRepository is the concrete implementation of DocumentRepository
-// that interacts with BigQuery.
-type BigQueryDocumentRepository struct{}
-
-// NewBigQueryDocumentRepository creates a new instance of BigQueryDocumentRepository.
-func NewBigQueryDocumentRepository() *BigQueryDocumentRepository {
-	return &BigQueryDocumentRepository{}
+// that interacts with BigQuery. It holds a shared BigQuery client to avoid
+// creating a new connection for each operation.
+type BigQueryDocumentRepository struct {
+	client *bigquery.Client
 }
 
-// InsertDocument delegates to the existing InsertDocument function.
+// NewBigQueryDocumentRepository creates a new instance of BigQueryDocumentRepository
+// with a shared BigQuery client.
+func NewBigQueryDocumentRepository(ctx context.Context) (*BigQueryDocumentRepository, error) {
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("NewBigQueryDocumentRepository: creating client: %w", err)
+	}
+	return &BigQueryDocumentRepository{
+		client: client,
+	}, nil
+}
+
+// Close closes the BigQuery client connection. This should be called when
+// the repository is no longer needed to release resources.
+func (r *BigQueryDocumentRepository) Close() error {
+	if r.client != nil {
+		return r.client.Close()
+	}
+	return nil
+}
+
+// InsertDocument delegates to the existing InsertDocument function with the shared client.
 func (r *BigQueryDocumentRepository) InsertDocument(ctx context.Context, row *DocumentRow) error {
-	return InsertDocument(ctx, row)
+	return InsertDocumentWithClient(ctx, r.client, row)
 }
 
-// InsertTransactions delegates to the existing InsertTransactions function.
+// InsertTransactions delegates to the existing InsertTransactions function with the shared client.
 func (r *BigQueryDocumentRepository) InsertTransactions(ctx context.Context, rows []*TransactionRow) error {
-	return InsertTransactions(ctx, rows)
+	return InsertTransactionsWithClient(ctx, r.client, rows)
 }
 
-// InsertModelOutput delegates to the existing InsertModelOutput function.
+// InsertModelOutput delegates to the existing InsertModelOutput function with the shared client.
 func (r *BigQueryDocumentRepository) InsertModelOutput(ctx context.Context, row *ModelOutputRow) error {
-	return InsertModelOutput(ctx, row)
+	return InsertModelOutputWithClient(ctx, r.client, row)
 }
 
-// StartParsingRun delegates to the existing StartParsingRun function.
+// StartParsingRun delegates to the existing StartParsingRun function with the shared client.
 func (r *BigQueryDocumentRepository) StartParsingRun(ctx context.Context, documentID string) (string, error) {
-	return StartParsingRun(ctx, documentID)
+	return StartParsingRunWithClient(ctx, r.client, documentID)
 }
 
-// MarkParsingRunFailed delegates to the existing MarkParsingRunFailed function.
+// MarkParsingRunFailed delegates to the existing MarkParsingRunFailed function with the shared client.
 func (r *BigQueryDocumentRepository) MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) {
-	MarkParsingRunFailed(ctx, parsingRunID, parseErr)
+	MarkParsingRunFailedWithClient(ctx, r.client, parsingRunID, parseErr)
 }
 
-// MarkParsingRunSucceeded delegates to the existing MarkParsingRunSucceeded function.
+// MarkParsingRunSucceeded delegates to the existing MarkParsingRunSucceeded function with the shared client.
 func (r *BigQueryDocumentRepository) MarkParsingRunSucceeded(ctx context.Context, parsingRunID string) error {
-	return MarkParsingRunSucceeded(ctx, parsingRunID)
+	return MarkParsingRunSucceededWithClient(ctx, r.client, parsingRunID)
 }
 
-// ListActiveCategories delegates to the existing ListActiveCategories function.
+// ListActiveCategories delegates to the existing ListActiveCategories function with the shared client.
 func (r *BigQueryDocumentRepository) ListActiveCategories(ctx context.Context) ([]CategoryRow, error) {
-	return ListActiveCategories(ctx)
+	return ListActiveCategoriesWithClient(ctx, r.client)
 }

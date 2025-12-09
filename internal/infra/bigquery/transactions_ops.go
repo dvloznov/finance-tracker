@@ -21,6 +21,16 @@ func InsertTransactions(ctx context.Context, rows []*TransactionRow) error {
 	}
 	defer client.Close()
 
+	return InsertTransactionsWithClient(ctx, client, rows)
+}
+
+// InsertTransactionsWithClient inserts a batch of TransactionRow into finance.transactions
+// using the provided BigQuery client.
+func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, rows []*TransactionRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+
 	inserter := client.Dataset(datasetID).Table(transactionsTable).Inserter()
 	if err := inserter.Put(ctx, rows); err != nil {
 		return fmt.Errorf("InsertTransactions: inserting rows: %w", err)
