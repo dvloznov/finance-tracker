@@ -25,6 +25,12 @@ func StartParsingRun(ctx context.Context, documentID string) (string, error) {
 	}
 	defer client.Close()
 
+	return StartParsingRunWithClient(ctx, client, documentID)
+}
+
+// StartParsingRunWithClient inserts a new row into finance.parsing_runs with status=RUNNING
+// and returns the generated parsing_run_id using the provided BigQuery client.
+func StartParsingRunWithClient(ctx context.Context, client *bigquery.Client, documentID string) (string, error) {
 	parsingRunID := uuid.NewString()
 	started := time.Now()
 
@@ -81,6 +87,12 @@ func MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr err
 	}
 	defer client.Close()
 
+	MarkParsingRunFailedWithClient(ctx, client, parsingRunID, parseErr)
+}
+
+// MarkParsingRunFailedWithClient sets status=FAILED, finished_ts and error_message
+// using the provided BigQuery client.
+func MarkParsingRunFailedWithClient(ctx context.Context, client *bigquery.Client, parsingRunID string, parseErr error) {
 	errMsg := ""
 	if parseErr != nil {
 		errMsg = parseErr.Error()
@@ -129,6 +141,12 @@ func MarkParsingRunSucceeded(ctx context.Context, parsingRunID string) error {
 	}
 	defer client.Close()
 
+	return MarkParsingRunSucceededWithClient(ctx, client, parsingRunID)
+}
+
+// MarkParsingRunSucceededWithClient sets status=SUCCESS and finished_ts, clears error_message
+// using the provided BigQuery client.
+func MarkParsingRunSucceededWithClient(ctx context.Context, client *bigquery.Client, parsingRunID string) error {
 	q := client.Query(fmt.Sprintf(`
 		UPDATE %s.%s
 		SET status = @status,

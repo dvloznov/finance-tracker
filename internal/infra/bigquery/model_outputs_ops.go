@@ -17,6 +17,12 @@ func InsertModelOutput(ctx context.Context, row *ModelOutputRow) error {
 	}
 	defer client.Close()
 
+	return InsertModelOutputWithClient(ctx, client, row)
+}
+
+// InsertModelOutputWithClient inserts a single ModelOutputRow into finance.model_outputs
+// using the provided BigQuery client.
+func InsertModelOutputWithClient(ctx context.Context, client *bigquery.Client, row *ModelOutputRow) error {
 	inserter := client.Dataset(datasetID).Table(modelOutputsTable).Inserter()
 	if err := inserter.Put(ctx, row); err != nil {
 		return fmt.Errorf("InsertModelOutput: inserting row: %w", err)

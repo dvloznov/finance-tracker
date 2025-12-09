@@ -18,7 +18,12 @@ import (
 // gcsURI should look like: "gs://bucket/path/to/statement.pdf".
 func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 	// Initialize concrete dependencies
-	repo := infra.NewBigQueryDocumentRepository()
+	repo, err := infra.NewBigQueryDocumentRepository(ctx)
+	if err != nil {
+		return fmt.Errorf("IngestStatementFromGCS: creating BigQuery repository: %w", err)
+	}
+	defer repo.Close()
+
 	storage := &gcsuploader.GCSStorageService{}
 	aiParser := NewGeminiAIParser(repo)
 
@@ -60,7 +65,12 @@ func storeModelOutput(
 	documentID string,
 	rawOutput map[string]interface{},
 ) (string, error) {
-	repo := infra.NewBigQueryDocumentRepository()
+	repo, err := infra.NewBigQueryDocumentRepository(ctx)
+	if err != nil {
+		return "", fmt.Errorf("storeModelOutput: creating BigQuery repository: %w", err)
+	}
+	defer repo.Close()
+
 	return storeModelOutputWithRepo(ctx, parsingRunID, documentID, rawOutput, repo)
 }
 
@@ -121,7 +131,12 @@ func insertTransactions(
 	parsingRunID string,
 	txs []*Transaction,
 ) error {
-	repo := infra.NewBigQueryDocumentRepository()
+	repo, err := infra.NewBigQueryDocumentRepository(ctx)
+	if err != nil {
+		return fmt.Errorf("insertTransactions: creating BigQuery repository: %w", err)
+	}
+	defer repo.Close()
+
 	return insertTransactionsWithRepo(ctx, documentID, parsingRunID, txs, repo)
 }
 
