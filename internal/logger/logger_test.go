@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -22,10 +23,7 @@ func TestNewWithWriter(t *testing.T) {
 	log.Info().Msg("test message")
 	
 	output := buf.String()
-	if output == "" {
-		t.Error("Expected log output, got empty string")
-	}
-	if !containsString(output, "test message") {
+	if !strings.Contains(output, "test message") {
 		t.Errorf("Expected output to contain 'test message', got: %s", output)
 	}
 }
@@ -78,16 +76,10 @@ func TestWithFields(t *testing.T) {
 	logWithFields.Info().Msg("test message")
 	
 	output := buf.String()
-	if !containsString(output, "user_id") || !containsString(output, "123") {
+	if !strings.Contains(output, "user_id") || !strings.Contains(output, "123") {
 		t.Errorf("Expected output to contain user_id field, got: %s", output)
 	}
-	if !containsString(output, "action") || !containsString(output, "test") {
+	if !strings.Contains(output, "action") || !strings.Contains(output, "test") {
 		t.Errorf("Expected output to contain action field, got: %s", output)
 	}
-}
-
-// Helper function to check if a string contains a substring
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || 
-		(len(s) > 0 && (s[:len(substr)] == substr || containsString(s[1:], substr))))
 }

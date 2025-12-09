@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	bigquerylib "cloud.google.com/go/bigquery"
 	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
@@ -221,18 +220,4 @@ func (m *mockDocumentRepo) ListActiveCategories(ctx context.Context) ([]infra.Ca
 
 func (m *mockDocumentRepo) Close() error {
 	return nil
-}
-
-// Ensure all mock transactions have required fields for testing
-func createMockTransaction(date string, desc string, amount float64, category string, subcategory string) map[string]interface{} {
-	parsedDate, _ := time.Parse("2006-01-02", date)
-	return map[string]interface{}{
-		"date":          parsedDate.Format("2006-01-02"),
-		"description":   desc,
-		"amount":        amount,
-		"currency":      "GBP",
-		"category":      category,
-		"subcategory":   subcategory,
-		"balance_after": 100.0,
-	}
 }
