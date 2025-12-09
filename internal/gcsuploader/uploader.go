@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -55,4 +57,56 @@ func UploadFile(ctx context.Context, bucketName, objectName, filePath string) er
 	}
 
 	return nil
+}
+
+// FetchFromGCS downloads the file bytes from the given GCS URI.
+func FetchFromGCS(ctx context.Context, gcsURI string) ([]byte, error) {
+	// gcsURI example: gs://my-bucket/path/to/file.pdf
+	if !strings.HasPrefix(gcsURI, "gs://") {
+		return nil, fmt.Errorf("invalid GCS URI: %s", gcsURI)
+	}
+
+	trimmed := strings.TrimPrefix(gcsURI, "gs://")
+	parts := strings.SplitN(trimmed, "/", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid GCS URI (no object path): %s", gcsURI)
+	}
+
+	bucketName := parts[0]
+	objectPath := parts[1]
+
+	storageClient, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetchFromGCS: creating storage client: %w", err)
+	}
+	defer storageClient.Close()
+
+	rc, err := storageClient.Bucket(bucketName).Object(objectPath).NewReader(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetchFromGCS: reading object %s/%s: %w", bucketName, objectPath, err)
+	}
+	defer rc.Close()
+
+	data, err := io.ReadAll(rc)
+	if err != nil {
+		return nil, fmt.Errorf("fetchFromGCS: reading bytes: %w", err)
+	}
+
+	return data, nil
+}
+
+// ExtractFilenameFromGCSURI extracts the filename from a GCS URI.
+// e.g., "gs://bucket/folder/file.pdf" → "file.pdf"
+func ExtractFilenameFromGCSURI(uri string) string {
+	// Remove "gs://"
+	trimmed := strings.TrimPrefix(uri, "gs://")
+
+	// Remove bucket name
+	parts := strings.SplitN(trimmed, "/", 2)
+	if len(parts) < 2 {
+		return trimmed
+	}
+
+	// Extract actual filename
+	return path.Base(parts[1])
 }

@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"path"
 	"strings"
 	"time"
 
 	bigquerylib "cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
-	"cloud.google.com/go/storage"
+	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
 	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/google/uuid"
 	"google.golang.org/genai"
@@ -50,7 +48,7 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 	}
 
 	// 3. Fetch the PDF bytes from GCS.
-	pdfBytes, err := fetchFromGCS(ctx, gcsURI)
+	pdfBytes, err := gcsuploader.FetchFromGCS(ctx, gcsURI)
 	if err != nil {
 		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
 		return err
@@ -104,7 +102,7 @@ func createDocument(ctx context.Context, gcsURI string) (string, error) {
 
 	// Extract filename from GCS URI
 	// e.g. "gs://bucket/folder/file.pdf" → "file.pdf"
-	filename := extractFilenameFromGCSURI(gcsURI)
+	filename := gcsuploader.ExtractFilenameFromGCSURI(gcsURI)
 
 	// Prepare row to insert
 	row := &infra.DocumentRow{
@@ -127,56 +125,6 @@ func createDocument(ctx context.Context, gcsURI string) (string, error) {
 	}
 
 	return documentID, nil
-}
-
-func extractFilenameFromGCSURI(uri string) string {
-	// Remove "gs://"
-	trimmed := strings.TrimPrefix(uri, "gs://")
-
-	// Remove bucket name
-	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) < 2 {
-		return trimmed
-	}
-
-	// Extract actual filename
-	return path.Base(parts[1])
-}
-
-// fetchFromGCS downloads the file bytes from the given GCS URI.
-func fetchFromGCS(ctx context.Context, gcsURI string) ([]byte, error) {
-	// gcsURI example: gs://my-bucket/path/to/file.pdf
-	if !strings.HasPrefix(gcsURI, "gs://") {
-		return nil, fmt.Errorf("invalid GCS URI: %s", gcsURI)
-	}
-
-	trimmed := strings.TrimPrefix(gcsURI, "gs://")
-	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid GCS URI (no object path): %s", gcsURI)
-	}
-
-	bucketName := parts[0]
-	objectPath := parts[1]
-
-	storageClient, err := storage.NewClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("fetchFromGCS: creating storage client: %w", err)
-	}
-	defer storageClient.Close()
-
-	rc, err := storageClient.Bucket(bucketName).Object(objectPath).NewReader(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("fetchFromGCS: reading object %s/%s: %w", bucketName, objectPath, err)
-	}
-	defer rc.Close()
-
-	data, err := io.ReadAll(rc)
-	if err != nil {
-		return nil, fmt.Errorf("fetchFromGCS: reading bytes: %w", err)
-	}
-
-	return data, nil
 }
 
 func buildCategoriesPrompt(ctx context.Context) (string, error) {
