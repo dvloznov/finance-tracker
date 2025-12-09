@@ -4,13 +4,16 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"path/filepath"
 
 	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
+	"github.com/dvloznov/finance-tracker/internal/logger"
 )
 
 func main() {
+	// Initialize structured logger
+	log := logger.New()
+
 	var (
 		bucketName string
 		objectName string
@@ -23,7 +26,7 @@ func main() {
 	flag.Parse()
 
 	if bucketName == "" || filePath == "" {
-		log.Fatalf("Usage: upload-pdf -bucket BUCKET_NAME -file /path/to/file.pdf [-object OBJECT_NAME]")
+		log.Fatal().Msg("Usage: upload-pdf -bucket BUCKET_NAME -file /path/to/file.pdf [-object OBJECT_NAME]")
 	}
 
 	if objectName == "" {
@@ -31,9 +34,16 @@ func main() {
 	}
 
 	ctx := context.Background()
+	ctx = logger.WithContext(ctx, log)
+
+	log.Info().
+		Str("bucket", bucketName).
+		Str("object", objectName).
+		Str("file", filePath).
+		Msg("Uploading file to GCS")
 
 	if err := gcsuploader.UploadFile(ctx, bucketName, objectName, filePath); err != nil {
-		log.Fatalf("upload failed: %v", err)
+		log.Fatal().Err(err).Msg("Upload failed")
 	}
 
 	fmt.Printf("Uploaded %s to gs://%s/%s\n", filePath, bucketName, objectName)

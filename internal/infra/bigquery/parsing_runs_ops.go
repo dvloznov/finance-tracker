@@ -3,10 +3,10 @@ package bigquery
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/logger"
 	"github.com/google/uuid"
 )
 
@@ -80,9 +80,14 @@ func StartParsingRunWithClient(ctx context.Context, client *bigquery.Client, doc
 
 // MarkParsingRunFailed sets status=FAILED, finished_ts and error_message.
 func MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) {
+	log := logger.FromContext(ctx)
+	
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
-		log.Printf("MarkParsingRunFailed: bigquery client error for run %s: %v", parsingRunID, err)
+		log.Error().
+			Err(err).
+			Str("parsing_run_id", parsingRunID).
+			Msg("MarkParsingRunFailed: bigquery client error")
 		return
 	}
 	defer client.Close()
@@ -93,6 +98,8 @@ func MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr err
 // MarkParsingRunFailedWithClient sets status=FAILED, finished_ts and error_message
 // using the provided BigQuery client.
 func MarkParsingRunFailedWithClient(ctx context.Context, client *bigquery.Client, parsingRunID string, parseErr error) {
+	log := logger.FromContext(ctx)
+	
 	errMsg := ""
 	if parseErr != nil {
 		errMsg = parseErr.Error()
@@ -119,17 +126,26 @@ func MarkParsingRunFailedWithClient(ctx context.Context, client *bigquery.Client
 
 	job, err := q.Run(ctx)
 	if err != nil {
-		log.Printf("MarkParsingRunFailed: running update query for run %s: %v", parsingRunID, err)
+		log.Error().
+			Err(err).
+			Str("parsing_run_id", parsingRunID).
+			Msg("MarkParsingRunFailed: running update query")
 		return
 	}
 
 	status, err := job.Wait(ctx)
 	if err != nil {
-		log.Printf("MarkParsingRunFailed: waiting for job for run %s: %v", parsingRunID, err)
+		log.Error().
+			Err(err).
+			Str("parsing_run_id", parsingRunID).
+			Msg("MarkParsingRunFailed: waiting for job")
 		return
 	}
 	if err := status.Err(); err != nil {
-		log.Printf("MarkParsingRunFailed: job completed with error for run %s: %v", parsingRunID, err)
+		log.Error().
+			Err(err).
+			Str("parsing_run_id", parsingRunID).
+			Msg("MarkParsingRunFailed: job completed with error")
 	}
 }
 
