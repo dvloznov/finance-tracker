@@ -3,11 +3,10 @@ package bigquery
 import (
 	"context"
 	"fmt"
-	"path"
-	"strings"
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
 	"github.com/google/uuid"
 )
 
@@ -54,7 +53,7 @@ func CreateDocument(ctx context.Context, gcsURI string) (string, error) {
 
 	// Extract filename from GCS URI
 	// e.g. "gs://bucket/folder/file.pdf" → "file.pdf"
-	filename := extractFilenameFromGCSURI(gcsURI)
+	filename := gcsuploader.ExtractFilenameFromGCSURI(gcsURI)
 
 	// Prepare row to insert
 	row := &DocumentRow{
@@ -79,18 +78,4 @@ func CreateDocument(ctx context.Context, gcsURI string) (string, error) {
 	}
 
 	return documentID, nil
-}
-
-func extractFilenameFromGCSURI(uri string) string {
-	// Remove "gs://"
-	trimmed := strings.TrimPrefix(uri, "gs://")
-
-	// Remove bucket name
-	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) < 2 {
-		return trimmed
-	}
-
-	// Extract actual filename
-	return path.Base(parts[1])
 }
