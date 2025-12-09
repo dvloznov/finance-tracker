@@ -77,19 +77,19 @@ func FetchFromGCS(ctx context.Context, gcsURI string) ([]byte, error) {
 
 	storageClient, err := storage.NewClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("fetchFromGCS: creating storage client: %w", err)
+		return nil, fmt.Errorf("FetchFromGCS: creating storage client: %w", err)
 	}
 	defer storageClient.Close()
 
 	rc, err := storageClient.Bucket(bucketName).Object(objectPath).NewReader(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("fetchFromGCS: reading object %s/%s: %w", bucketName, objectPath, err)
+		return nil, fmt.Errorf("FetchFromGCS: reading object %s/%s: %w", bucketName, objectPath, err)
 	}
 	defer rc.Close()
 
 	data, err := io.ReadAll(rc)
 	if err != nil {
-		return nil, fmt.Errorf("fetchFromGCS: reading bytes: %w", err)
+		return nil, fmt.Errorf("FetchFromGCS: reading bytes: %w", err)
 	}
 
 	return data, nil
