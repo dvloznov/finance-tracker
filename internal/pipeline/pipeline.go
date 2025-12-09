@@ -9,7 +9,6 @@ import (
 
 	bigquerylib "cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
-	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
 	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/google/uuid"
 )
@@ -17,58 +16,14 @@ import (
 // IngestStatementFromGCS processes a single bank statement PDF stored in GCS.
 // gcsURI should look like: "gs://bucket/path/to/statement.pdf".
 func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
-	// 1. Create a document record for this file.
-	documentID, err := createDocument(ctx, gcsURI)
-	if err != nil {
-		return err
+	// Initialize pipeline state
+	state := &PipelineState{
+		GCSURI: gcsURI,
 	}
 
-	// 2. Start a parsing run (status=RUNNING).
-	parsingRunID, err := infra.StartParsingRun(ctx, documentID)
-	if err != nil {
-		return err
-	}
-
-	// 3. Fetch the PDF bytes from GCS.
-	pdfBytes, err := gcsuploader.FetchFromGCS(ctx, gcsURI)
-	if err != nil {
-		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
-		return err
-	}
-
-	// 4. Call the statement parser (Gemini) with the PDF.
-	rawModelOutput, err := parseStatementWithModel(ctx, pdfBytes)
-	if err != nil {
-		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
-		return err
-	}
-
-	// 5. Store raw model output in model_outputs.
-	_, err = storeModelOutput(ctx, parsingRunID, documentID, rawModelOutput)
-	if err != nil {
-		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
-		return err
-	}
-
-	// 6. Transform raw model output into normalized transactions.
-	txs, err := transformModelOutputToTransactions(rawModelOutput)
-	if err != nil {
-		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
-		return err
-	}
-
-	// 7. Insert transactions into the transactions table.
-	if err := insertTransactions(ctx, documentID, parsingRunID, txs); err != nil {
-		infra.MarkParsingRunFailed(ctx, parsingRunID, err)
-		return err
-	}
-
-	// 8. Mark parsing run as SUCCESS.
-	if err := infra.MarkParsingRunSucceeded(ctx, parsingRunID); err != nil {
-		return err
-	}
-
-	return nil
+	// Create and execute the standard ingestion pipeline
+	pipeline := NewStatementIngestionPipeline()
+	return pipeline.Execute(ctx, state)
 }
 
 //
@@ -76,8 +31,6 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 //  Helper function skeletons (generic, no bank-specific naming)
 // ──────────────────────────────────────────────────────────────
 //
-
-
 
 // storeModelOutput inserts raw model output into the model_outputs table.
 func storeModelOutput(
@@ -188,7 +141,7 @@ func insertTransactions(
 			TransactionID: uuid.NewString(),
 
 			UserID:    DefaultUserID,
-			AccountID: "",      // can map accounts later
+			AccountID: "", // can map accounts later
 
 			DocumentID:   documentID,
 			ParsingRunID: parsingRunID,

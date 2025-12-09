@@ -28,8 +28,8 @@ func createDocument(ctx context.Context, gcsURI string) (string, error) {
 		GCSURI:           gcsURI,
 		DocumentType:     DefaultDocumentType,
 		SourceSystem:     DefaultSourceSystem,
-		InstitutionID:    "",               // Can be filled later
-		AccountID:        "",               // Can be filled later
+		InstitutionID:    "", // Can be filled later
+		AccountID:        "", // Can be filled later
 		ParsingStatus:    "PENDING",
 		UploadTS:         time.Now(),
 		OriginalFilename: filename,
