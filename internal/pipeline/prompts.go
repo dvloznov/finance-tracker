@@ -26,13 +26,11 @@ func buildCategoriesPrompt(ctx context.Context) (string, error) {
 		Name string
 	}
 	var parentsOrder []parentInfo
-	parentNameByID := make(map[string]string)
 	childrenByParent := make(map[string][]string)
 
 	for _, r := range rows {
 		if r.Depth == 1 {
 			parentsOrder = append(parentsOrder, parentInfo{ID: r.CategoryID, Name: r.Name})
-			parentNameByID[r.CategoryID] = r.Name
 			if _, ok := childrenByParent[r.CategoryID]; !ok {
 				childrenByParent[r.CategoryID] = []string{}
 			}
