@@ -6,6 +6,9 @@ bin/
 *.so
 *.dylib
 *.test
+# Binary executables built in root directory
+/ingest
+/upload-pdf
 
 # Local sample statements (keep folder, ignore files)
 static/*
