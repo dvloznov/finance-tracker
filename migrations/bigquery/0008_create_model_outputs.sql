@@ -1,5 +1,5 @@
 -- Create model_outputs table
-CREATE TABLE IF NOT EXISTS `studious-union-470122-v7.finance.model_outputs` (
+CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.model_outputs` (
   output_id      STRING NOT NULL,
   parsing_run_id STRING NOT NULL,
   document_id    STRING NOT NULL,

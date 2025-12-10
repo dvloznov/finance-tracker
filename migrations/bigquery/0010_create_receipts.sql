@@ -1,5 +1,5 @@
 -- Create receipts table
-CREATE TABLE IF NOT EXISTS `studious-union-470122-v7.finance.receipts` (
+CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.receipts` (
   receipt_id            STRING NOT NULL,
   user_id               STRING,
   document_id           STRING NOT NULL,

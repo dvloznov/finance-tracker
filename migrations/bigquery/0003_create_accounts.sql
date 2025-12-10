@@ -1,5 +1,5 @@
 -- Create accounts table
-CREATE TABLE IF NOT EXISTS `studious-union-470122-v7.finance.accounts` (
+CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.accounts` (
   account_id      STRING NOT NULL,
   user_id         STRING,
   institution_id  STRING,

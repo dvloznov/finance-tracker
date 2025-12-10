@@ -1,5 +1,5 @@
 -- Create parsing_runs table
-CREATE TABLE IF NOT EXISTS `studious-union-470122-v7.finance.parsing_runs` (
+CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.parsing_runs` (
   parsing_run_id STRING NOT NULL,
   document_id    STRING NOT NULL,
   started_ts     TIMESTAMP NOT NULL,

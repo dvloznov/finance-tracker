@@ -37,9 +37,10 @@ type AppliedMigration struct {
 }
 
 var (
-	projectID = flag.String("project", "studious-union-470122-v7", "GCP project ID")
-	datasetID = flag.String("dataset", "finance", "BigQuery dataset ID")
-	appliedBy = flag.String("applied-by", "migrate-cli", "Name of the tool applying migrations")
+	projectID       = flag.String("project", "studious-union-470122-v7", "GCP project ID")
+	datasetID       = flag.String("dataset", "finance", "BigQuery dataset ID")
+	appliedBy       = flag.String("applied-by", "migrate-cli", "Name of the tool applying migrations")
+	migrationsDir   = flag.String("migrations", "migrations/bigquery", "Path to migrations directory")
 )
 
 func main() {
@@ -144,21 +145,19 @@ func ensureSchemaMigrationsTable(ctx context.Context, client *bigquery.Client) e
 	return nil
 }
 
-// readMigrations reads all migration files from the migrations/bigquery directory
+// readMigrations reads all migration files from the migrations directory
 func readMigrations() ([]Migration, error) {
-	// Get the root of the repository (assume we're running from repo root or cmd/migrate)
-	migrationsDir := "migrations/bigquery"
-	
 	// Check if directory exists relative to current directory
-	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+	dir := *migrationsDir
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		// Try from parent directory (in case we're in cmd/migrate)
-		migrationsDir = "../../migrations/bigquery"
-		if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
-			return nil, fmt.Errorf("migrations directory not found")
+		dir = "../../" + *migrationsDir
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			return nil, fmt.Errorf("migrations directory not found: %s", *migrationsDir)
 		}
 	}
 
-	files, err := os.ReadDir(migrationsDir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("reading migrations directory: %w", err)
 	}
@@ -187,15 +186,19 @@ func readMigrations() ([]Migration, error) {
 		name := matches[2]
 
 		// Read SQL content
-		filePath := filepath.Join(migrationsDir, file.Name())
+		filePath := filepath.Join(dir, file.Name())
 		content, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("reading file %s: %w", file.Name(), err)
 		}
 
 		sql := string(content)
+		
+		// Replace placeholders with actual project and dataset
+		sql = strings.ReplaceAll(sql, "{{PROJECT_ID}}", *projectID)
+		sql = strings.ReplaceAll(sql, "{{DATASET_ID}}", *datasetID)
 
-		// Calculate checksum
+		// Calculate checksum from original content (before replacements)
 		checksum := fmt.Sprintf("%x", sha256.Sum256(content))
 
 		migrations = append(migrations, Migration{
