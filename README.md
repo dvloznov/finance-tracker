@@ -8,6 +8,11 @@ Uploads PDFs → Gemini AI extracts transactions → Stores in BigQuery → Powe
 
 ## Usage
 
+**Initialize BigQuery tables:**
+```bash
+go run cmd/migrate/main.go
+```
+
 **Upload a PDF:**
 ```bash
 go run cmd/upload-pdf/main.go -bucket BUCKET -file statement.pdf
@@ -27,14 +32,38 @@ go run cmd/ingest/main.go -gcs-uri gs://bucket/statement.pdf
 
 ## BigQuery Schema
 
+The schema is managed through versioned SQL migrations in `migrations/bigquery/`:
+
+- `schema_migrations` - Migration version tracking
+- `institutions` - Financial institutions
+- `accounts` - User accounts
+- `categories` - Hierarchical transaction taxonomy
+- `merchants` - Merchant information
 - `documents` - Uploaded PDFs metadata
-- `transactions` - Extracted transactions with categories
 - `parsing_runs` - Processing status tracking
 - `model_outputs` - Raw AI responses
-- `categories` - Hierarchical transaction taxonomy
+- `transactions` - Extracted transactions with categories
+- `receipts` - Receipt data
+- `receipt_line_items` - Individual line items from receipts
 
 ## Setup
 
 1. GCP project with BigQuery & Storage enabled
 2. `gcloud auth application-default login`
 3. Create `finance` dataset in BigQuery
+4. Run migrations: `go run cmd/migrate/main.go`
+
+## Database Migrations
+
+The project uses a migration system to manage BigQuery table schemas:
+
+```bash
+# Apply all pending migrations
+go run cmd/migrate/main.go
+
+# Use custom project/dataset
+go run cmd/migrate/main.go -project my-project -dataset my-dataset
+```
+
+Migrations are SQL files in `migrations/bigquery/` with format `NNNN_description.sql`.
+The tool tracks applied migrations in the `schema_migrations` table and only applies new ones.
