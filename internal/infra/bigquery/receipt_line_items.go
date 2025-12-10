@@ -1,6 +1,10 @@
 package bigquery
 
-import "cloud.google.com/go/bigquery"
+import (
+	"math/big"
+
+	"cloud.google.com/go/bigquery"
+)
 
 type ReceiptLineItemRow struct {
 	LineItemID string `bigquery:"line_item_id"` // REQUIRED
@@ -10,9 +14,9 @@ type ReceiptLineItemRow struct {
 
 	Description string `bigquery:"description"` // REQUIRED
 
-	Quantity   bigquery.NullFloat64 `bigquery:"quantity"`    // NULLABLE (NUMERIC)
-	UnitPrice  bigquery.NullFloat64 `bigquery:"unit_price"`  // NULLABLE (NUMERIC)
-	TotalPrice bigquery.NullFloat64 `bigquery:"total_price"` // NULLABLE (NUMERIC)
+	Quantity   *big.Rat `bigquery:"quantity"`    // NULLABLE (NUMERIC)
+	UnitPrice  *big.Rat `bigquery:"unit_price"`  // NULLABLE (NUMERIC)
+	TotalPrice *big.Rat `bigquery:"total_price"` // NULLABLE (NUMERIC)
 
 	CategoryID      string `bigquery:"category_id"`      // NULLABLE
 	SubcategoryID   string `bigquery:"subcategory_id"`   // NULLABLE

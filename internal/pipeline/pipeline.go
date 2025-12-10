@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -156,21 +157,18 @@ func insertTransactionsWithRepo(
 
 	for _, t := range txs {
 		// Determine direction based on sign of amount
-		dir := ""
+		var dir bigquerylib.NullString
 		if t.Amount > 0 {
-			dir = "IN"
+			dir = bigquerylib.NullString{StringVal: "IN", Valid: true}
 		} else if t.Amount < 0 {
-			dir = "OUT"
+			dir = bigquerylib.NullString{StringVal: "OUT", Valid: true}
 		}
 
 		txDate := civil.DateOf(t.Date)
 
-		var balanceAfter bigquerylib.NullFloat64
+		var balanceAfter *big.Rat
 		if t.BalanceAfter != nil {
-			balanceAfter = bigquerylib.NullFloat64{
-				Float64: *t.BalanceAfter,
-				Valid:   true,
-			}
+			balanceAfter = new(big.Rat).SetFloat64(*t.BalanceAfter)
 		}
 
 		var normalizedDescription bigquerylib.NullString
@@ -208,7 +206,7 @@ func insertTransactionsWithRepo(
 
 			TransactionDate: txDate,
 
-			Amount:   t.Amount,
+			Amount:   new(big.Rat).SetFloat64(t.Amount),
 			Currency: t.Currency,
 
 			BalanceAfter: balanceAfter,

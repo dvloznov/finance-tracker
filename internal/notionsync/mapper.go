@@ -38,24 +38,33 @@ func TransactionToNotionProperties(tx *bigquery.TransactionRow) notionapi.Proper
 			},
 		},
 		"Amount": notionapi.NumberProperty{
-			Number: tx.Amount,
+			Number: func() float64 {
+				if tx.Amount != nil {
+					f, _ := tx.Amount.Float64()
+					return f
+				}
+				return 0
+			}(),
 		},
-		"Currency": notionapi.RichTextProperty{
-			RichText: []notionapi.RichText{
-				{
-					Type: notionapi.ObjectTypeText,
-					Text: &notionapi.Text{
-						Content: tx.Currency,
-					},
-				},
+		"Currency": notionapi.SelectProperty{
+			Select: notionapi.Option{
+				Name: func() string {
+					if tx.Currency != "" {
+						return tx.Currency
+					}
+					return "GBP"
+				}(),
 			},
 		},
 	}
 
 	// Balance After (nullable)
-	if tx.BalanceAfter.Valid {
+	if tx.BalanceAfter != nil {
 		props["Balance After"] = notionapi.NumberProperty{
-			Number: tx.BalanceAfter.Float64,
+			Number: func() float64 {
+				f, _ := tx.BalanceAfter.Float64()
+				return f
+			}(),
 		}
 	}
 
@@ -73,32 +82,19 @@ func TransactionToNotionProperties(tx *bigquery.TransactionRow) notionapi.Proper
 		}
 	}
 
-	// Category - use CategoryName if available
-	if tx.CategoryName.Valid {
-		props["Category"] = notionapi.RichTextProperty{
-			RichText: []notionapi.RichText{
-				{
-					Type: notionapi.ObjectTypeText,
-					Text: &notionapi.Text{
-						Content: tx.CategoryName.StringVal,
-					},
-				},
-			},
-		}
-	}
+	// Category - leave empty for now (it's a relation property)
+	// TODO: Implement proper relation handling when category database is set up
 
-	// Subcategory - use SubcategoryName if available
-	if tx.SubcategoryName.Valid {
-		props["Subcategory"] = notionapi.RichTextProperty{
-			RichText: []notionapi.RichText{
-				{
-					Type: notionapi.ObjectTypeText,
-					Text: &notionapi.Text{
-						Content: tx.SubcategoryName.StringVal,
-					},
-				},
-			},
-		}
+	// Subcategory - use SubcategoryName if available, default to 'Other'
+	props["Subcategory"] = notionapi.SelectProperty{
+		Select: notionapi.Option{
+			Name: func() string {
+				if tx.SubcategoryName.Valid && tx.SubcategoryName.StringVal != "" {
+					return tx.SubcategoryName.StringVal
+				}
+				return "Other"
+			}(),
+		},
 	}
 
 	// Parsing Run ID
@@ -161,7 +157,10 @@ func TransactionToNotionProperties(tx *bigquery.TransactionRow) notionapi.Proper
 // GetNotionPageIDFromTransaction extracts the Notion page ID from the external_reference field.
 // Returns empty string if not set.
 func GetNotionPageIDFromTransaction(tx *bigquery.TransactionRow) string {
-	return tx.ExternalReference
+	if tx.ExternalReference.Valid {
+		return tx.ExternalReference.StringVal
+	}
+	return ""
 }
 
 // SetNotionPageIDOnTransaction creates a formatted external_reference string for storing Notion page ID.

@@ -1,6 +1,7 @@
 package bigquery
 
 import (
+	"math/big"
 	"time"
 
 	"cloud.google.com/go/bigquery"
@@ -20,22 +21,22 @@ type TransactionRow struct {
 	PostingDate     bigquery.NullDate     `bigquery:"posting_date"`     // NULLABLE
 	BookingDatetime bigquery.NullDateTime `bigquery:"booking_datetime"` // NULLABLE
 
-	Amount   float64 `bigquery:"amount"`   // REQUIRED NUMERIC
-	Currency string  `bigquery:"currency"` // REQUIRED STRING
+	Amount   *big.Rat `bigquery:"amount"`   // REQUIRED NUMERIC
+	Currency string   `bigquery:"currency"` // REQUIRED STRING
 
-	BalanceAfter bigquery.NullFloat64 `bigquery:"balance_after"` // NULLABLE NUMERIC
+	BalanceAfter *big.Rat `bigquery:"balance_after"` // NULLABLE NUMERIC
 
-	Direction string `bigquery:"direction"` // NULLABLE
+	Direction bigquery.NullString `bigquery:"direction"` // NULLABLE
 
 	RawDescription        string              `bigquery:"raw_description"`        // REQUIRED STRING
 	NormalizedDescription bigquery.NullString `bigquery:"normalized_description"` // NULLABLE STRING
 
-	MerchantID      string `bigquery:"merchant_id"`      // NULLABLE
-	MerchantName    string `bigquery:"merchant_name"`    // NULLABLE
-	MerchantCountry string `bigquery:"merchant_country"` // NULLABLE
+	MerchantID      bigquery.NullString `bigquery:"merchant_id"`      // NULLABLE
+	MerchantName    bigquery.NullString `bigquery:"merchant_name"`    // NULLABLE
+	MerchantCountry bigquery.NullString `bigquery:"merchant_country"` // NULLABLE
 
-	CategoryID      string              `bigquery:"category_id"`      // NULLABLE
-	SubcategoryID   string              `bigquery:"subcategory_id"`   // NULLABLE
+	CategoryID      bigquery.NullString `bigquery:"category_id"`      // NULLABLE
+	SubcategoryID   bigquery.NullString `bigquery:"subcategory_id"`   // NULLABLE
 	CategoryName    bigquery.NullString `bigquery:"category_name"`    // NULLABLE
 	SubcategoryName bigquery.NullString `bigquery:"subcategory_name"` // NULLABLE
 
@@ -48,7 +49,7 @@ type TransactionRow struct {
 	IsSplitParent      bigquery.NullBool `bigquery:"is_split_parent"`
 	IsSplitChild       bigquery.NullBool `bigquery:"is_split_child"`
 
-	ExternalReference string `bigquery:"external_reference"` // NULLABLE
+	ExternalReference bigquery.NullString `bigquery:"external_reference"` // NULLABLE
 
 	Tags []string `bigquery:"tags"` // REPEATED STRING
 

@@ -1,6 +1,7 @@
 package bigquery
 
 import (
+	"math/big"
 	"time"
 
 	"cloud.google.com/go/bigquery"
@@ -19,10 +20,10 @@ type ReceiptRow struct {
 	PurchaseDateTime bigquery.NullDateTime `bigquery:"purchase_datetime"` // DATETIME, NULLABLE
 	PurchaseDate     bigquery.NullDate     `bigquery:"purchase_date"`     // DATE, NULLABLE
 
-	TotalAmount    float64              `bigquery:"total_amount"`    // NUMERIC, REQUIRED
-	SubtotalAmount bigquery.NullFloat64 `bigquery:"subtotal_amount"` // NUMERIC, NULLABLE
-	TaxAmount      bigquery.NullFloat64 `bigquery:"tax_amount"`      // NUMERIC, NULLABLE
-	TipAmount      bigquery.NullFloat64 `bigquery:"tip_amount"`      // NUMERIC, NULLABLE
+	TotalAmount    *big.Rat `bigquery:"total_amount"`    // NUMERIC, REQUIRED
+	SubtotalAmount *big.Rat `bigquery:"subtotal_amount"` // NUMERIC, NULLABLE
+	TaxAmount      *big.Rat `bigquery:"tax_amount"`      // NUMERIC, NULLABLE
+	TipAmount      *big.Rat `bigquery:"tip_amount"`      // NUMERIC, NULLABLE
 
 	Currency string `bigquery:"currency"` // REQUIRED
 
