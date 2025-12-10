@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	bigquerylib "cloud.google.com/go/bigquery"
 	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
@@ -216,6 +217,11 @@ func (m *mockDocumentRepo) ListActiveCategories(ctx context.Context) ([]infra.Ca
 		return nil, errors.New("invalid categories type")
 	}
 	return nil, nil
+}
+
+func (m *mockDocumentRepo) QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*infra.TransactionRow, error) {
+	// Not needed for pipeline tests, return empty slice
+	return []*infra.TransactionRow{}, nil
 }
 
 func (m *mockDocumentRepo) Close() error {

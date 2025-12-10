@@ -7,6 +7,8 @@ require (
 	cloud.google.com/go/bigquery v1.69.0
 	cloud.google.com/go/storage v1.57.2
 	github.com/google/uuid v1.6.0
+	github.com/jomei/notionapi v1.13.3
+	github.com/rs/zerolog v1.34.0
 	google.golang.org/api v0.250.0
 	google.golang.org/genai v1.36.0
 )
@@ -43,7 +45,6 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pierrec/lz4/v4 v4.1.18 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
-	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
