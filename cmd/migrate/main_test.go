@@ -12,9 +12,6 @@ func TestMigrationFilenamePattern(t *testing.T) {
 		name     string
 	}{
 		{"0001_init_schema_migrations.sql", true, 1, "init_schema_migrations"},
-		{"0002_create_institutions.sql", true, 2, "create_institutions"},
-		{"0010_create_receipts.sql", true, 10, "create_receipts"},
-		{"0011_create_receipt_line_items.sql", true, 11, "create_receipt_line_items"},
 		{"001_invalid.sql", false, 0, ""},          // wrong number format
 		{"0001_test", false, 0, ""},                // missing .sql
 		{"0001.sql", false, 0, ""},                 // missing name

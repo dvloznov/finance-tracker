@@ -31,12 +31,6 @@ type TransactionRow struct {
 	RawDescription        string              `bigquery:"raw_description"`        // REQUIRED STRING
 	NormalizedDescription bigquery.NullString `bigquery:"normalized_description"` // NULLABLE STRING
 
-	MerchantID      bigquery.NullString `bigquery:"merchant_id"`      // NULLABLE
-	MerchantName    bigquery.NullString `bigquery:"merchant_name"`    // NULLABLE
-	MerchantCountry bigquery.NullString `bigquery:"merchant_country"` // NULLABLE
-
-	CategoryID      bigquery.NullString `bigquery:"category_id"`      // NULLABLE
-	SubcategoryID   bigquery.NullString `bigquery:"subcategory_id"`   // NULLABLE
 	CategoryName    bigquery.NullString `bigquery:"category_name"`    // NULLABLE
 	SubcategoryName bigquery.NullString `bigquery:"subcategory_name"` // NULLABLE
 
