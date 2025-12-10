@@ -101,20 +101,6 @@ func TransactionToNotionProperties(tx *bigquery.TransactionRow) notionapi.Proper
 		}
 	}
 
-	// Source Document - use DocumentID
-	if tx.DocumentID != "" {
-		props["Source Document"] = notionapi.RichTextProperty{
-			RichText: []notionapi.RichText{
-				{
-					Type: notionapi.ObjectTypeText,
-					Text: &notionapi.Text{
-						Content: tx.DocumentID,
-					},
-				},
-			},
-		}
-	}
-
 	// Parsing Run ID
 	if tx.ParsingRunID != "" {
 		props["Parsing Run ID"] = notionapi.RichTextProperty{

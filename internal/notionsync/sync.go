@@ -41,7 +41,7 @@ func SyncTransactions(ctx context.Context, repo bigquery.DocumentRepository, not
 	}
 
 	// Process transactions in batches
-	var created, updated, skipped int
+	var created, updated int
 	for i := 0; i < len(transactions); i += BatchSize {
 		end := i + BatchSize
 		if end > len(transactions) {
@@ -65,12 +65,12 @@ func SyncTransactions(ctx context.Context, repo bigquery.DocumentRepository, not
 						Str("transaction_id", tx.TransactionID).
 						Str("existing_page_id", extractPageID(existingPageID)).
 						Msg("[DRY RUN] Would update existing Notion page")
-					skipped++
+					updated++
 				} else {
 					log.Info().
 						Str("transaction_id", tx.TransactionID).
 						Msg("[DRY RUN] Would create new Notion page")
-					skipped++
+					created++
 				}
 				continue
 			}
@@ -123,7 +123,6 @@ func SyncTransactions(ctx context.Context, repo bigquery.DocumentRepository, not
 	log.Info().
 		Int("created", created).
 		Int("updated", updated).
-		Int("skipped", skipped).
 		Int("total", len(transactions)).
 		Msg("Transaction sync completed")
 
