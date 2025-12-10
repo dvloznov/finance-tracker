@@ -10,6 +10,7 @@ bin/
 /ingest
 /upload-pdf
 /sync-notion
+/migrate
 
 # Local sample statements (keep folder, ignore files)
 static/*
