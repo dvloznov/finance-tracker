@@ -9,7 +9,10 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-const transactionsTable = "transactions"
+const (
+	transactionsTable = "transactions"
+	dateFormat        = "2006-01-02"
+)
 
 // InsertTransactions inserts a batch of TransactionRow into finance.transactions.
 func InsertTransactions(ctx context.Context, rows []*TransactionRow) error {
@@ -92,8 +95,8 @@ func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquer
 		ORDER BY transaction_date, created_ts
 	`)
 	q.Parameters = []bigquery.QueryParameter{
-		{Name: "start_date", Value: startDate.Format("2006-01-02")},
-		{Name: "end_date", Value: endDate.Format("2006-01-02")},
+		{Name: "start_date", Value: startDate.Format(dateFormat)},
+		{Name: "end_date", Value: endDate.Format(dateFormat)},
 	}
 
 	it, err := q.Read(ctx)
