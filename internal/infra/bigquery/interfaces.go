@@ -3,6 +3,7 @@ package bigquery
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"cloud.google.com/go/bigquery"
 )
@@ -32,6 +33,9 @@ type DocumentRepository interface {
 
 	// ListActiveCategories retrieves all active categories from the database.
 	ListActiveCategories(ctx context.Context) ([]CategoryRow, error)
+
+	// QueryTransactionsByDateRange queries transactions within the specified date range.
+	QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*TransactionRow, error)
 }
 
 // BigQueryDocumentRepository is the concrete implementation of DocumentRepository
@@ -95,4 +99,9 @@ func (r *BigQueryDocumentRepository) MarkParsingRunSucceeded(ctx context.Context
 // ListActiveCategories delegates to the existing ListActiveCategories function with the shared client.
 func (r *BigQueryDocumentRepository) ListActiveCategories(ctx context.Context) ([]CategoryRow, error) {
 	return ListActiveCategoriesWithClient(ctx, r.client)
+}
+
+// QueryTransactionsByDateRange delegates to the existing QueryTransactionsByDateRange function with the shared client.
+func (r *BigQueryDocumentRepository) QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*TransactionRow, error) {
+	return QueryTransactionsByDateRangeWithClient(ctx, r.client, startDate, endDate)
 }
