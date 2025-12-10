@@ -37,7 +37,7 @@ type AppliedMigration struct {
 }
 
 var (
-	projectID       = flag.String("project", "studious-union-470122-v7", "GCP project ID")
+	projectID       = flag.String("project", "", "GCP project ID (required)")
 	datasetID       = flag.String("dataset", "finance", "BigQuery dataset ID")
 	appliedBy       = flag.String("applied-by", "migrate-cli", "Name of the tool applying migrations")
 	migrationsDir   = flag.String("migrations", "migrations/bigquery", "Path to migrations directory")
@@ -47,6 +47,11 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
+	
+	// Validate required flags
+	if *projectID == "" {
+		log.Fatal("Error: -project flag is required. Please specify your GCP project ID.")
+	}
 
 	// Create BigQuery client
 	client, err := bigquery.NewClient(ctx, *projectID)
@@ -199,6 +204,9 @@ func readMigrations() ([]Migration, error) {
 		sql = strings.ReplaceAll(sql, "{{DATASET_ID}}", *datasetID)
 
 		// Calculate checksum from original content (before replacements)
+		// Note: This means changing placeholders won't be detected as a change.
+		// This is intentional: we want to track the logical migration structure,
+		// not the specific project/dataset it's applied to.
 		checksum := fmt.Sprintf("%x", sha256.Sum256(content))
 
 		migrations = append(migrations, Migration{

@@ -10,7 +10,7 @@ Uploads PDFs → Gemini AI extracts transactions → Stores in BigQuery → Powe
 
 **Initialize BigQuery tables:**
 ```bash
-go run cmd/migrate/main.go
+go run cmd/migrate/main.go -project studious-union-470122-v7
 ```
 
 **Upload a PDF:**
@@ -51,15 +51,15 @@ The schema is managed through versioned SQL migrations in `migrations/bigquery/`
 1. GCP project with BigQuery & Storage enabled
 2. `gcloud auth application-default login`
 3. Create `finance` dataset in BigQuery
-4. Run migrations: `go run cmd/migrate/main.go`
+4. Run migrations: `go run cmd/migrate/main.go -project YOUR_PROJECT_ID`
 
 ## Database Migrations
 
 The project uses a migration system to manage BigQuery table schemas:
 
 ```bash
-# Apply all pending migrations
-go run cmd/migrate/main.go
+# Apply all pending migrations (project ID is required)
+go run cmd/migrate/main.go -project studious-union-470122-v7
 
 # Use custom project/dataset
 go run cmd/migrate/main.go -project my-project -dataset my-dataset
