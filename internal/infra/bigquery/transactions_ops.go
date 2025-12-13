@@ -10,6 +10,10 @@ import (
 )
 
 const (
+	// Note: projectID and datasetID are also defined in parsing_runs_ops.go
+	// but redefined here for clarity and to avoid any import order issues
+	txProjectID       = "studious-union-470122-v7"
+	txDatasetID       = "finance"
 	transactionsTable = "transactions"
 	dateFormat        = "2006-01-02"
 )
@@ -32,7 +36,9 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 		return nil
 	}
 
-	inserter := client.Dataset(datasetID).Table(transactionsTable).Inserter()
+	// Use fully qualified table name to avoid project ID issues
+	table := client.DatasetInProject(txProjectID, txDatasetID).Table(transactionsTable)
+	inserter := table.Inserter()
 	if err := inserter.Put(ctx, rows); err != nil {
 		return fmt.Errorf("InsertTransactions: inserting rows: %w", err)
 	}

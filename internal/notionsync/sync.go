@@ -8,6 +8,7 @@ import (
 
 	"github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/logger"
+	"github.com/jomei/notionapi"
 )
 
 const (
@@ -328,6 +329,31 @@ func SyncDocuments(ctx context.Context, repo bigquery.DocumentRepository, notion
 				Str("document_id", doc.DocumentID).
 				Msg("Failed to create Notion page for document")
 			continue
+		}
+
+		// Update document status to SYNCED in BigQuery
+		if err := bigquery.UpdateDocumentParsingStatus(ctx, doc.DocumentID, "SYNCED"); err != nil {
+			log.Warn().
+				Err(err).
+				Str("document_id", doc.DocumentID).
+				Msg("Failed to update document status to SYNCED in BigQuery")
+			// Don't fail the sync, just log the warning
+		} else {
+			// Also update the Notion page's Processing Status
+			updateProps := notionapi.Properties{
+				"Processing Status": notionapi.SelectProperty{
+					Select: notionapi.Option{
+						Name: "SYNCED",
+					},
+				},
+			}
+			if _, err := notionClient.UpdatePage(ctx, string(page.ID), updateProps); err != nil {
+				log.Warn().
+					Err(err).
+					Str("document_id", doc.DocumentID).
+					Str("page_id", string(page.ID)).
+					Msg("Failed to update Processing Status in Notion")
+			}
 		}
 
 		log.Info().
