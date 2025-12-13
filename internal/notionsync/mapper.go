@@ -427,19 +427,22 @@ func TransactionToNotionProperties(tx *bigquery.TransactionRow) notionapi.Proper
 		}
 	}
 
-	// Category - leave empty for now (it's a relation property)
-	// TODO: Implement proper relation handling when category database is set up
+	// Category - use CategoryName if available
+	if tx.CategoryName.Valid && tx.CategoryName.StringVal != "" {
+		props["Category"] = notionapi.SelectProperty{
+			Select: notionapi.Option{
+				Name: tx.CategoryName.StringVal,
+			},
+		}
+	}
 
-	// Subcategory - use SubcategoryName if available, default to 'Other'
-	props["Subcategory"] = notionapi.SelectProperty{
-		Select: notionapi.Option{
-			Name: func() string {
-				if tx.SubcategoryName.Valid && tx.SubcategoryName.StringVal != "" {
-					return tx.SubcategoryName.StringVal
-				}
-				return "Other"
-			}(),
-		},
+	// Subcategory - use SubcategoryName if available
+	if tx.SubcategoryName.Valid && tx.SubcategoryName.StringVal != "" {
+		props["Subcategory"] = notionapi.SelectProperty{
+			Select: notionapi.Option{
+				Name: tx.SubcategoryName.StringVal,
+			},
+		}
 	}
 
 	// Parsing Run ID

@@ -51,16 +51,13 @@ Internal tables (schema_migrations, parsing_runs, model_outputs) remain in BigQu
 
 | Property Name | Type | Description | Configuration |
 |--------------|------|-------------|---------------|
-| Category | Title | Category name | - |
+| Category | Title | Category name | **REQUIRED - Must be Title property** |
 | Slug | Text | URL-friendly identifier | - |
-| Parent Category | Relation | Link to parent category | Relation to same database |
-| Subcategories | Relation | Child categories | Rollup from Parent Category |
 | Depth | Number | Hierarchy level (0 = top level) | - |
 | Description | Text | Category description | - |
-| Transaction Count | Rollup | Number of transactions | Rollup from Transactions relation |
 | Is Active | Checkbox | Whether category is in use | - |
+| Parent Category | Relation | Link to parent category | Relation to same database (optional) |
 | Created | Created time | Auto-populated | - |
-| Retired | Date | When category was deprecated | - |
 
 ### Suggested Category Structure:
 Create these as starting categories:
@@ -107,28 +104,22 @@ Create these as starting categories:
 
 | Property Name | Type | Description | Configuration |
 |--------------|------|-------------|---------------|
-| Document ID | Title | Unique identifier | Primary key from BigQuery |
+| Document ID | Title | Unique identifier | **REQUIRED - Must be Title property** |
 | Original Filename | Text | File name when uploaded | - |
-| Document Type | Select | Type of document | Options: Bank Statement, Credit Card Statement, Invoice, Receipt |
-| Account | Relation | Related account | Relation to Accounts database |
-| Institution | Rollup | From related account | Rollup from Account relation |
+| Document Type | Select | Type of document | **REQUIRED - Options: Bank Statement, Credit Card Statement, Invoice, Receipt** |
 | Statement Period | Text | Date range (e.g., "Jan 2024") | Formatted from start/end dates |
 | Statement Start | Date | Period start date | - |
 | Statement End | Date | Period end date | - |
-| Upload Date | Date | When document was uploaded | - |
+| Upload Date | Date | When document was uploaded | **REQUIRED** |
 | Processing Status | Select | Current status | Options: Uploaded, Processing, Processed, Failed |
 | Processed Date | Date | When processing completed | - |
-| Transaction Count | Rollup | Number of transactions | Rollup from Transactions relation |
 | File Type | Select | MIME type/format | Options: PDF, CSV, Excel, Image |
 | GCS Link | URL | Link to Google Cloud Storage | - |
 
 ### Views to Create:
 - **All Documents** - Default view
 - **Recent Uploads** - Sort by: Upload Date (descending)
-- **By Account** - Group by: Account
 - **By Status** - Group by: Processing Status
-- **By Period** - Timeline view by Statement Start
-- **Failed Processing** - Filter: Processing Status equals Failed
 
 ---
 
@@ -140,57 +131,34 @@ Create these as starting categories:
 
 | Property Name | Type | Description | Configuration |
 |--------------|------|-------------|---------------|
-| Description | Title | Transaction description | From raw_description |
-| Transaction Date | Date | When transaction occurred | Primary date field |
-| Posting Date | Date | When transaction posted | - |
-| Amount | Number | Transaction amount | Format: Currency with 2 decimals |
-| Currency | Select | Transaction currency | Options: USD, EUR, GBP, etc. |
-| Direction | Select | Money in or out | Options: Debit, Credit |
-| Account | Relation | Related account | Relation to Accounts database |
-| Document | Relation | Source document | Relation to Documents database |
-| Category | Relation | Transaction category | Relation to Categories database |
-| Subcategory | Text | More specific category | - |
-| Balance After | Number | Account balance after transaction | Format: Currency with 2 decimals |
-| Is Pending | Checkbox | Transaction not yet cleared | - |
-| Is Refund | Checkbox | This is a refund | - |
-| Is Transfer | Checkbox | Internal transfer between accounts | - |
-| Tags | Multi-select | Custom tags | Options: Add as needed (e.g., Tax Deductible, Reimbursable, Subscription) |
-| Notes | Text | Additional notes | - |
-| Created | Created time | Auto-populated | - |
-| Updated | Last edited time | Auto-populated | - |
+| Description | Title | Transaction description | **REQUIRED - Must be Title property** |
+| Date | Date | When transaction occurred | **REQUIRED - Primary date field** |
+| Amount | Number | Transaction amount | **REQUIRED - Format: Number with 2 decimals** |
+| Currency | Select | Transaction currency | **REQUIRED - Options: GBP, USD, EUR, etc.** |
+| Balance After | Number | Account balance after transaction | Format: Number with 2 decimals |
+| Account | Text | Account identifier | - |
+| Category | Select | Transaction category | Options: Add categories as needed |
+| Subcategory | Select | Transaction subcategory | **REQUIRED - Must be Select type, Options: Add as needed** |
+| Parsing Run ID | Text | Internal processing ID | - |
+| Document ID | Text | Source document ID | **REQUIRED** |
+| Imported At | Date | When synced to Notion | **REQUIRED** |
+| Notes | Text | Additional notes/normalized description | - |
+| Is Corrected | Checkbox | Manually corrected | **REQUIRED - Default: false** |
 
-### Important Formulas:
-
-**Display Amount** (for better visualization):
-```
-if(prop("Direction") == "Credit", concat("+", format(prop("Amount"))), concat("-", format(prop("Amount"))))
-```
-
-**Month** (for grouping):
-```
-formatDate(prop("Transaction Date"), "MMM YYYY")
-```
-
-**Quarter** (for quarterly analysis):
-```
-formatDate(prop("Transaction Date"), "Q Q YYYY")
-```
+### Notes on Property Types:
+- **Description**: Must be Title (primary property)
+- **Date**: Must be Date type (not "Transaction Date")  
+- **Subcategory**: Must be Select type (not Text)
+- **Document ID, Parsing Run ID, Account, Notes**: Must be Text/Rich Text
+- **Is Corrected**: Must be Checkbox
+- **Imported At**: Must be Date type
 
 ### Views to Create:
-
-1. **All Transactions** - Default table view
-2. **This Month** - Filter: Transaction Date is within this month
-3. **By Category** - Group by: Category, Sort by: Amount (descending)
-4. **By Account** - Group by: Account
-5. **Income vs Expenses**
-   - Board view grouped by: Direction
-   - Filter out: Is Transfer is checked
-6. **Monthly Timeline** - Timeline view by: Transaction Date
-7. **Pending Transactions** - Filter: Is Pending is checked
-8. **Refunds** - Filter: Is Refund is checked
-9. **Large Transactions** - Filter: Amount > 500 (adjust threshold as needed)
-10. **Transfers** - Filter: Is Transfer is checked
-11. **By Month** - Group by: Month formula property
+- **All Transactions** - Default table view
+- **This Month** - Filter: Date is within this month
+- **By Subcategory** - Group by: Subcategory
+- **Recent** - Sort by: Date (descending)
+- **Needs Review** - Filter: Is Corrected is unchecked
 
 ---
 
