@@ -27,7 +27,7 @@ func buildCategoriesPromptWithRepo(ctx context.Context, repo CategoryRepository)
 	childrenByParent := make(map[string][]string)
 
 	for _, r := range rows {
-		if r.Depth == 1 {
+		if r.Depth == 0 {
 			parentsOrder = append(parentsOrder, parentInfo{ID: r.CategoryID, Name: r.Name})
 			if _, ok := childrenByParent[r.CategoryID]; !ok {
 				childrenByParent[r.CategoryID] = []string{}
@@ -36,7 +36,7 @@ func buildCategoriesPromptWithRepo(ctx context.Context, repo CategoryRepository)
 	}
 
 	for _, r := range rows {
-		if r.Depth == 2 && r.ParentCategoryID.Valid {
+		if r.Depth == 1 && r.ParentCategoryID.Valid {
 			parentID := r.ParentCategoryID.StringVal
 			childrenByParent[parentID] = append(childrenByParent[parentID], r.Name)
 		}
@@ -49,8 +49,7 @@ func buildCategoriesPromptWithRepo(ctx context.Context, repo CategoryRepository)
 		b.WriteString(p.Name + ":\n")
 		subs := childrenByParent[p.ID]
 		if len(subs) == 0 {
-			// no subcategories defined – still list a placeholder so the model knows.
-			b.WriteString("  - Other\n\n")
+			b.WriteString("  (no subcategories)\n\n")
 			continue
 		}
 		for _, s := range subs {
@@ -62,7 +61,7 @@ func buildCategoriesPromptWithRepo(ctx context.Context, repo CategoryRepository)
 	// Additionally, constrain what the model is allowed to output.
 	b.WriteString("Category must be exactly one of the category names shown above.\n")
 	b.WriteString("Subcategory must be exactly one of the subcategory names listed under that category.\n")
-	b.WriteString("If you are unsure, default to category \"OTHER\" with subcategory \"Other\" if it exists.\n")
+	b.WriteString("If you are unsure, use category \"Uncategorized\" with an empty subcategory.\n")
 
 	return b.String(), nil
 }

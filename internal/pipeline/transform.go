@@ -46,9 +46,13 @@ func transformModelOutputToTransactions(
 		if err != nil {
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
 		}
-		subcategory, err := getStringField(obj, "subcategory", true)
+		subcategoryPtr, err := getOptionalStringField(obj, "subcategory")
 		if err != nil {
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
+		}
+		subcategory := ""
+		if subcategoryPtr != nil {
+			subcategory = *subcategoryPtr
 		}
 
 		amount, err := getFloat64Field(obj, "amount", true)
