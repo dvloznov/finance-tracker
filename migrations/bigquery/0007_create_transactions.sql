@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.transactions` (
   is_split_parent        BOOL,
   is_split_child         BOOL,
   external_reference     STRING,
-  tags                   ARRAY<STRING> NOT NULL,
+  tags                   ARRAY<STRING>,
   created_ts             TIMESTAMP NOT NULL,
   updated_ts             TIMESTAMP,
   extra                  JSON
