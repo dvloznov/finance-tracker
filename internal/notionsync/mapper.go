@@ -140,13 +140,19 @@ func AccountToNotionProperties(acc *bigquery.AccountRow) notionapi.Properties {
 // CategoryToNotionProperties converts a BigQuery CategoryRow to Notion properties.
 // Maps fields according to the NOTION_SETUP.md specification for Categories database.
 func CategoryToNotionProperties(cat *bigquery.CategoryRow) notionapi.Properties {
+	// Build title based on whether subcategory exists
+	titleText := cat.CategoryName
+	if cat.SubcategoryName.Valid && cat.SubcategoryName.StringVal != "" {
+		titleText = cat.CategoryName + " → " + cat.SubcategoryName.StringVal
+	}
+
 	props := notionapi.Properties{
 		"Category": notionapi.TitleProperty{
 			Title: []notionapi.RichText{
 				{
 					Type: notionapi.ObjectTypeText,
 					Text: &notionapi.Text{
-						Content: cat.Name,
+						Content: titleText,
 					},
 				},
 			},
@@ -161,9 +167,32 @@ func CategoryToNotionProperties(cat *bigquery.CategoryRow) notionapi.Properties 
 				},
 			},
 		},
-		"Depth": notionapi.NumberProperty{
-			Number: float64(cat.Depth),
+	}
+
+	// Category Name (parent category)
+	props["Category Name"] = notionapi.RichTextProperty{
+		RichText: []notionapi.RichText{
+			{
+				Type: notionapi.ObjectTypeText,
+				Text: &notionapi.Text{
+					Content: cat.CategoryName,
+				},
+			},
 		},
+	}
+
+	// Subcategory Name (if exists)
+	if cat.SubcategoryName.Valid && cat.SubcategoryName.StringVal != "" {
+		props["Subcategory Name"] = notionapi.RichTextProperty{
+			RichText: []notionapi.RichText{
+				{
+					Type: notionapi.ObjectTypeText,
+					Text: &notionapi.Text{
+						Content: cat.SubcategoryName.StringVal,
+					},
+				},
+			},
+		}
 	}
 
 	// Description
@@ -200,9 +229,6 @@ func CategoryToNotionProperties(cat *bigquery.CategoryRow) notionapi.Properties 
 			},
 		}
 	}
-
-	// Note: Parent Category relation will need to be handled separately
-	// as it requires looking up the Notion page ID of the parent category
 
 	return props
 }
@@ -514,4 +540,30 @@ func GetNotionPageIDFromTransaction(tx *bigquery.TransactionRow) string {
 // SetNotionPageIDOnTransaction creates a formatted external_reference string for storing Notion page ID.
 func SetNotionPageIDOnTransaction(pageID string) string {
 	return fmt.Sprintf("notion:%s", pageID)
+}
+
+// TransactionToNotionPropertiesWithCategories converts a BigQuery TransactionRow to Notion properties
+// with category relations. If categoryPageIDs is provided and the transaction has a category_id,
+// it will create a relation to the Categories database instead of a Select property.
+func TransactionToNotionPropertiesWithCategories(tx *bigquery.TransactionRow, categoryPageIDs map[string]string) notionapi.Properties {
+	// Start with the base properties
+	props := TransactionToNotionProperties(tx)
+
+	// Override Category with relation if we have category_id and the mapping
+	if tx.CategoryID.Valid && tx.CategoryID.StringVal != "" && categoryPageIDs != nil {
+		if pageID, ok := categoryPageIDs[tx.CategoryID.StringVal]; ok {
+			props["Category"] = notionapi.RelationProperty{
+				Relation: []notionapi.Relation{
+					{
+						ID: notionapi.PageID(pageID),
+					},
+				},
+			}
+		}
+	}
+
+	// Remove Subcategory property since we're using denormalized categories
+	delete(props, "Subcategory")
+
+	return props
 }

@@ -25,13 +25,13 @@ func ListActiveCategoriesWithClient(ctx context.Context, client *bigquery.Client
 	q := client.Query(`
 		SELECT
 		  category_id,
-		  parent_category_id,
-		  depth,
-		  name,
+		  category_name,
+		  subcategory_name,
+		  slug,
 		  is_active
 		FROM finance.categories
 		WHERE is_active = TRUE
-		ORDER BY depth, parent_category_id, name
+		ORDER BY category_name, subcategory_name
 	`)
 
 	it, err := q.Read(ctx)

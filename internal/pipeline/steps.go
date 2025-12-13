@@ -158,15 +158,19 @@ func (s *ValidateCategoriesStep) Execute(ctx context.Context, state *PipelineSta
 
 	var validationErrors []string
 	for i, tx := range state.Transactions {
-		if err := state.CategoryValidator.ValidateCategory(tx.Category, tx.Subcategory); err != nil {
-			validationErrors = append(validationErrors, 
-				fmt.Sprintf("transaction %d (date: %s, desc: %s): %v", 
+		categoryID, err := state.CategoryValidator.ValidateCategory(tx.Category, tx.Subcategory)
+		if err != nil {
+			validationErrors = append(validationErrors,
+				fmt.Sprintf("transaction %d (date: %s, desc: %s): %v",
 					i, tx.Date.Format("2006-01-02"), tx.Description, err))
+		} else {
+			// Store the validated category_id back in the transaction
+			tx.CategoryID = categoryID
 		}
 	}
 
 	if len(validationErrors) > 0 {
-		err := fmt.Errorf("category validation failed:\n  - %s", 
+		err := fmt.Errorf("category validation failed:\n  - %s",
 			fmt.Sprintf("%v", validationErrors))
 		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err

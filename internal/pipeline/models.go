@@ -17,6 +17,7 @@ type Transaction struct {
 	Currency     string    // from "currency"
 	BalanceAfter *float64  // from "balance_after" or nil
 
-	Category    string // from "category"
-	Subcategory string // from "subcategory"
+	Category    string // from "category" (kept for backward compatibility)
+	Subcategory string // from "subcategory" (kept for backward compatibility)
+	CategoryID  string // populated during validation - links to categories table
 }

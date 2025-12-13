@@ -10,9 +10,9 @@ import (
 
 // CategoryValidator validates transaction categories against the taxonomy.
 type CategoryValidator struct {
-	categories     map[string]bool            // Set of valid category names
-	subcategories  map[string]map[string]bool // Map of category -> set of valid subcategories
-	subcatToParent map[string]string          // Map of subcategory name -> parent category name
+	// Map of "CATEGORY|SUBCATEGORY" or "CATEGORY|" -> category_id
+	validPairs   map[string]string
+	categoryRows []infra.CategoryRow // Keep for other lookups if needed
 }
 
 // NewCategoryValidator creates a validator from the categories taxonomy.
@@ -23,95 +23,51 @@ func NewCategoryValidator(ctx context.Context, repo CategoryRepository) (*Catego
 	}
 
 	validator := &CategoryValidator{
-		categories:     make(map[string]bool),
-		subcategories:  make(map[string]map[string]bool),
-		subcatToParent: make(map[string]string),
+		validPairs:   make(map[string]string),
+		categoryRows: rows,
 	}
 
-	// Build lookup maps
+	// Build lookup map of valid category-subcategory pairs
 	for _, row := range rows {
-		normalizedName := normalizeCategory(row.Name)
-
-		if row.Depth == 0 {
-			// Top-level category
-			validator.categories[normalizedName] = true
-			if validator.subcategories[normalizedName] == nil {
-				validator.subcategories[normalizedName] = make(map[string]bool)
-			}
-		} else if row.Depth == 1 && row.ParentCategoryID.Valid {
-			// Subcategory - need to find parent name
-			parentName := findParentName(rows, row.ParentCategoryID.StringVal)
-			if parentName != "" {
-				normalizedParent := normalizeCategory(parentName)
-				if validator.subcategories[normalizedParent] == nil {
-					validator.subcategories[normalizedParent] = make(map[string]bool)
-				}
-				validator.subcategories[normalizedParent][normalizedName] = true
-				validator.subcatToParent[normalizedName] = normalizedParent
-			}
+		normCat := normalizeCategory(row.CategoryName)
+		normSubcat := ""
+		if row.SubcategoryName.Valid && row.SubcategoryName.StringVal != "" {
+			normSubcat = normalizeCategory(row.SubcategoryName.StringVal)
 		}
+
+		// Store as "CATEGORY|SUBCATEGORY" or "CATEGORY|"
+		key := normCat + "|" + normSubcat
+		validator.validPairs[key] = row.CategoryID
 	}
 
 	return validator, nil
 }
 
 // ValidateCategory checks if a category and subcategory are valid.
-// Returns nil if valid, error if invalid.
-// If category is actually a subcategory name, it treats it as such.
-func (v *CategoryValidator) ValidateCategory(category, subcategory string) error {
+// Returns the category_id if valid, error if invalid.
+func (v *CategoryValidator) ValidateCategory(category, subcategory string) (string, error) {
 	normCat := normalizeCategory(category)
 	normSubcat := normalizeCategory(subcategory)
 
-	// Check if what was provided as "category" is actually a subcategory
-	if parentCat, isSubcat := v.subcatToParent[normCat]; isSubcat {
-		// The category field contains a subcategory name
-		// This is valid - Gemini sometimes returns subcategory as the main category
-		// Ignore subcategory field if it's empty or the same as category
-		if normSubcat == "" || normSubcat == normCat {
-			return nil
-		}
-		return fmt.Errorf("conflicting category/subcategory: category=%q is a subcategory of %q, but subcategory=%q was also provided",
-			category, parentCat, subcategory)
+	// Try exact match first
+	key := normCat + "|" + normSubcat
+	if categoryID, ok := v.validPairs[key]; ok {
+		return categoryID, nil
 	}
 
-	// Normal case: category is a top-level category
-	if !v.categories[normCat] {
-		return fmt.Errorf("invalid category: %q (normalized: %q)", category, normCat)
-	}
-
-	// If the category has subcategories defined
-	if subcats, ok := v.subcategories[normCat]; ok && len(subcats) > 0 {
-		// Allow empty subcategory (means top-level category was selected)
-		if normSubcat == "" {
-			return nil
-		}
-
-		// Otherwise, validate the subcategory
-		if !subcats[normSubcat] {
-			validSubs := make([]string, 0, len(subcats))
-			for s := range subcats {
-				validSubs = append(validSubs, s)
-			}
-			return fmt.Errorf("invalid subcategory %q for category %q. Valid subcategories: %v",
-				subcategory, category, validSubs)
+	// If subcategory was provided but not found, try without it
+	if normSubcat != "" {
+		keyWithoutSub := normCat + "|"
+		if categoryID, ok := v.validPairs[keyWithoutSub]; ok {
+			return categoryID, nil
 		}
 	}
 
-	return nil
+	return "", fmt.Errorf("invalid category/subcategory combination: %q / %q", category, subcategory)
 }
 
 // normalizeCategory normalizes a category name for comparison.
 // Converts to uppercase and trims whitespace for case-insensitive comparison.
 func normalizeCategory(name string) string {
 	return strings.ToUpper(strings.TrimSpace(name))
-}
-
-// findParentName finds the parent category name by ID.
-func findParentName(rows []infra.CategoryRow, parentID string) string {
-	for _, row := range rows {
-		if row.CategoryID == parentID {
-			return row.Name
-		}
-	}
-	return ""
 }

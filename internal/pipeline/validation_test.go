@@ -18,14 +18,13 @@ func (m *mockCategoryRepository) ListActiveCategories(ctx context.Context) ([]in
 }
 
 func TestCategoryValidator_ValidateCategory(t *testing.T) {
-	// Setup test categories
+	// Setup test categories (denormalized)
 	categories := []infra.CategoryRow{
-		{CategoryID: "cat1", Name: "HOUSING", Depth: 1},
-		{CategoryID: "cat1-sub1", Name: "Rent", Depth: 2, ParentCategoryID: bigquerylib.NullString{StringVal: "cat1", Valid: true}},
-		{CategoryID: "cat1-sub2", Name: "Utilities", Depth: 2, ParentCategoryID: bigquerylib.NullString{StringVal: "cat1", Valid: true}},
-		{CategoryID: "cat2", Name: "FOOD", Depth: 1},
-		{CategoryID: "cat2-sub1", Name: "Groceries", Depth: 2, ParentCategoryID: bigquerylib.NullString{StringVal: "cat2", Valid: true}},
-		{CategoryID: "cat2-sub2", Name: "Restaurants", Depth: 2, ParentCategoryID: bigquerylib.NullString{StringVal: "cat2", Valid: true}},
+		{CategoryID: "cat1-sub1", CategoryName: "Housing", SubcategoryName: bigquerylib.NullString{StringVal: "Rent", Valid: true}},
+		{CategoryID: "cat1-sub2", CategoryName: "Housing", SubcategoryName: bigquerylib.NullString{StringVal: "Utilities", Valid: true}},
+		{CategoryID: "cat2-sub1", CategoryName: "Food & Dining", SubcategoryName: bigquerylib.NullString{StringVal: "Groceries", Valid: true}},
+		{CategoryID: "cat2-sub2", CategoryName: "Food & Dining", SubcategoryName: bigquerylib.NullString{StringVal: "Restaurants", Valid: true}},
+		{CategoryID: "cat_healthcare", CategoryName: "Healthcare", SubcategoryName: bigquerylib.NullString{Valid: false}},
 	}
 
 	repo := &mockCategoryRepository{categories: categories}
@@ -80,7 +79,7 @@ func TestCategoryValidator_ValidateCategory(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateCategory(tt.category, tt.subcategory)
+			_, err := validator.ValidateCategory(tt.category, tt.subcategory)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateCategory() error = %v, wantErr %v", err, tt.wantErr)
 			}

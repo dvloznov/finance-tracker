@@ -18,36 +18,25 @@ func buildCategoriesPromptWithRepo(ctx context.Context, repo CategoryRepository)
 		return "", fmt.Errorf("buildCategoriesPrompt: no active categories found")
 	}
 
-	// Separate parents and children.
-	type parentInfo struct {
-		ID   string
-		Name string
-	}
-	var parentsOrder []parentInfo
-	childrenByParent := make(map[string][]string)
-
-	for _, r := range rows {
-		if r.Depth == 0 {
-			parentsOrder = append(parentsOrder, parentInfo{ID: r.CategoryID, Name: r.Name})
-			if _, ok := childrenByParent[r.CategoryID]; !ok {
-				childrenByParent[r.CategoryID] = []string{}
+	// Group by category name
+	categoryMap := make(map[string][]string)
+	for _, row := range rows {
+		cat := row.CategoryName
+		if row.SubcategoryName.Valid && row.SubcategoryName.StringVal != "" {
+			categoryMap[cat] = append(categoryMap[cat], row.SubcategoryName.StringVal)
+		} else {
+			// Ensure category exists even with no subcategory
+			if _, exists := categoryMap[cat]; !exists {
+				categoryMap[cat] = []string{}
 			}
-		}
-	}
-
-	for _, r := range rows {
-		if r.Depth == 1 && r.ParentCategoryID.Valid {
-			parentID := r.ParentCategoryID.StringVal
-			childrenByParent[parentID] = append(childrenByParent[parentID], r.Name)
 		}
 	}
 
 	var b strings.Builder
 	b.WriteString("Use ONLY the following Categories and Subcategories:\n\n")
 
-	for _, p := range parentsOrder {
-		b.WriteString(p.Name + ":\n")
-		subs := childrenByParent[p.ID]
+	for cat, subs := range categoryMap {
+		b.WriteString(cat + ":\n")
 		if len(subs) == 0 {
 			b.WriteString("  (no subcategories)\n\n")
 			continue

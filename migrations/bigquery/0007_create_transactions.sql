@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.transactions` (
   direction              STRING,
   raw_description        STRING NOT NULL,
   normalized_description STRING,
+  category_id            STRING,
   category_name          STRING,
   subcategory_name       STRING,
   statement_line_no      INT64,

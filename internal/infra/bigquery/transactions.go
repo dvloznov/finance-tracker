@@ -31,8 +31,9 @@ type TransactionRow struct {
 	RawDescription        string              `bigquery:"raw_description"`        // REQUIRED STRING
 	NormalizedDescription bigquery.NullString `bigquery:"normalized_description"` // NULLABLE STRING
 
-	CategoryName    bigquery.NullString `bigquery:"category_name"`    // NULLABLE
-	SubcategoryName bigquery.NullString `bigquery:"subcategory_name"` // NULLABLE
+	CategoryID      bigquery.NullString `bigquery:"category_id"`      // NULLABLE - links to categories table
+	CategoryName    bigquery.NullString `bigquery:"category_name"`    // NULLABLE - kept for backward compatibility
+	SubcategoryName bigquery.NullString `bigquery:"subcategory_name"` // NULLABLE - kept for backward compatibility
 
 	StatementLineNo bigquery.NullInt64 `bigquery:"statement_line_no"` // NULLABLE
 	StatementPageNo bigquery.NullInt64 `bigquery:"statement_page_no"` // NULLABLE

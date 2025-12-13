@@ -2,14 +2,13 @@ package bigquery
 
 import "cloud.google.com/go/bigquery"
 
+// CategoryRow represents a denormalized category-subcategory pair
 type CategoryRow struct {
-	CategoryID       string              `bigquery:"category_id"`        // REQUIRED
-	ParentCategoryID bigquery.NullString `bigquery:"parent_category_id"` // NULLABLE
-
-	Depth int64 `bigquery:"depth"` // REQUIRED (INTEGER in BQ maps to int64)
+	CategoryID      string              `bigquery:"category_id"`      // REQUIRED
+	CategoryName    string              `bigquery:"category_name"`    // REQUIRED
+	SubcategoryName bigquery.NullString `bigquery:"subcategory_name"` // NULLABLE
 
 	Slug string `bigquery:"slug"` // REQUIRED
-	Name string `bigquery:"name"` // REQUIRED
 
 	Description bigquery.NullString `bigquery:"description"` // NULLABLE
 	IsActive    bigquery.NullBool   `bigquery:"is_active"`   // NULLABLE

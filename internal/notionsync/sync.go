@@ -8,7 +8,6 @@ import (
 
 	"github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/logger"
-	"github.com/jomei/notionapi"
 )
 
 const (
@@ -19,13 +18,21 @@ const (
 // SyncTransactions syncs transactions from BigQuery to Notion within the specified date range.
 // It queries BigQuery for transactions, batches them, and creates/updates corresponding Notion pages.
 // The external_reference field on transactions is used to track Notion page IDs for idempotency.
+// Deprecated: Use SyncTransactionsWithCategories instead.
 func SyncTransactions(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, startDate, endDate time.Time, dryRun bool) error {
+	return SyncTransactionsWithCategories(ctx, repo, notionClient, notionDBID, startDate, endDate, nil, dryRun)
+}
+
+// SyncTransactionsWithCategories syncs transactions from BigQuery to Notion with category relations.
+// categoryPageIDs maps category_id -> Notion page ID for creating category relations.
+func SyncTransactionsWithCategories(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, startDate, endDate time.Time, categoryPageIDs map[string]string, dryRun bool) error {
 	log := logger.FromContext(ctx)
 
 	log.Info().
 		Time("start_date", startDate).
 		Time("end_date", endDate).
 		Bool("dry_run", dryRun).
+		Int("category_mappings", len(categoryPageIDs)).
 		Msg("Starting transaction sync to Notion")
 
 	// Query transactions from BigQuery
@@ -77,7 +84,7 @@ func SyncTransactions(ctx context.Context, repo bigquery.DocumentRepository, not
 			}
 
 			// Convert transaction to Notion properties
-			props := TransactionToNotionProperties(tx)
+			props := TransactionToNotionPropertiesWithCategories(tx, categoryPageIDs)
 
 			if existingPageID != "" {
 				// Update existing page
@@ -202,9 +209,9 @@ func SyncAccounts(ctx context.Context, repo bigquery.DocumentRepository, notionC
 }
 
 // SyncCategories syncs all active categories from BigQuery to Notion.
-// Creates or updates Notion pages for each category in the database.
-// Handles parent-child relationships by doing a two-pass sync.
-func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, dryRun bool) error {
+// Creates or updates Notion pages for each category-subcategory pair.
+// Returns a map of category_id -> Notion page ID for use in transaction sync.
+func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, dryRun bool) (map[string]string, error) {
 	log := logger.FromContext(ctx)
 
 	log.Info().
@@ -214,32 +221,31 @@ func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notio
 	// Query all active categories from BigQuery
 	categories, err := repo.ListActiveCategories(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to query categories: %w", err)
+		return nil, fmt.Errorf("failed to query categories: %w", err)
 	}
 
 	log.Info().Int("category_count", len(categories)).Msg("Retrieved categories from BigQuery")
 
 	if len(categories) == 0 {
 		log.Info().Msg("No categories to sync")
-		return nil
+		return make(map[string]string), nil
 	}
 
 	// Map to track category_id -> Notion page ID
 	categoryPageIDs := make(map[string]string)
 
-	// First pass: Create all categories
-	var created, updated int
+	var created int
 	for _, cat := range categories {
 		if dryRun {
 			log.Info().
 				Str("category_id", cat.CategoryID).
-				Str("category_name", cat.Name).
-				Msg("[DRY RUN] Would create/update Notion page for category")
+				Str("category_name", cat.CategoryName).
+				Msg("[DRY RUN] Would create Notion page for category")
 			created++
 			continue
 		}
 
-		// Convert category to Notion properties (without parent relation for now)
+		// Convert category to Notion properties
 		props := CategoryToNotionProperties(&cat)
 
 		// Create the page
@@ -248,7 +254,7 @@ func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notio
 			log.Warn().
 				Err(err).
 				Str("category_id", cat.CategoryID).
-				Str("category_name", cat.Name).
+				Str("category_name", cat.CategoryName).
 				Msg("Failed to create Notion page for category")
 			continue
 		}
@@ -256,81 +262,25 @@ func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notio
 		// Store the mapping
 		categoryPageIDs[cat.CategoryID] = string(page.ID)
 
+		subcatInfo := ""
+		if cat.SubcategoryName.Valid && cat.SubcategoryName.StringVal != "" {
+			subcatInfo = " -> " + cat.SubcategoryName.StringVal
+		}
+
 		log.Info().
 			Str("category_id", cat.CategoryID).
-			Str("category_name", cat.Name).
+			Str("category_name", cat.CategoryName+subcatInfo).
 			Str("page_id", string(page.ID)).
 			Msg("Created Notion page for category")
 		created++
 	}
 
-	// Second pass: Update subcategories with parent relations
-	if !dryRun {
-		for _, cat := range categories {
-			// Only process subcategories (depth 1) that have a parent
-			if cat.Depth != 1 || !cat.ParentCategoryID.Valid || cat.ParentCategoryID.StringVal == "" {
-				continue
-			}
-
-			// Look up parent's Notion page ID
-			parentPageID, exists := categoryPageIDs[cat.ParentCategoryID.StringVal]
-			if !exists {
-				log.Warn().
-					Str("category_id", cat.CategoryID).
-					Str("parent_category_id", cat.ParentCategoryID.StringVal).
-					Msg("Parent category not found in Notion, skipping relation update")
-				continue
-			}
-
-			// Get the child's Notion page ID
-			childPageID, exists := categoryPageIDs[cat.CategoryID]
-			if !exists {
-				continue
-			}
-
-			log.Info().
-				Str("category_id", cat.CategoryID).
-				Str("category_name", cat.Name).
-				Str("parent_category_id", cat.ParentCategoryID.StringVal).
-				Int64("depth", cat.Depth).
-				Msg("Setting parent category relation")
-
-			// Update the page with parent relation
-			updateProps := notionapi.Properties{
-				"Parent Category": notionapi.RelationProperty{
-					Relation: []notionapi.Relation{
-						{
-							ID: notionapi.PageID(parentPageID),
-						},
-					},
-				},
-			}
-
-			_, err := notionClient.UpdatePage(ctx, childPageID, updateProps)
-			if err != nil {
-				log.Warn().
-					Err(err).
-					Str("category_id", cat.CategoryID).
-					Str("parent_category_id", cat.ParentCategoryID.StringVal).
-					Msg("Failed to set parent category relation")
-				continue
-			}
-
-			log.Info().
-				Str("category_id", cat.CategoryID).
-				Str("parent_page_id", parentPageID).
-				Msg("Set parent category relation")
-			updated++
-		}
-	}
-
 	log.Info().
 		Int("created", created).
-		Int("updated", updated).
 		Int("total", len(categories)).
 		Msg("Categories sync completed")
 
-	return nil
+	return categoryPageIDs, nil
 }
 
 // SyncDocuments syncs all documents from BigQuery to Notion.

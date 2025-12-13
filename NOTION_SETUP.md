@@ -45,54 +45,55 @@ Internal tables (schema_migrations, parsing_runs, model_outputs) remain in BigQu
 
 ## 2. Categories Database
 
-**Purpose**: Hierarchical categorization system for transactions.
+**Purpose**: Denormalized category-subcategory combinations for transaction categorization. Each row represents one unique category-subcategory pair (or a parent-only category).
 
 ### Properties to Create:
 
 | Property Name | Type | Description | Configuration |
 |--------------|------|-------------|---------------|
-| Category | Title | Category name | **REQUIRED - Must be Title property** |
+| Category | Title | Full display name | **REQUIRED - Format: "Category → Subcategory" or just "Category"** |
+| Category Name | Text | Parent category name | **REQUIRED - e.g., "Food & Dining"** |
+| Subcategory Name | Text | Subcategory name | Optional - empty for parent-only categories like "Healthcare" |
 | Slug | Text | URL-friendly identifier | - |
-| Depth | Number | Hierarchy level (0 = top level) | - |
 | Description | Text | Category description | - |
 | Is Active | Checkbox | Whether category is in use | - |
-| Parent Category | Relation | Link to parent category | **Relation to Categories database (same database)** |
 | Created | Created time | Auto-populated | - |
 
-### Suggested Category Structure:
-Create these as starting categories:
-- **Income** (depth: 0)
-  - Salary (depth: 1)
-  - Freelance (depth: 1)
-  - Investment Income (depth: 1)
-- **Housing** (depth: 0)
-  - Rent/Mortgage (depth: 1)
-  - Utilities (depth: 1)
-  - Maintenance (depth: 1)
-- **Transportation** (depth: 0)
-  - Public Transit (depth: 1)
-  - Fuel (depth: 1)
-  - Parking (depth: 1)
-- **Food & Dining** (depth: 0)
-  - Groceries (depth: 1)
-  - Restaurants (depth: 1)
-  - Coffee Shops (depth: 1)
-- **Shopping** (depth: 0)
-  - Clothing (depth: 1)
-  - Electronics (depth: 1)
-  - Home Goods (depth: 1)
-- **Healthcare** (depth: 0)
-- **Entertainment** (depth: 0)
-- **Travel** (depth: 0)
-- **Subscriptions** (depth: 0)
-- **Transfers** (depth: 0)
-- **Uncategorized** (depth: 0)
+### Category Structure (Denormalized):
+Each row is a complete category-subcategory pair that can be selected in transactions:
+
+**With Subcategories:**
+- Income → Salary
+- Income → Freelance
+- Income → Investment Income
+- Housing → Rent/Mortgage
+- Housing → Utilities
+- Housing → Maintenance
+- Transportation → Public Transit
+- Transportation → Fuel
+- Transportation → Parking
+- Food & Dining → Groceries
+- Food & Dining → Restaurants
+- Food & Dining → Coffee Shops
+- Shopping → Clothing
+- Shopping → Electronics
+- Shopping → Home Goods
+
+**Parent-Only (No Subcategory):**
+- Healthcare
+- Entertainment
+- Travel
+- Subscriptions
+- Transfers
+- Uncategorized
+
+Total: 21 category rows
 
 ### Views to Create:
-- **All Categories** - Tree view showing hierarchy
+- **All Categories** - Default table view
 - **Active Categories** - Filter: Is Active is checked
-- **Top Level** - Filter: Depth equals 0
-- **By Parent** - Group by: Parent Category
+- **By Category** - Group by: Category Name
+- **With Subcategories** - Filter: Subcategory Name is not empty
 
 ---
 
@@ -137,26 +138,34 @@ Create these as starting categories:
 | Currency | Select | Transaction currency | **REQUIRED - Options: GBP, USD, EUR, etc.** |
 | Balance After | Number | Account balance after transaction | Format: Number with 2 decimals |
 | Account | Text | Account identifier | - |
-| Category | Select | Transaction category | Options: Add categories as needed |
-| Subcategory | Select | Transaction subcategory | **REQUIRED - Must be Select type, Options: Add as needed** |
+| Category | Relation | Link to Categories database | **REQUIRED - Relation to Categories database** |
 | Parsing Run ID | Text | Internal processing ID | - |
 | Document ID | Text | Source document ID | **REQUIRED** |
 | Imported At | Date | When synced to Notion | **REQUIRED** |
 | Notes | Text | Additional notes/normalized description | - |
 | Is Corrected | Checkbox | Manually corrected | **REQUIRED - Default: false** |
 
-### Notes on Property Types:
+### Critical Configuration Notes:
 - **Description**: Must be Title (primary property)
 - **Date**: Must be Date type (not "Transaction Date")  
-- **Subcategory**: Must be Select type (not Text)
+- **Category**: Must be Relation type pointing to Categories database
+  - Each transaction links to ONE row in the Categories database
+  - That row contains both the category and subcategory information
+  - Example: Transaction links to "Food & Dining → Coffee Shops" row
 - **Document ID, Parsing Run ID, Account, Notes**: Must be Text/Rich Text
 - **Is Corrected**: Must be Checkbox
 - **Imported At**: Must be Date type
 
+### How Category Relations Work:
+Since Categories are denormalized, each transaction has a single relation to one category row that already contains both the parent category and subcategory:
+- Transaction: "Starbucks" → Links to Category: "Food & Dining → Coffee Shops"
+- Transaction: "Salary" → Links to Category: "Income → Salary"
+- Transaction: "Doctor visit" → Links to Category: "Healthcare" (no subcategory)
+
 ### Views to Create:
 - **All Transactions** - Default table view
 - **This Month** - Filter: Date is within this month
-- **By Subcategory** - Group by: Subcategory
+- **By Category** - Group by: Category
 - **Recent** - Sort by: Date (descending)
 - **Needs Review** - Filter: Is Corrected is unchecked
 
@@ -173,8 +182,10 @@ Create these as starting categories:
 
 2. **Transactions → Categories**
    - Type: Relation
-   - Allows categorization of spending
-   - Enables spending analysis by category
+   - **Required**: Points to Categories database
+   - Each transaction links to ONE category row (which contains both category and subcategory)
+   - Example: "Starbucks" transaction → links to "Food & Dining → Coffee Shops" category row
+   - Allows categorization and spending analysis
 
 3. **Transactions → Documents**
    - Type: Relation
@@ -184,11 +195,6 @@ Create these as starting categories:
 4. **Documents → Accounts**
    - Type: Relation
    - Shows which account a statement belongs to
-
-5. **Categories → Parent Category** (Self-relation)
-   - Type: Relation (to same database)
-   - Creates hierarchy
-   - Allows multi-level categorization
 
 ---
 

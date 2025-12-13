@@ -1,10 +1,9 @@
--- Create categories table
+-- Create categories table (denormalized: one row per category-subcategory pair)
 CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.categories` (
   category_id        STRING NOT NULL,
-  parent_category_id STRING,
-  depth              INT64 NOT NULL,
+  category_name      STRING NOT NULL,
+  subcategory_name   STRING,
   slug               STRING NOT NULL,
-  name               STRING NOT NULL,
   description        STRING,
   is_active          BOOL,
   created_ts         TIMESTAMP,

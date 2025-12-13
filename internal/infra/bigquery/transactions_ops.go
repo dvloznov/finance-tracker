@@ -70,6 +70,7 @@ func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquer
 			direction,
 			raw_description,
 			normalized_description,
+			category_id,
 			category_name,
 			subcategory_name,
 			statement_line_no,

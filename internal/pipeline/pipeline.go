@@ -195,6 +195,14 @@ func insertTransactionsWithRepo(
 			}
 		}
 
+		var categoryID bigquerylib.NullString
+		if strings.TrimSpace(t.CategoryID) != "" {
+			categoryID = bigquerylib.NullString{
+				StringVal: t.CategoryID,
+				Valid:     true,
+			}
+		}
+
 		row := &infra.TransactionRow{
 			TransactionID: uuid.NewString(),
 
@@ -216,6 +224,7 @@ func insertTransactionsWithRepo(
 			RawDescription:        t.Description,
 			NormalizedDescription: normalizedDescription,
 
+			CategoryID:      categoryID,
 			CategoryName:    categoryName,
 			SubcategoryName: subcategoryName,
 		}

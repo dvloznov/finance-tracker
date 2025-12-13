@@ -15,10 +15,9 @@ import (
 func TestPipelineWithCategoryValidation(t *testing.T) {
 	// Setup mock categories
 	mockCategories := []infra.CategoryRow{
-		{CategoryID: "cat1", Name: "FOOD", Depth: 1},
-		{CategoryID: "cat1-sub1", Name: "Groceries", Depth: 2, ParentCategoryID: bigquerylib.NullString{StringVal: "cat1", Valid: true}},
-		{CategoryID: "cat2", Name: "TRANSPORT", Depth: 1},
-		{CategoryID: "cat2-sub1", Name: "Fuel", Depth: 2, ParentCategoryID: bigquerylib.NullString{StringVal: "cat2", Valid: true}},
+		{CategoryID: "cat1-sub1", CategoryName: "Food & Dining", SubcategoryName: bigquerylib.NullString{StringVal: "Groceries", Valid: true}},
+		{CategoryID: "cat2-sub1", CategoryName: "Transportation", SubcategoryName: bigquerylib.NullString{StringVal: "Fuel", Valid: true}},
+		{CategoryID: "cat_healthcare", CategoryName: "Healthcare", SubcategoryName: bigquerylib.NullString{Valid: false}},
 	}
 
 	// Setup mock document repository
