@@ -36,6 +36,12 @@ type DocumentRepository interface {
 
 	// QueryTransactionsByDateRange queries transactions within the specified date range.
 	QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*TransactionRow, error)
+
+	// ListAllAccounts retrieves all accounts from the database.
+	ListAllAccounts(ctx context.Context) ([]*AccountRow, error)
+
+	// ListAllDocuments retrieves all documents from the database.
+	ListAllDocuments(ctx context.Context) ([]*DocumentRow, error)
 }
 
 // BigQueryDocumentRepository is the concrete implementation of DocumentRepository
@@ -104,4 +110,14 @@ func (r *BigQueryDocumentRepository) ListActiveCategories(ctx context.Context) (
 // QueryTransactionsByDateRange delegates to the existing QueryTransactionsByDateRange function with the shared client.
 func (r *BigQueryDocumentRepository) QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*TransactionRow, error) {
 	return QueryTransactionsByDateRangeWithClient(ctx, r.client, startDate, endDate)
+}
+
+// ListAllAccounts delegates to the existing ListAllAccounts function with the shared client.
+func (r *BigQueryDocumentRepository) ListAllAccounts(ctx context.Context) ([]*AccountRow, error) {
+	return ListAllAccountsWithClient(ctx, r.client)
+}
+
+// ListAllDocuments delegates to the existing ListAllDocuments function with the shared client.
+func (r *BigQueryDocumentRepository) ListAllDocuments(ctx context.Context) ([]*DocumentRow, error) {
+	return ListAllDocumentsWithClient(ctx, r.client)
 }

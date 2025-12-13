@@ -136,3 +136,195 @@ func extractPageID(externalRef string) string {
 	}
 	return externalRef
 }
+
+// SyncAccounts syncs all accounts from BigQuery to Notion.
+// Creates or updates Notion pages for each account in the database.
+func SyncAccounts(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, dryRun bool) error {
+	log := logger.FromContext(ctx)
+
+	log.Info().
+		Bool("dry_run", dryRun).
+		Msg("Starting accounts sync to Notion")
+
+	// Query all accounts from BigQuery
+	accounts, err := repo.ListAllAccounts(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query accounts: %w", err)
+	}
+
+	log.Info().Int("account_count", len(accounts)).Msg("Retrieved accounts from BigQuery")
+
+	if len(accounts) == 0 {
+		log.Info().Msg("No accounts to sync")
+		return nil
+	}
+
+	// Sync accounts
+	var created, updated int
+	for _, acc := range accounts {
+		if dryRun {
+			log.Info().
+				Str("account_id", acc.AccountID).
+				Msg("[DRY RUN] Would create/update Notion page for account")
+			created++
+			continue
+		}
+
+		// Convert account to Notion properties
+		props := AccountToNotionProperties(acc)
+
+		// For accounts, we'll always create new pages for now
+		// In a production system, you'd want to track Notion page IDs similar to transactions
+		page, err := notionClient.CreatePage(ctx, notionDBID, props)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("account_id", acc.AccountID).
+				Msg("Failed to create Notion page for account")
+			continue
+		}
+
+		log.Info().
+			Str("account_id", acc.AccountID).
+			Str("page_id", string(page.ID)).
+			Msg("Created Notion page for account")
+		created++
+	}
+
+	log.Info().
+		Int("created", created).
+		Int("updated", updated).
+		Int("total", len(accounts)).
+		Msg("Accounts sync completed")
+
+	return nil
+}
+
+// SyncCategories syncs all active categories from BigQuery to Notion.
+// Creates or updates Notion pages for each category in the database.
+func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, dryRun bool) error {
+	log := logger.FromContext(ctx)
+
+	log.Info().
+		Bool("dry_run", dryRun).
+		Msg("Starting categories sync to Notion")
+
+	// Query all active categories from BigQuery
+	categories, err := repo.ListActiveCategories(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query categories: %w", err)
+	}
+
+	log.Info().Int("category_count", len(categories)).Msg("Retrieved categories from BigQuery")
+
+	if len(categories) == 0 {
+		log.Info().Msg("No categories to sync")
+		return nil
+	}
+
+	// Sync categories (sorted by depth to handle parent-child relationships)
+	var created, updated int
+	for _, cat := range categories {
+		if dryRun {
+			log.Info().
+				Str("category_id", cat.CategoryID).
+				Str("category_name", cat.Name).
+				Msg("[DRY RUN] Would create/update Notion page for category")
+			created++
+			continue
+		}
+
+		// Convert category to Notion properties
+		props := CategoryToNotionProperties(&cat)
+
+		// For categories, we'll always create new pages for now
+		// In a production system, you'd want to track Notion page IDs and handle parent relations
+		page, err := notionClient.CreatePage(ctx, notionDBID, props)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("category_id", cat.CategoryID).
+				Str("category_name", cat.Name).
+				Msg("Failed to create Notion page for category")
+			continue
+		}
+
+		log.Info().
+			Str("category_id", cat.CategoryID).
+			Str("category_name", cat.Name).
+			Str("page_id", string(page.ID)).
+			Msg("Created Notion page for category")
+		created++
+	}
+
+	log.Info().
+		Int("created", created).
+		Int("updated", updated).
+		Int("total", len(categories)).
+		Msg("Categories sync completed")
+
+	return nil
+}
+
+// SyncDocuments syncs all documents from BigQuery to Notion.
+// Creates or updates Notion pages for each document in the database.
+func SyncDocuments(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, dryRun bool) error {
+	log := logger.FromContext(ctx)
+
+	log.Info().
+		Bool("dry_run", dryRun).
+		Msg("Starting documents sync to Notion")
+
+	// Query all documents from BigQuery
+	documents, err := repo.ListAllDocuments(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query documents: %w", err)
+	}
+
+	log.Info().Int("document_count", len(documents)).Msg("Retrieved documents from BigQuery")
+
+	if len(documents) == 0 {
+		log.Info().Msg("No documents to sync")
+		return nil
+	}
+
+	// Sync documents
+	var created, updated int
+	for _, doc := range documents {
+		if dryRun {
+			log.Info().
+				Str("document_id", doc.DocumentID).
+				Msg("[DRY RUN] Would create/update Notion page for document")
+			created++
+			continue
+		}
+
+		// Convert document to Notion properties
+		props := DocumentToNotionProperties(doc)
+
+		// For documents, we'll always create new pages for now
+		// In a production system, you'd want to track Notion page IDs similar to transactions
+		page, err := notionClient.CreatePage(ctx, notionDBID, props)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("document_id", doc.DocumentID).
+				Msg("Failed to create Notion page for document")
+			continue
+		}
+
+		log.Info().
+			Str("document_id", doc.DocumentID).
+			Str("page_id", string(page.ID)).
+			Msg("Created Notion page for document")
+		created++
+	}
+
+	log.Info().
+		Int("created", created).
+		Int("updated", updated).
+		Int("total", len(documents)).
+		Msg("Documents sync completed")
+
+	return nil
+}

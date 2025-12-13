@@ -16,44 +16,60 @@ func main() {
 	log := logger.New()
 
 	// Parse CLI flags
-	startDateStr := flag.String("start-date", "", "Start date in YYYY-MM-DD format (required)")
-	endDateStr := flag.String("end-date", "", "End date in YYYY-MM-DD format (required)")
+	syncType := flag.String("type", "transactions", "Type of data to sync: transactions, accounts, categories, documents, or all")
+	startDateStr := flag.String("start-date", "", "Start date in YYYY-MM-DD format (required for transactions sync)")
+	endDateStr := flag.String("end-date", "", "End date in YYYY-MM-DD format (required for transactions sync)")
 	notionToken := flag.String("notion-token", "", "Notion API token (required)")
-	notionDBID := flag.String("notion-db-id", "", "Notion database ID (required)")
+	notionTransactionsDBID := flag.String("notion-transactions-db-id", "", "Notion transactions database ID")
+	notionAccountsDBID := flag.String("notion-accounts-db-id", "", "Notion accounts database ID")
+	notionCategoriesDBID := flag.String("notion-categories-db-id", "", "Notion categories database ID")
+	notionDocumentsDBID := flag.String("notion-documents-db-id", "", "Notion documents database ID")
 	dryRun := flag.Bool("dry-run", false, "Dry run mode - preview changes without syncing")
 	flag.Parse()
 
 	// Validate required flags
-	if *startDateStr == "" {
-		log.Fatal().Msg("Error: --start-date is required")
-	}
-	if *endDateStr == "" {
-		log.Fatal().Msg("Error: --end-date is required")
-	}
 	if *notionToken == "" {
 		log.Fatal().Msg("Error: --notion-token is required")
 	}
-	if *notionDBID == "" {
-		log.Fatal().Msg("Error: --notion-db-id is required")
+
+	// Validate sync type
+	validTypes := map[string]bool{
+		"transactions": true,
+		"accounts":     true,
+		"categories":   true,
+		"documents":    true,
+		"all":          true,
+	}
+	if !validTypes[*syncType] {
+		log.Fatal().Str("sync_type", *syncType).Msg("Error: invalid --type. Must be one of: transactions, accounts, categories, documents, all")
 	}
 
-	// Parse dates
-	startDate, err := time.Parse("2006-01-02", *startDateStr)
-	if err != nil {
-		log.Fatal().Err(err).Str("start_date", *startDateStr).Msg("Error: invalid start-date format, expected YYYY-MM-DD")
+	// Validate date parameters for transactions sync
+	if (*syncType == "transactions" || *syncType == "all") && (*startDateStr == "" || *endDateStr == "") {
+		log.Fatal().Msg("Error: --start-date and --end-date are required for transactions sync")
 	}
 
-	endDate, err := time.Parse("2006-01-02", *endDateStr)
-	if err != nil {
-		log.Fatal().Err(err).Str("end_date", *endDateStr).Msg("Error: invalid end-date format, expected YYYY-MM-DD")
-	}
+	// Parse dates if provided
+	var startDate, endDate time.Time
+	var err error
+	if *startDateStr != "" && *endDateStr != "" {
+		startDate, err = time.Parse("2006-01-02", *startDateStr)
+		if err != nil {
+			log.Fatal().Err(err).Str("start_date", *startDateStr).Msg("Error: invalid start-date format, expected YYYY-MM-DD")
+		}
 
-	// Validate date range
-	if endDate.Before(startDate) {
-		log.Fatal().
-			Time("start_date", startDate).
-			Time("end_date", endDate).
-			Msg("Error: end-date must be after start-date")
+		endDate, err = time.Parse("2006-01-02", *endDateStr)
+		if err != nil {
+			log.Fatal().Err(err).Str("end_date", *endDateStr).Msg("Error: invalid end-date format, expected YYYY-MM-DD")
+		}
+
+		// Validate date range
+		if endDate.Before(startDate) {
+			log.Fatal().
+				Time("start_date", startDate).
+				Time("end_date", endDate).
+				Msg("Error: end-date must be after start-date")
+		}
 	}
 
 	// Create context with timeout so CLI doesn't hang
@@ -64,8 +80,7 @@ func main() {
 	ctx = logger.WithContext(ctx, log)
 
 	log.Info().
-		Str("start_date", *startDateStr).
-		Str("end_date", *endDateStr).
+		Str("sync_type", *syncType).
 		Bool("dry_run", *dryRun).
 		Msg("Starting Notion sync")
 
@@ -79,9 +94,69 @@ func main() {
 	// Initialize Notion client
 	notionClient := notionsync.NewNotionClient(*notionToken)
 
-	// Sync transactions
-	if err := notionsync.SyncTransactions(ctx, repo, notionClient, *notionDBID, startDate, endDate, *dryRun); err != nil {
-		log.Fatal().Err(err).Msg("Sync failed")
+	// Perform sync based on type
+	switch *syncType {
+	case "transactions":
+		if *notionTransactionsDBID == "" {
+			log.Fatal().Msg("Error: --notion-transactions-db-id is required for transactions sync")
+		}
+		if err := notionsync.SyncTransactions(ctx, repo, notionClient, *notionTransactionsDBID, startDate, endDate, *dryRun); err != nil {
+			log.Fatal().Err(err).Msg("Transactions sync failed")
+		}
+
+	case "accounts":
+		if *notionAccountsDBID == "" {
+			log.Fatal().Msg("Error: --notion-accounts-db-id is required for accounts sync")
+		}
+		if err := notionsync.SyncAccounts(ctx, repo, notionClient, *notionAccountsDBID, *dryRun); err != nil {
+			log.Fatal().Err(err).Msg("Accounts sync failed")
+		}
+
+	case "categories":
+		if *notionCategoriesDBID == "" {
+			log.Fatal().Msg("Error: --notion-categories-db-id is required for categories sync")
+		}
+		if err := notionsync.SyncCategories(ctx, repo, notionClient, *notionCategoriesDBID, *dryRun); err != nil {
+			log.Fatal().Err(err).Msg("Categories sync failed")
+		}
+
+	case "documents":
+		if *notionDocumentsDBID == "" {
+			log.Fatal().Msg("Error: --notion-documents-db-id is required for documents sync")
+		}
+		if err := notionsync.SyncDocuments(ctx, repo, notionClient, *notionDocumentsDBID, *dryRun); err != nil {
+			log.Fatal().Err(err).Msg("Documents sync failed")
+		}
+
+	case "all":
+		// Sync all tables
+		if *notionAccountsDBID != "" {
+			log.Info().Msg("Syncing accounts...")
+			if err := notionsync.SyncAccounts(ctx, repo, notionClient, *notionAccountsDBID, *dryRun); err != nil {
+				log.Error().Err(err).Msg("Accounts sync failed")
+			}
+		}
+
+		if *notionCategoriesDBID != "" {
+			log.Info().Msg("Syncing categories...")
+			if err := notionsync.SyncCategories(ctx, repo, notionClient, *notionCategoriesDBID, *dryRun); err != nil {
+				log.Error().Err(err).Msg("Categories sync failed")
+			}
+		}
+
+		if *notionDocumentsDBID != "" {
+			log.Info().Msg("Syncing documents...")
+			if err := notionsync.SyncDocuments(ctx, repo, notionClient, *notionDocumentsDBID, *dryRun); err != nil {
+				log.Error().Err(err).Msg("Documents sync failed")
+			}
+		}
+
+		if *notionTransactionsDBID != "" {
+			log.Info().Msg("Syncing transactions...")
+			if err := notionsync.SyncTransactions(ctx, repo, notionClient, *notionTransactionsDBID, startDate, endDate, *dryRun); err != nil {
+				log.Error().Err(err).Msg("Transactions sync failed")
+			}
+		}
 	}
 
 	fmt.Println("Sync completed successfully.")

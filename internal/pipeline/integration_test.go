@@ -224,6 +224,16 @@ func (m *mockDocumentRepo) QueryTransactionsByDateRange(ctx context.Context, sta
 	return []*infra.TransactionRow{}, nil
 }
 
+func (m *mockDocumentRepo) ListAllAccounts(ctx context.Context) ([]*infra.AccountRow, error) {
+	// Not needed for pipeline tests, return empty slice
+	return []*infra.AccountRow{}, nil
+}
+
+func (m *mockDocumentRepo) ListAllDocuments(ctx context.Context) ([]*infra.DocumentRow, error) {
+	// Not needed for pipeline tests, return empty slice
+	return []*infra.DocumentRow{}, nil
+}
+
 func (m *mockDocumentRepo) Close() error {
 	return nil
 }
