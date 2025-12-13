@@ -38,8 +38,8 @@ func ListAllAccountsWithClient(ctx context.Context, client *bigquery.Client) ([]
 			metadata,
 			created_ts,
 			updated_ts
-		FROM %s.%s.accounts
-		ORDER BY created_ts DESC
+	FROM `+"`%s.%s.accounts`"+`
+	ORDER BY created_ts DESC
 	`, projectID, datasetID)
 
 	q := client.Query(query)

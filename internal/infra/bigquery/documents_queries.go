@@ -40,7 +40,7 @@ func ListAllDocumentsWithClient(ctx context.Context, client *bigquery.Client) ([
 			text_gcs_uri,
 			checksum_sha256,
 			metadata
-		FROM %s.%s.documents
+		FROM `+"`%s.%s.documents`"+`
 		ORDER BY upload_ts DESC
 	`, projectID, datasetID)
 
