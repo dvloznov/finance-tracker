@@ -56,7 +56,7 @@ Internal tables (schema_migrations, parsing_runs, model_outputs) remain in BigQu
 | Depth | Number | Hierarchy level (0 = top level) | - |
 | Description | Text | Category description | - |
 | Is Active | Checkbox | Whether category is in use | - |
-| Parent Category | Relation | Link to parent category | Relation to same database (optional) |
+| Parent Category | Relation | Link to parent category | **Relation to Categories database (same database)** |
 | Created | Created time | Auto-populated | - |
 
 ### Suggested Category Structure:
