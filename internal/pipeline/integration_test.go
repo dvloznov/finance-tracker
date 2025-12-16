@@ -233,6 +233,16 @@ func (m *mockDocumentRepo) ListAllDocuments(ctx context.Context) ([]*infra.Docum
 	return []*infra.DocumentRow{}, nil
 }
 
+func (m *mockDocumentRepo) FindDocumentByChecksum(ctx context.Context, checksum string) (*infra.DocumentRow, error) {
+	// For tests, return nil to indicate no duplicate found
+	return nil, nil
+}
+
+func (m *mockDocumentRepo) MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error {
+	// For tests, just return success
+	return nil
+}
+
 func (m *mockDocumentRepo) Close() error {
 	return nil
 }

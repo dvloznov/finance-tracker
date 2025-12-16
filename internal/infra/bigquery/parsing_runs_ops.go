@@ -192,3 +192,46 @@ func MarkParsingRunSucceededWithClient(ctx context.Context, client *bigquery.Cli
 
 	return nil
 }
+
+// MarkParsingRunsAsSuperseded marks all non-running parsing runs for a document as SUPERSEDED.
+// This preserves the history of previous parsing attempts while indicating they are no longer current.
+func MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error {
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("MarkParsingRunsAsSuperseded: bigquery client: %w", err)
+	}
+	defer client.Close()
+
+	return MarkParsingRunsAsSupersededWithClient(ctx, client, documentID)
+}
+
+// MarkParsingRunsAsSupersededWithClient marks all non-running parsing runs for a document as SUPERSEDED
+// using the provided BigQuery client.
+func MarkParsingRunsAsSupersededWithClient(ctx context.Context, client *bigquery.Client, documentID string) error {
+	q := client.Query(fmt.Sprintf(`
+		UPDATE %s.%s
+		SET status = @new_status
+		WHERE document_id = @document_id
+		  AND status IN ('SUCCESS', 'FAILED')
+	`, datasetID, parsingRunsTable))
+
+	q.Parameters = []bigquery.QueryParameter{
+		{Name: "new_status", Value: "SUPERSEDED"},
+		{Name: "document_id", Value: documentID},
+	}
+
+	job, err := q.Run(ctx)
+	if err != nil {
+		return fmt.Errorf("MarkParsingRunsAsSuperseded: running update query: %w", err)
+	}
+
+	status, err := job.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("MarkParsingRunsAsSuperseded: waiting for job: %w", err)
+	}
+	if err := status.Err(); err != nil {
+		return fmt.Errorf("MarkParsingRunsAsSuperseded: job error: %w", err)
+	}
+
+	return nil
+}

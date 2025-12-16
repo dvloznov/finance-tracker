@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 
 	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
@@ -19,8 +20,10 @@ type PipelineState struct {
 	DocumentID     string
 	ParsingRunID   string
 	PDFBytes       []byte
+	Checksum       string // SHA-256 checksum of the PDF file
 	RawModelOutput map[string]interface{}
 	Transactions   []*Transaction
+	IsReparse      bool // True if we're re-parsing an existing document
 
 	// Injected dependencies
 	DocumentRepo      infra.DocumentRepository
@@ -37,11 +40,47 @@ func (s *CreateDocumentStep) Name() string {
 }
 
 func (s *CreateDocumentStep) Execute(ctx context.Context, state *PipelineState) error {
-	documentID, err := createDocumentWithRepo(ctx, state.GCSURI, state.DocumentRepo, state.StorageService)
+	// Check if a document with this checksum already exists
+	if state.Checksum != "" {
+		existingDoc, err := state.DocumentRepo.FindDocumentByChecksum(ctx, state.Checksum)
+		if err != nil {
+			return fmt.Errorf("CreateDocument: checking for duplicate: %w", err)
+		}
+		
+		if existingDoc != nil {
+			// Document already exists - reuse it
+			state.DocumentID = existingDoc.DocumentID
+			state.IsReparse = true
+			return nil
+		}
+	}
+	
+	// No duplicate found - create new document with checksum
+	documentID, err := createDocumentWithChecksumRepo(ctx, state.GCSURI, state.Checksum, state.DocumentRepo, state.StorageService)
 	if err != nil {
 		return err
 	}
 	state.DocumentID = documentID
+	state.IsReparse = false
+	return nil
+}
+
+// Step 1a: SupersedeOldParsingRunsStep marks old parsing runs as SUPERSEDED if re-parsing.
+type SupersedeOldParsingRunsStep struct{}
+
+func (s *SupersedeOldParsingRunsStep) Name() string {
+	return "SupersedeOldParsingRuns"
+}
+
+func (s *SupersedeOldParsingRunsStep) Execute(ctx context.Context, state *PipelineState) error {
+	// Only supersede if this is a re-parse (document already existed)
+	if !state.IsReparse {
+		return nil
+	}
+	
+	if err := state.DocumentRepo.MarkParsingRunsAsSuperseded(ctx, state.DocumentID); err != nil {
+		return fmt.Errorf("SupersedeOldParsingRuns: %w", err)
+	}
 	return nil
 }
 
@@ -71,10 +110,30 @@ func (s *FetchPDFStep) Name() string {
 func (s *FetchPDFStep) Execute(ctx context.Context, state *PipelineState) error {
 	pdfBytes, err := state.StorageService.FetchFromGCS(ctx, state.GCSURI)
 	if err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		// Only mark parsing run as failed if it exists
+		if state.ParsingRunID != "" {
+			state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		}
 		return err
 	}
 	state.PDFBytes = pdfBytes
+	return nil
+}
+
+// Step 3a: CalculateChecksumStep calculates the SHA-256 checksum of the PDF.
+type CalculateChecksumStep struct{}
+
+func (s *CalculateChecksumStep) Name() string {
+	return "CalculateChecksum"
+}
+
+func (s *CalculateChecksumStep) Execute(ctx context.Context, state *PipelineState) error {
+	if len(state.PDFBytes) == 0 {
+		return fmt.Errorf("CalculateChecksum: PDF bytes not available")
+	}
+	// Calculate SHA-256 hash
+	hash := sha256.Sum256(state.PDFBytes)
+	state.Checksum = fmt.Sprintf("%x", hash[:])
 	return nil
 }
 
@@ -231,9 +290,11 @@ func (p *Pipeline) Execute(ctx context.Context, state *PipelineState) error {
 // NewStatementIngestionPipeline creates the standard pipeline for ingesting statements.
 func NewStatementIngestionPipeline() *Pipeline {
 	return NewPipeline(
-		&CreateDocumentStep{},
-		&StartParsingRunStep{},
 		&FetchPDFStep{},
+		&CalculateChecksumStep{},
+		&CreateDocumentStep{},
+		&SupersedeOldParsingRunsStep{},
+		&StartParsingRunStep{},
 		&ParseStatementStep{},
 		&StoreModelOutputStep{},
 		&TransformTransactionsStep{},

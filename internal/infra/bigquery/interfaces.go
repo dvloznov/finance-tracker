@@ -42,6 +42,13 @@ type DocumentRepository interface {
 
 	// ListAllDocuments retrieves all documents from the database.
 	ListAllDocuments(ctx context.Context) ([]*DocumentRow, error)
+
+	// FindDocumentByChecksum retrieves a document by its SHA-256 checksum.
+	// Returns nil if no document with the given checksum exists.
+	FindDocumentByChecksum(ctx context.Context, checksum string) (*DocumentRow, error)
+
+	// MarkParsingRunsAsSuperseded marks all non-running parsing runs for a document as SUPERSEDED.
+	MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error
 }
 
 // BigQueryDocumentRepository is the concrete implementation of DocumentRepository
@@ -120,4 +127,14 @@ func (r *BigQueryDocumentRepository) ListAllAccounts(ctx context.Context) ([]*Ac
 // ListAllDocuments delegates to the existing ListAllDocuments function with the shared client.
 func (r *BigQueryDocumentRepository) ListAllDocuments(ctx context.Context) ([]*DocumentRow, error) {
 	return ListAllDocumentsWithClient(ctx, r.client)
+}
+
+// FindDocumentByChecksum delegates to the existing FindDocumentByChecksum function with the shared client.
+func (r *BigQueryDocumentRepository) FindDocumentByChecksum(ctx context.Context, checksum string) (*DocumentRow, error) {
+	return FindDocumentByChecksumWithClient(ctx, r.client, checksum)
+}
+
+// MarkParsingRunsAsSuperseded delegates to the existing MarkParsingRunsAsSuperseded function with the shared client.
+func (r *BigQueryDocumentRepository) MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error {
+	return MarkParsingRunsAsSupersededWithClient(ctx, r.client, documentID)
 }

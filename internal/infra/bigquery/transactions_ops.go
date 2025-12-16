@@ -58,43 +58,47 @@ func QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.T
 }
 
 // QueryTransactionsByDateRangeWithClient queries transactions within the specified date range
-// using the provided BigQuery client.
+// using the provided BigQuery client. Only includes transactions from successful parsing runs,
+// excluding transactions from superseded runs.
 func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquery.Client, startDate, endDate time.Time) ([]*TransactionRow, error) {
 	q := client.Query(`
 		SELECT
-			transaction_id,
-			user_id,
-			account_id,
-			document_id,
-			parsing_run_id,
-			transaction_date,
-			posting_date,
-			booking_datetime,
-			amount,
-			currency,
-			balance_after,
-			direction,
-			raw_description,
-			normalized_description,
-			category_id,
-			category_name,
-			subcategory_name,
-			statement_line_no,
-			statement_page_no,
-			is_pending,
-			is_refund,
-			is_internal_transfer,
-			is_split_parent,
-			is_split_child,
-			external_reference,
-			tags,
-			created_ts,
-			updated_ts,
-			extra
-		FROM finance.transactions
-		WHERE transaction_date >= @start_date
-		  AND transaction_date <= @end_date
-		ORDER BY transaction_date, created_ts
+			t.transaction_id,
+			t.user_id,
+			t.account_id,
+			t.document_id,
+			t.parsing_run_id,
+			t.transaction_date,
+			t.posting_date,
+			t.booking_datetime,
+			t.amount,
+			t.currency,
+			t.balance_after,
+			t.direction,
+			t.raw_description,
+			t.normalized_description,
+			t.category_id,
+			t.category_name,
+			t.subcategory_name,
+			t.statement_line_no,
+			t.statement_page_no,
+			t.is_pending,
+			t.is_refund,
+			t.is_internal_transfer,
+			t.is_split_parent,
+			t.is_split_child,
+			t.external_reference,
+			t.tags,
+			t.created_ts,
+			t.updated_ts,
+			t.extra
+		FROM finance.transactions t
+		INNER JOIN finance.parsing_runs pr
+		  ON t.parsing_run_id = pr.parsing_run_id
+		WHERE t.transaction_date >= @start_date
+		  AND t.transaction_date <= @end_date
+		  AND pr.status = 'SUCCESS'
+		ORDER BY t.transaction_date, t.created_ts
 	`)
 	q.Parameters = []bigquery.QueryParameter{
 		{Name: "start_date", Value: startDate.Format(dateFormat)},
