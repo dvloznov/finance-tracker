@@ -33,20 +33,26 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo Category
 			"- \"amount\": number (positive for money IN, negative for money OUT)\n" +
 			"- \"currency\": string (e.g. \"GBP\")\n" +
 			"- \"balance_after\": number or null\n" +
-			"- \"category\": string (one of the predefined categories)\n" +
-			"- \"subcategory\": string (one of the predefined subcategories below)\n\n"
+			"- \"category\": string (MUST be one of the predefined categories below)\n" +
+			"- \"subcategory\": string (MUST be one of the valid subcategories for that category, or empty string if category has no subcategories)\n\n"
 
 	rulesPrompt :=
 		"Rules:\n" +
 			"- Classify each transaction into the most appropriate category/subcategory.\n" +
+			"- IMPORTANT: If a category has subcategories, you MUST select one - never leave it empty.\n" +
+			"- For ride-sharing services (Uber, Lyft, etc.), always use \"Transportation\" / \"Public Transit\".\n" +
 			"- If the statement has separate \"paid out\" / \"paid in\" columns, convert to a single signed \"amount\".\n" +
 			"- If the running balance is missing, set \"balance_after\" to null.\n" +
 			"- If account name or number cannot be determined, set them to null.\n" +
 			"- If the PDF contains multiple accounts, attribute transactions correctly.\n\n" +
-			"Return ONLY valid raw JSON.\n" +
-			"Do NOT wrap the response in code fences.\n" +
-			"Do NOT use ```json or any Markdown.\n" +
-			"Output must begin with \"[\" and end with \"]\".\n"
+			"CRITICAL OUTPUT REQUIREMENTS:\n" +
+			"- Return ONLY valid, parseable JSON that follows RFC 8259 standard.\n" +
+			"- Separate array elements with COMMAS (,) - never use words or other separators.\n" +
+			"- Do NOT wrap the response in code fences.\n" +
+			"- Do NOT use ```json or any Markdown.\n" +
+			"- Do NOT include any comments or explanatory text.\n" +
+			"- Output must begin with \"[\" and end with \"]\".\n" +
+			"- Example format: [{...}, {...}, {...}]\n"
 
 	fullPrompt := basePrompt + "\n" + catPrompt + "\n\n" + rulesPrompt
 
@@ -119,6 +125,13 @@ func cleanModelJSON(raw string) string {
 	}
 
 	s = strings.TrimSpace(s)
+
+	// Fix common AI model errors: replace "tapos" or similar separators with commas
+	// This handles cases where the model outputs "} tapos {" instead of "}, {"
+	s = strings.ReplaceAll(s, "} tapos", "},")
+	s = strings.ReplaceAll(s, "}  tapos", "},")
+	s = strings.ReplaceAll(s, "}\n  tapos", "},")
+	s = strings.ReplaceAll(s, "}\ntapos", "},")
 
 	// Extra safety: if there's still junk around the JSON array,
 	// try to keep only from the first '[' to the last ']'.

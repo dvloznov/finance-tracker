@@ -38,7 +38,7 @@ func buildCategoriesPromptWithRepo(ctx context.Context, repo CategoryRepository)
 	for cat, subs := range categoryMap {
 		b.WriteString(cat + ":\n")
 		if len(subs) == 0 {
-			b.WriteString("  (no subcategories)\n\n")
+			b.WriteString("  (no subcategories - use empty string \"\")\n\n")
 			continue
 		}
 		for _, s := range subs {
@@ -48,9 +48,13 @@ func buildCategoriesPromptWithRepo(ctx context.Context, repo CategoryRepository)
 	}
 
 	// Additionally, constrain what the model is allowed to output.
-	b.WriteString("Category must be exactly one of the category names shown above.\n")
-	b.WriteString("Subcategory must be exactly one of the subcategory names listed under that category.\n")
-	b.WriteString("If you are unsure, use category \"Uncategorized\" with an empty subcategory.\n")
+	b.WriteString("CATEGORY ASSIGNMENT RULES:\n")
+	b.WriteString("1. Category must be EXACTLY one of the category names shown above (case-sensitive).\n")
+	b.WriteString("2. If a category has subcategories listed, you MUST choose one of them - never use empty string.\n")
+	b.WriteString("3. If a category shows \"(no subcategories)\", use empty string \"\" for subcategory.\n")
+	b.WriteString("4. If you are unsure, use category \"Uncategorized\" with subcategory \"\".\n")
+	b.WriteString("5. For Uber/taxi rides, use: category \"Transportation\", subcategory \"Public Transit\".\n")
+	b.WriteString("6. Never leave subcategory empty when the category has available subcategories.\n")
 
 	return b.String(), nil
 }
