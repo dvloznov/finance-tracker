@@ -81,7 +81,7 @@ func StartParsingRunWithClient(ctx context.Context, client *bigquery.Client, doc
 // MarkParsingRunFailed sets status=FAILED, finished_ts and error_message.
 func MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) {
 	log := logger.FromContext(ctx)
-	
+
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		log.Error().
@@ -99,7 +99,7 @@ func MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr err
 // using the provided BigQuery client.
 func MarkParsingRunFailedWithClient(ctx context.Context, client *bigquery.Client, parsingRunID string, parseErr error) {
 	log := logger.FromContext(ctx)
-	
+
 	errMsg := ""
 	if parseErr != nil {
 		errMsg = parseErr.Error()

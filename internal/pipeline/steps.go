@@ -46,7 +46,7 @@ func (s *CreateDocumentStep) Execute(ctx context.Context, state *PipelineState) 
 		if err != nil {
 			return fmt.Errorf("CreateDocument: checking for duplicate: %w", err)
 		}
-		
+
 		if existingDoc != nil {
 			// Document already exists - reuse it
 			state.DocumentID = existingDoc.DocumentID
@@ -54,7 +54,7 @@ func (s *CreateDocumentStep) Execute(ctx context.Context, state *PipelineState) 
 			return nil
 		}
 	}
-	
+
 	// No duplicate found - create new document with checksum
 	documentID, err := createDocumentWithChecksumRepo(ctx, state.GCSURI, state.Checksum, state.DocumentRepo, state.StorageService)
 	if err != nil {
@@ -77,7 +77,7 @@ func (s *SupersedeOldParsingRunsStep) Execute(ctx context.Context, state *Pipeli
 	if !state.IsReparse {
 		return nil
 	}
-	
+
 	if err := state.DocumentRepo.MarkParsingRunsAsSuperseded(ctx, state.DocumentID); err != nil {
 		return fmt.Errorf("SupersedeOldParsingRuns: %w", err)
 	}

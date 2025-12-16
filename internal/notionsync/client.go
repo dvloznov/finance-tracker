@@ -60,3 +60,17 @@ func (n *NotionClient) QueryDatabase(ctx context.Context, databaseID string, fil
 
 	return resp, nil
 }
+
+// DeletePage archives a Notion page by setting its archived property to true.
+func (n *NotionClient) DeletePage(ctx context.Context, pageID string) error {
+	req := &notionapi.PageUpdateRequest{
+		Archived: true,
+	}
+
+	_, err := n.client.Page.Update(ctx, notionapi.PageID(pageID), req)
+	if err != nil {
+		return fmt.Errorf("DeletePage: %w", err)
+	}
+
+	return nil
+}

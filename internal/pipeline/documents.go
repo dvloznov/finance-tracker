@@ -30,7 +30,7 @@ func createDocumentWithRepo(ctx context.Context, gcsURI string, repo infra.Docum
 	// First, check if we have a checksum to search for duplicates
 	// Note: The checksum should be set by CalculateChecksumStep before this step
 	// For now, we'll skip checksum lookup if it's not available (backward compatibility)
-	
+
 	// Extract filename from GCS URI
 	// e.g. "gs://bucket/folder/file.pdf" → "file.pdf"
 	filename := storage.ExtractFilenameFromGCSURI(gcsURI)
@@ -99,5 +99,3 @@ func createDocumentWithChecksumRepo(ctx context.Context, gcsURI string, checksum
 func extractFilenameFromGCSURI(uri string) string {
 	return gcsuploader.ExtractFilenameFromGCSURI(uri)
 }
-
-

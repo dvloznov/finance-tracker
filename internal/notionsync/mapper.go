@@ -382,7 +382,7 @@ func DocumentToNotionProperties(doc *bigquery.DocumentRow) notionapi.Properties 
 // TransactionToNotionProperties converts a BigQuery TransactionRow to Notion properties.
 // Maps fields according to the Notion transaction database schema:
 // Description, Date, Amount, Currency, Balance After, Account, Category, Subcategory,
-// Source Document, Parsing Run ID, Document ID, Imported At, Notes, Is Corrected
+// Source Document, Parsing Run ID, Document ID, Transaction ID, Imported At, Notes, Is Corrected
 func TransactionToNotionProperties(tx *bigquery.TransactionRow) notionapi.Properties {
 	props := notionapi.Properties{
 		"Description": notionapi.TitleProperty{
@@ -425,6 +425,16 @@ func TransactionToNotionProperties(tx *bigquery.TransactionRow) notionapi.Proper
 					}
 					return "GBP"
 				}(),
+			},
+		},
+		"Transaction ID": notionapi.RichTextProperty{
+			RichText: []notionapi.RichText{
+				{
+					Type: notionapi.ObjectTypeText,
+					Text: &notionapi.Text{
+						Content: tx.TransactionID,
+					},
+				},
 			},
 		},
 	}

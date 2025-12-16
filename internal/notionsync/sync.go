@@ -26,6 +26,10 @@ func SyncTransactions(ctx context.Context, repo bigquery.DocumentRepository, not
 
 // SyncTransactionsWithCategories syncs transactions from BigQuery to Notion with category relations.
 // categoryPageIDs maps category_id -> Notion page ID for creating category relations.
+// This function:
+// 1. Queries all existing Notion transactions
+// 2. Deletes stale transactions (not in BigQuery active set)
+// 3. Creates/updates current transactions from BigQuery
 func SyncTransactionsWithCategories(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, startDate, endDate time.Time, categoryPageIDs map[string]string, dryRun bool) error {
 	log := logger.FromContext(ctx)
 
@@ -36,7 +40,7 @@ func SyncTransactionsWithCategories(ctx context.Context, repo bigquery.DocumentR
 		Int("category_mappings", len(categoryPageIDs)).
 		Msg("Starting transaction sync to Notion")
 
-	// Query transactions from BigQuery
+	// Query transactions from BigQuery (already filtered to active parsing runs only)
 	transactions, err := repo.QueryTransactionsByDateRange(ctx, startDate, endDate)
 	if err != nil {
 		return fmt.Errorf("failed to query transactions: %w", err)
@@ -44,13 +48,67 @@ func SyncTransactionsWithCategories(ctx context.Context, repo bigquery.DocumentR
 
 	log.Info().Int("transaction_count", len(transactions)).Msg("Retrieved transactions from BigQuery")
 
-	if len(transactions) == 0 {
-		log.Info().Msg("No transactions to sync")
-		return nil
+	// Build set of valid transaction IDs from BigQuery
+	validTransactionIDs := make(map[string]bool)
+	for _, tx := range transactions {
+		validTransactionIDs[tx.TransactionID] = true
+	}
+
+	// Query all existing transactions from Notion
+	log.Info().Msg("Querying existing transactions from Notion")
+	notionPages, err := queryAllNotionPages(ctx, notionClient, notionDBID)
+	if err != nil {
+		return fmt.Errorf("failed to query Notion pages: %w", err)
+	}
+
+	log.Info().Int("notion_page_count", len(notionPages)).Msg("Retrieved existing Notion pages")
+
+	// Build map of existing transaction IDs in Notion (for deduplication)
+	existingTransactionIDs := make(map[string]bool)
+	for _, page := range notionPages {
+		txID := extractTransactionID(page)
+		if txID != "" {
+			existingTransactionIDs[txID] = true
+		}
+	}
+
+	// Delete stale transactions from Notion (those not in the valid set)
+	var deleted int
+	for _, page := range notionPages {
+		txID := extractTransactionID(page)
+		
+		// Delete pages without Transaction ID (from old sync) or not in valid set
+		if txID == "" || !validTransactionIDs[txID] {
+			if dryRun {
+				log.Info().
+					Str("transaction_id", txID).
+					Str("page_id", string(page.ID)).
+					Msg("[DRY RUN] Would delete stale Notion page")
+				deleted++
+			} else {
+				if err := notionClient.DeletePage(ctx, string(page.ID)); err != nil {
+					log.Warn().
+						Err(err).
+						Str("transaction_id", txID).
+						Str("page_id", string(page.ID)).
+						Msg("Failed to delete stale Notion page")
+					continue
+				}
+				log.Info().
+					Str("transaction_id", txID).
+					Str("page_id", string(page.ID)).
+					Msg("Deleted stale Notion page")
+				deleted++
+			}
+		}
+	}
+
+	if deleted > 0 {
+		log.Info().Int("deleted", deleted).Msg("Deleted stale transactions from Notion")
 	}
 
 	// Process transactions in batches
-	var created, updated int
+	var created, updated, skipped int
 	for i := 0; i < len(transactions); i += BatchSize {
 		end := i + BatchSize
 		if end > len(transactions) {
@@ -65,6 +123,12 @@ func SyncTransactionsWithCategories(ctx context.Context, repo bigquery.DocumentR
 			Msg("Processing batch")
 
 		for _, tx := range batch {
+			// Skip if already exists in Notion
+			if existingTransactionIDs[tx.TransactionID] {
+				skipped++
+				continue
+			}
+
 			// Check if transaction already has a Notion page ID
 			existingPageID := GetNotionPageIDFromTransaction(tx)
 
@@ -130,6 +194,7 @@ func SyncTransactionsWithCategories(ctx context.Context, repo bigquery.DocumentR
 	}
 
 	log.Info().
+		Int("deleted", deleted).
 		Int("created", created).
 		Int("updated", updated).
 		Int("total", len(transactions)).
@@ -147,7 +212,7 @@ func extractPageID(externalRef string) string {
 }
 
 // SyncAccounts syncs all accounts from BigQuery to Notion.
-// Creates or updates Notion pages for each account in the database.
+// Deletes stale accounts and creates/updates current ones.
 func SyncAccounts(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, dryRun bool) error {
 	log := logger.FromContext(ctx)
 
@@ -163,14 +228,70 @@ func SyncAccounts(ctx context.Context, repo bigquery.DocumentRepository, notionC
 
 	log.Info().Int("account_count", len(accounts)).Msg("Retrieved accounts from BigQuery")
 
-	if len(accounts) == 0 {
-		log.Info().Msg("No accounts to sync")
-		return nil
+	// Build set of valid account IDs from BigQuery
+	validAccountIDs := make(map[string]bool)
+	for _, acc := range accounts {
+		validAccountIDs[acc.AccountID] = true
+	}
+
+	// Query all existing accounts from Notion
+	log.Info().Msg("Querying existing accounts from Notion")
+	notionPages, err := queryAllNotionPages(ctx, notionClient, notionDBID)
+	if err != nil {
+		return fmt.Errorf("failed to query Notion pages: %w", err)
+	}
+
+	log.Info().Int("notion_page_count", len(notionPages)).Msg("Retrieved existing Notion pages")
+
+	// Build map of existing account IDs in Notion (for deduplication)
+	existingAccountIDs := make(map[string]bool)
+	for _, page := range notionPages {
+		accID := extractAccountID(page)
+		if accID != "" {
+			existingAccountIDs[accID] = true
+		}
+	}
+
+	// Delete stale accounts from Notion
+	var deleted int
+	for _, page := range notionPages {
+		accID := extractAccountID(page)
+		
+		// Delete pages without Account ID (from old sync) or not in valid set
+		if accID == "" || !validAccountIDs[accID] {
+			if dryRun {
+				log.Info().
+					Str("account_id", accID).
+					Str("page_id", string(page.ID)).
+					Msg("[DRY RUN] Would delete stale Notion page")
+				deleted++
+			} else {
+				if err := notionClient.DeletePage(ctx, string(page.ID)); err != nil {
+					log.Warn().
+						Err(err).
+						Str("account_id", accID).
+						Str("page_id", string(page.ID)).
+						Msg("Failed to delete stale Notion page")
+					continue
+				}
+				log.Info().
+					Str("account_id", accID).
+					Str("page_id", string(page.ID)).
+					Msg("Deleted stale Notion page")
+				deleted++
+			}
+		}
 	}
 
 	// Sync accounts
-	var created, updated int
+	var created, skipped int
 	for _, acc := range accounts {
+		// Skip if already exists in Notion
+		if existingAccountIDs[acc.AccountID] {
+			skipped++
+			continue
+		}
+
 		if dryRun {
 			log.Info().
 				Str("account_id", acc.AccountID).
@@ -182,8 +303,7 @@ func SyncAccounts(ctx context.Context, repo bigquery.DocumentRepository, notionC
 		// Convert account to Notion properties
 		props := AccountToNotionProperties(acc)
 
-		// For accounts, we'll always create new pages for now
-		// In a production system, you'd want to track Notion page IDs similar to transactions
+		// Create new page
 		page, err := notionClient.CreatePage(ctx, notionDBID, props)
 		if err != nil {
 			log.Warn().
@@ -201,8 +321,8 @@ func SyncAccounts(ctx context.Context, repo bigquery.DocumentRepository, notionC
 	}
 
 	log.Info().
+		Int("deleted", deleted).
 		Int("created", created).
-		Int("updated", updated).
 		Int("total", len(accounts)).
 		Msg("Accounts sync completed")
 
@@ -210,7 +330,7 @@ func SyncAccounts(ctx context.Context, repo bigquery.DocumentRepository, notionC
 }
 
 // SyncCategories syncs all active categories from BigQuery to Notion.
-// Creates or updates Notion pages for each category-subcategory pair.
+// Deletes stale categories and creates current ones.
 // Returns a map of category_id -> Notion page ID for use in transaction sync.
 func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, dryRun bool) (map[string]string, error) {
 	log := logger.FromContext(ctx)
@@ -227,16 +347,72 @@ func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notio
 
 	log.Info().Int("category_count", len(categories)).Msg("Retrieved categories from BigQuery")
 
-	if len(categories) == 0 {
-		log.Info().Msg("No categories to sync")
-		return make(map[string]string), nil
+	// Build set of valid category slugs from BigQuery
+	validCategorySlugs := make(map[string]bool)
+	for _, cat := range categories {
+		validCategorySlugs[cat.Slug] = true
+	}
+
+	// Query all existing categories from Notion
+	log.Info().Msg("Querying existing categories from Notion")
+	notionPages, err := queryAllNotionPages(ctx, notionClient, notionDBID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query Notion pages: %w", err)
+	}
+
+	log.Info().Int("notion_page_count", len(notionPages)).Msg("Retrieved existing Notion pages")
+
+	// Build map of existing slugs in Notion (for deduplication)
+	existingSlugs := make(map[string]bool)
+	for _, page := range notionPages {
+		slug := extractCategorySlug(page)
+		if slug != "" {
+			existingSlugs[slug] = true
+		}
+	}
+
+	// Delete stale categories from Notion
+	var deleted int
+	for _, page := range notionPages {
+		slug := extractCategorySlug(page)
+		
+		// Delete pages without Slug (from old sync) or not in valid set
+		if slug == "" || !validCategorySlugs[slug] {
+			if dryRun {
+				log.Info().
+					Str("slug", slug).
+					Str("page_id", string(page.ID)).
+					Msg("[DRY RUN] Would delete stale Notion page")
+				deleted++
+			} else {
+				if err := notionClient.DeletePage(ctx, string(page.ID)); err != nil {
+					log.Warn().
+						Err(err).
+						Str("slug", slug).
+						Str("page_id", string(page.ID)).
+						Msg("Failed to delete stale Notion page")
+					continue
+				}
+				log.Info().
+					Str("slug", slug).
+					Str("page_id", string(page.ID)).
+					Msg("Deleted stale Notion page")
+				deleted++
+			}
+		}
 	}
 
 	// Map to track category_id -> Notion page ID
 	categoryPageIDs := make(map[string]string)
 
-	var created int
+	var created, skipped int
 	for _, cat := range categories {
+		// Skip if already exists in Notion
+		if existingSlugs[cat.Slug] {
+			skipped++
+			continue
+		}
+
 		if dryRun {
 			log.Info().
 				Str("category_id", cat.CategoryID).
@@ -277,7 +453,9 @@ func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notio
 	}
 
 	log.Info().
+		Int("deleted", deleted).
 		Int("created", created).
+		Int("skipped", skipped).
 		Int("total", len(categories)).
 		Msg("Categories sync completed")
 
@@ -285,7 +463,7 @@ func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notio
 }
 
 // SyncDocuments syncs all documents from BigQuery to Notion.
-// Creates or updates Notion pages for each document in the database.
+// Deletes stale documents and creates/updates current ones.
 func SyncDocuments(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, dryRun bool) error {
 	log := logger.FromContext(ctx)
 
@@ -301,14 +479,70 @@ func SyncDocuments(ctx context.Context, repo bigquery.DocumentRepository, notion
 
 	log.Info().Int("document_count", len(documents)).Msg("Retrieved documents from BigQuery")
 
-	if len(documents) == 0 {
-		log.Info().Msg("No documents to sync")
-		return nil
+	// Build set of valid document IDs from BigQuery
+	validDocumentIDs := make(map[string]bool)
+	for _, doc := range documents {
+		validDocumentIDs[doc.DocumentID] = true
+	}
+
+	// Query all existing documents from Notion
+	log.Info().Msg("Querying existing documents from Notion")
+	notionPages, err := queryAllNotionPages(ctx, notionClient, notionDBID)
+	if err != nil {
+		return fmt.Errorf("failed to query Notion pages: %w", err)
+	}
+
+	log.Info().Int("notion_page_count", len(notionPages)).Msg("Retrieved existing Notion pages")
+
+	// Build map of existing document IDs in Notion (for deduplication)
+	existingDocumentIDs := make(map[string]bool)
+	for _, page := range notionPages {
+		docID := extractDocumentID(page)
+		if docID != "" {
+			existingDocumentIDs[docID] = true
+		}
+	}
+
+	// Delete stale documents from Notion
+	var deleted int
+	for _, page := range notionPages {
+		docID := extractDocumentID(page)
+		
+		// Delete pages without Document ID (from old sync) or not in valid set
+		if docID == "" || !validDocumentIDs[docID] {
+			if dryRun {
+				log.Info().
+					Str("document_id", docID).
+					Str("page_id", string(page.ID)).
+					Msg("[DRY RUN] Would delete stale Notion page")
+				deleted++
+			} else {
+				if err := notionClient.DeletePage(ctx, string(page.ID)); err != nil {
+					log.Warn().
+						Err(err).
+						Str("document_id", docID).
+						Str("page_id", string(page.ID)).
+						Msg("Failed to delete stale Notion page")
+					continue
+				}
+				log.Info().
+					Str("document_id", docID).
+					Str("page_id", string(page.ID)).
+					Msg("Deleted stale Notion page")
+				deleted++
+			}
+		}
 	}
 
 	// Sync documents
-	var created, updated int
+	var created, skipped int
 	for _, doc := range documents {
+		// Skip if already exists in Notion
+		if existingDocumentIDs[doc.DocumentID] {
+			skipped++
+			continue
+		}
+
 		if dryRun {
 			log.Info().
 				Str("document_id", doc.DocumentID).
@@ -320,8 +554,7 @@ func SyncDocuments(ctx context.Context, repo bigquery.DocumentRepository, notion
 		// Convert document to Notion properties
 		props := DocumentToNotionProperties(doc)
 
-		// For documents, we'll always create new pages for now
-		// In a production system, you'd want to track Notion page IDs similar to transactions
+		// Create new page
 		page, err := notionClient.CreatePage(ctx, notionDBID, props)
 		if err != nil {
 			log.Warn().
@@ -365,9 +598,95 @@ func SyncDocuments(ctx context.Context, repo bigquery.DocumentRepository, notion
 
 	log.Info().
 		Int("created", created).
-		Int("updated", updated).
+		Int("deleted", deleted).
+		Int("skipped", skipped).
 		Int("total", len(documents)).
 		Msg("Documents sync completed")
 
 	return nil
+}
+
+// queryAllNotionPages queries all pages from a Notion database and returns them.
+// Handles pagination automatically.
+func queryAllNotionPages(ctx context.Context, notionClient NotionService, databaseID string) ([]notionapi.Page, error) {
+	var allPages []notionapi.Page
+	var cursor notionapi.Cursor
+
+	for {
+		req := &notionapi.DatabaseQueryRequest{
+			PageSize: 100,
+		}
+
+		// Only set StartCursor if we have a cursor value
+		if cursor != "" {
+			req.StartCursor = cursor
+		}
+
+		resp, err := notionClient.QueryDatabase(ctx, databaseID, req)
+		if err != nil {
+			return nil, fmt.Errorf("queryAllNotionPages: %w", err)
+		}
+
+		allPages = append(allPages, resp.Results...)
+
+		if !resp.HasMore {
+			break
+		}
+		cursor = resp.NextCursor
+	}
+
+	return allPages, nil
+}
+
+// extractTransactionID extracts the transaction ID from a Notion page's properties.
+// Returns empty string if not found.
+func extractTransactionID(page notionapi.Page) string {
+	// Check if there's a Transaction ID property
+	if prop, ok := page.Properties["Transaction ID"]; ok {
+		if richText, ok := prop.(*notionapi.RichTextProperty); ok {
+			if len(richText.RichText) > 0 {
+				return richText.RichText[0].PlainText
+			}
+		}
+	}
+	return ""
+}
+
+// extractAccountID extracts the account ID from a Notion page's properties.
+// Returns empty string if not found.
+func extractAccountID(page notionapi.Page) string {
+	if prop, ok := page.Properties["Account ID"]; ok {
+		if title, ok := prop.(*notionapi.TitleProperty); ok {
+			if len(title.Title) > 0 {
+				return title.Title[0].PlainText
+			}
+		}
+	}
+	return ""
+}
+
+// extractCategorySlug extracts the category slug from a Notion page's properties.
+// Returns empty string if not found.
+func extractCategorySlug(page notionapi.Page) string {
+	if prop, ok := page.Properties["Slug"]; ok {
+		if richText, ok := prop.(*notionapi.RichTextProperty); ok {
+			if len(richText.RichText) > 0 {
+				return richText.RichText[0].PlainText
+			}
+		}
+	}
+	return ""
+}
+
+// extractDocumentID extracts the document ID from a Notion page's properties.
+// Returns empty string if not found.
+func extractDocumentID(page notionapi.Page) string {
+	if prop, ok := page.Properties["Document ID"]; ok {
+		if title, ok := prop.(*notionapi.TitleProperty); ok {
+			if len(title.Title) > 0 {
+				return title.Title[0].PlainText
+			}
+		}
+	}
+	return ""
 }

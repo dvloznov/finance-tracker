@@ -17,4 +17,7 @@ type NotionService interface {
 
 	// QueryDatabase queries a Notion database with the given filter.
 	QueryDatabase(ctx context.Context, databaseID string, filter *notionapi.DatabaseQueryRequest) (*notionapi.DatabaseQueryResponse, error)
+
+	// DeletePage archives/deletes a Notion page by ID.
+	DeletePage(ctx context.Context, pageID string) error
 }

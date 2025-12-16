@@ -133,6 +133,7 @@ Total: 21 category rows
 | Property Name | Type | Description | Configuration |
 |--------------|------|-------------|---------------|
 | Description | Title | Transaction description | **REQUIRED - Must be Title property** |
+| Transaction ID | Text | Unique transaction identifier | **REQUIRED - Used for sync deduplication** |
 | Date | Date | When transaction occurred | **REQUIRED - Primary date field** |
 | Amount | Number | Transaction amount | **REQUIRED - Format: Number with 2 decimals** |
 | Currency | Select | Transaction currency | **REQUIRED - Options: GBP, USD, EUR, etc.** |
@@ -147,6 +148,7 @@ Total: 21 category rows
 
 ### Critical Configuration Notes:
 - **Description**: Must be Title (primary property)
+- **Transaction ID**: Must be Text type - Contains the unique BigQuery transaction ID for sync deduplication
 - **Date**: Must be Date type (not "Transaction Date")  
 - **Category**: Must be Relation type pointing to Categories database
   - Each transaction links to ONE row in the Categories database
@@ -238,9 +240,45 @@ Stays in BigQuery only:
 
 ### Sync Fields Mapping:
 
+**Accounts sync:**
+```
+account_id           → Account ID (title field)
+account_name         → Account Name
+institution_id       → Institution
+account_type         → Account Type
+currency             → Currency
+account_number       → Account Number
+iban                 → IBAN
+is_primary           → Is Primary
+opened_date          → Opened Date
+closed_date          → Closed Date
+```
+
+**Categories sync:**
+```
+category_id          → Slug
+category_name        → Category Name  
+subcategory_name     → Subcategory Name
+full_display_name    → Category (title field)
+```
+
+**Documents sync:**
+```
+document_id          → Document ID (title field)
+original_filename    → Original Filename
+document_type        → Document Type
+statement_start_date → Statement Start
+statement_end_date   → Statement End
+upload_datetime      → Upload Date
+processing_status    → Processing Status
+processed_datetime   → Processed Date
+file_type            → File Type
+gcs_uri              → GCS Link
+```
+
 **Transactions sync:**
 ```
-transaction_id       → Transaction ID (hidden or formula)
+transaction_id       → Transaction ID (text field for deduplication)
 transaction_date     → Transaction Date
 amount               → Amount
 currency             → Currency
@@ -257,6 +295,22 @@ tags                 → Tags
 created_ts           → Created
 updated_ts           → Updated
 ```
+
+### Sync Behavior:
+
+The sync process ensures Notion mirrors BigQuery exactly:
+
+1. **Delete Stale Data**: Before syncing, the system queries all existing Notion pages and deletes any that don't exist in BigQuery
+   - Transactions: Deleted if Transaction ID not found in BigQuery
+   - Accounts: Deleted if Account ID not found in BigQuery  
+   - Categories: Deleted if Category Slug not found in BigQuery
+   - Documents: Deleted if Document ID not found in BigQuery
+
+2. **Create New Data**: After cleanup, creates new Notion pages for all current BigQuery records
+
+3. **Deduplication**: The Transaction ID, Account ID, Document ID, and Category Slug fields enable the sync to identify and remove stale records
+
+**Important**: This means Notion is treated as a read-only mirror of BigQuery. Any manual edits in Notion will be overwritten on the next sync.
 
 ---
 
