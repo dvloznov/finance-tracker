@@ -6,14 +6,15 @@ import (
 	"time"
 
 	bigquerylib "cloud.google.com/go/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
-	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
+	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/google/uuid"
 )
 
 // createDocument inserts a row into the documents table for this file.
 func createDocument(ctx context.Context, gcsURI string) (string, error) {
-	repo, err := infra.NewBigQueryDocumentRepository(ctx)
+	repo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
 	if err != nil {
 		return "", fmt.Errorf("createDocument: creating BigQuery repository: %w", err)
 	}
@@ -26,7 +27,7 @@ func createDocument(ctx context.Context, gcsURI string) (string, error) {
 // createDocumentWithRepo inserts a row into the documents table using the provided repository.
 // If a document with the same checksum already exists, it returns the existing document ID
 // and sets state.IsReparse to true.
-func createDocumentWithRepo(ctx context.Context, gcsURI string, repo infra.DocumentRepository, storage StorageService) (string, error) {
+func createDocumentWithRepo(ctx context.Context, gcsURI string, repo bigquery.DocumentRepository, storage StorageService) (string, error) {
 	// First, check if we have a checksum to search for duplicates
 	// Note: The checksum should be set by CalculateChecksumStep before this step
 	// For now, we'll skip checksum lookup if it's not available (backward compatibility)
@@ -39,7 +40,7 @@ func createDocumentWithRepo(ctx context.Context, gcsURI string, repo infra.Docum
 	documentID := uuid.NewString()
 
 	// Prepare row to insert
-	row := &infra.DocumentRow{
+	row := &bigquery.DocumentRow{
 		DocumentID:       documentID,
 		UserID:           DefaultUserID,
 		GCSURI:           gcsURI,
@@ -62,7 +63,7 @@ func createDocumentWithRepo(ctx context.Context, gcsURI string, repo infra.Docum
 }
 
 // createDocumentWithChecksumRepo inserts a row into the documents table with checksum.
-func createDocumentWithChecksumRepo(ctx context.Context, gcsURI string, checksum string, repo infra.DocumentRepository, storage StorageService) (string, error) {
+func createDocumentWithChecksumRepo(ctx context.Context, gcsURI string, checksum string, repo bigquery.DocumentRepository, storage StorageService) (string, error) {
 	// Generate a UUID for this document
 	documentID := uuid.NewString()
 
@@ -70,7 +71,7 @@ func createDocumentWithChecksumRepo(ctx context.Context, gcsURI string, checksum
 	filename := storage.ExtractFilenameFromGCSURI(gcsURI)
 
 	// Prepare row to insert with checksum
-	row := &infra.DocumentRow{
+	row := &bigquery.DocumentRow{
 		DocumentID:       documentID,
 		UserID:           DefaultUserID,
 		GCSURI:           gcsURI,

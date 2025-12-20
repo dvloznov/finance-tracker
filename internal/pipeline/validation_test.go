@@ -5,21 +5,21 @@ import (
 	"testing"
 
 	bigquerylib "cloud.google.com/go/bigquery"
-	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
 // mockCategoryRepository is a mock for testing category validation
 type mockCategoryRepository struct {
-	categories []infra.CategoryRow
+	categories []bigquery.CategoryRow
 }
 
-func (m *mockCategoryRepository) ListActiveCategories(ctx context.Context) ([]infra.CategoryRow, error) {
+func (m *mockCategoryRepository) ListActiveCategories(ctx context.Context) ([]bigquery.CategoryRow, error) {
 	return m.categories, nil
 }
 
 func TestCategoryValidator_ValidateCategory(t *testing.T) {
 	// Setup test categories (denormalized)
-	categories := []infra.CategoryRow{
+	categories := []bigquery.CategoryRow{
 		{CategoryID: "cat1-sub1", CategoryName: "Housing", SubcategoryName: bigquerylib.NullString{StringVal: "Rent", Valid: true}},
 		{CategoryID: "cat1-sub2", CategoryName: "Housing", SubcategoryName: bigquerylib.NullString{StringVal: "Utilities", Valid: true}},
 		{CategoryID: "cat2-sub1", CategoryName: "Food & Dining", SubcategoryName: bigquerylib.NullString{StringVal: "Groceries", Valid: true}},

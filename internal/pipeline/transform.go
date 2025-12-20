@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/bigquery"
+	bigquerylib "cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
-	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
 // transformModelOutputToTransactions converts raw model output into normalized transaction structs.
@@ -165,7 +165,7 @@ func getOptionalFloat64Field(m map[string]interface{}, key string) (*float64, er
 
 // transformAccountInfo converts raw LLM account extraction output into an AccountRow.
 // Returns nil if the extraction failed or data is invalid.
-func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (*infra.AccountRow, error) {
+func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (*bigquery.AccountRow, error) {
 	// Extract optional fields
 	accountNumber, err := getOptionalStringField(rawOutput, "account_number")
 	if err != nil {
@@ -213,7 +213,7 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 	}
 
 	// Build account row
-	row := &infra.AccountRow{
+	row := &bigquery.AccountRow{
 		UserID: DefaultUserID,
 	}
 
@@ -242,7 +242,7 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 		row.InstitutionID = DefaultSourceSystem
 	}
 	if hasOpenedDate {
-		row.OpenedDate = bigquery.NullDate{Date: openedDate, Valid: true}
+		row.OpenedDate = bigquerylib.NullDate{Date: openedDate, Valid: true}
 	}
 
 	// If we got nothing useful, return nil to signal we should use default
@@ -255,11 +255,11 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 
 // generateDefaultAccount creates a document-scoped fallback account when
 // extraction fails or returns no account identifiers.
-func generateDefaultAccount(documentID string) *infra.AccountRow {
+func generateDefaultAccount(documentID string) *bigquery.AccountRow {
 	// Generate synthetic account number from document ID
 	accountNumber := fmt.Sprintf("DOC-%s", documentID[:8])
 
-	return &infra.AccountRow{
+	return &bigquery.AccountRow{
 		UserID:        DefaultUserID,
 		InstitutionID: DefaultSourceSystem,
 		AccountNumber: accountNumber,

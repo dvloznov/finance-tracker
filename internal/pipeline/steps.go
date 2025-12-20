@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
 // PipelineStep represents a single step in the ingestion pipeline.
@@ -30,8 +30,8 @@ type PipelineState struct {
 	AccountID            string                 // Resolved/created account ID
 
 	// Injected dependencies
-	DocumentRepo      infra.DocumentRepository
-	AccountRepo       infra.AccountRepository
+	DocumentRepo      bigquery.DocumentRepository
+	AccountRepo       bigquery.AccountRepository
 	StorageService    StorageService
 	AIParser          AIParser
 	CategoryValidator *CategoryValidator

@@ -10,8 +10,9 @@ import (
 
 	bigquerylib "cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
+	"github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
-	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
+	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/google/uuid"
 )
 
@@ -19,13 +20,13 @@ import (
 // gcsURI should look like: "gs://bucket/path/to/statement.pdf".
 func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 	// Initialize concrete dependencies
-	repo, err := infra.NewBigQueryDocumentRepository(ctx)
+	repo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
 	if err != nil {
 		return fmt.Errorf("IngestStatementFromGCS: creating BigQuery repository: %w", err)
 	}
 	defer repo.Close()
 
-	accountRepo, err := infra.NewBigQueryAccountRepository(ctx)
+	accountRepo, err := infraBQ.NewBigQueryAccountRepository(ctx)
 	if err != nil {
 		return fmt.Errorf("IngestStatementFromGCS: creating BigQuery account repository: %w", err)
 	}
@@ -42,8 +43,8 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 func IngestStatementFromGCSWithDeps(
 	ctx context.Context,
 	gcsURI string,
-	repo infra.DocumentRepository,
-	accountRepo infra.AccountRepository,
+	repo bigquery.DocumentRepository,
+	accountRepo bigquery.AccountRepository,
 	storage StorageService,
 	aiParser AIParser,
 ) error {
@@ -74,7 +75,7 @@ func storeModelOutput(
 	documentID string,
 	rawOutput map[string]interface{},
 ) (string, error) {
-	repo, err := infra.NewBigQueryDocumentRepository(ctx)
+	repo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
 	if err != nil {
 		return "", fmt.Errorf("storeModelOutput: creating BigQuery repository: %w", err)
 	}
@@ -89,7 +90,7 @@ func storeModelOutputWithRepo(
 	parsingRunID string,
 	documentID string,
 	rawOutput map[string]interface{},
-	repo infra.DocumentRepository,
+	repo bigquery.DocumentRepository,
 ) (string, error) {
 	outputID := uuid.NewString()
 
@@ -98,7 +99,7 @@ func storeModelOutputWithRepo(
 		return "", fmt.Errorf("storeModelOutput: marshal rawOutput: %w", err)
 	}
 
-	row := &infra.ModelOutputRow{
+	row := &bigquery.ModelOutputRow{
 		OutputID:     outputID,
 		ParsingRunID: parsingRunID,
 		DocumentID:   documentID,
@@ -140,7 +141,7 @@ func insertTransactions(
 	parsingRunID string,
 	txs []*Transaction,
 ) error {
-	repo, err := infra.NewBigQueryDocumentRepository(ctx)
+	repo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
 	if err != nil {
 		return fmt.Errorf("insertTransactions: creating BigQuery repository: %w", err)
 	}
@@ -156,13 +157,13 @@ func insertTransactionsWithRepo(
 	parsingRunID string,
 	accountID string,
 	txs []*Transaction,
-	repo infra.DocumentRepository,
+	repo bigquery.DocumentRepository,
 ) error {
 	if len(txs) == 0 {
 		return nil
 	}
 
-	rows := make([]*infra.TransactionRow, 0, len(txs))
+	rows := make([]*bigquery.TransactionRow, 0, len(txs))
 
 	for _, t := range txs {
 		// Determine direction based on sign of amount
@@ -212,7 +213,7 @@ func insertTransactionsWithRepo(
 			}
 		}
 
-		row := &infra.TransactionRow{
+		row := &bigquery.TransactionRow{
 			TransactionID: uuid.NewString(),
 
 			UserID:    DefaultUserID,

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/pipeline"
 )
 
@@ -21,8 +21,16 @@ type MockDocumentRepository struct {
 
 // MockStorageService is a mock implementation of StorageService for testing.
 type MockStorageService struct {
+	UploadFileFunc                func(ctx context.Context, bucketName, objectName, filePath string) error
 	FetchFromGCSFunc              func(ctx context.Context, gcsURI string) ([]byte, error)
 	ExtractFilenameFromGCSURIFunc func(uri string) string
+}
+
+func (m *MockStorageService) UploadFile(ctx context.Context, bucketName, objectName, filePath string) error {
+	if m.UploadFileFunc != nil {
+		return m.UploadFileFunc(ctx, bucketName, objectName, filePath)
+	}
+	return nil
 }
 
 func (m *MockStorageService) FetchFromGCS(ctx context.Context, gcsURI string) ([]byte, error) {
@@ -41,30 +49,30 @@ func (m *MockStorageService) ExtractFilenameFromGCSURI(uri string) string {
 
 // MockAccountRepository is a mock implementation of AccountRepository for testing.
 type MockAccountRepository struct {
-	UpsertAccountFunc                  func(ctx context.Context, row *infra.AccountRow) (string, error)
-	FindAccountByNumberAndCurrencyFunc func(ctx context.Context, accountNumber, currency string) (*infra.AccountRow, error)
-	ListAllAccountsFunc                func(ctx context.Context) ([]*infra.AccountRow, error)
+	UpsertAccountFunc                  func(ctx context.Context, row *bigquery.AccountRow) (string, error)
+	FindAccountByNumberAndCurrencyFunc func(ctx context.Context, accountNumber, currency string) (*bigquery.AccountRow, error)
+	ListAllAccountsFunc                func(ctx context.Context) ([]*bigquery.AccountRow, error)
 }
 
-func (m *MockAccountRepository) UpsertAccount(ctx context.Context, row *infra.AccountRow) (string, error) {
+func (m *MockAccountRepository) UpsertAccount(ctx context.Context, row *bigquery.AccountRow) (string, error) {
 	if m.UpsertAccountFunc != nil {
 		return m.UpsertAccountFunc(ctx, row)
 	}
 	return "mock-account-id", nil
 }
 
-func (m *MockAccountRepository) FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency string) (*infra.AccountRow, error) {
+func (m *MockAccountRepository) FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency string) (*bigquery.AccountRow, error) {
 	if m.FindAccountByNumberAndCurrencyFunc != nil {
 		return m.FindAccountByNumberAndCurrencyFunc(ctx, accountNumber, currency)
 	}
 	return nil, nil
 }
 
-func (m *MockAccountRepository) ListAllAccounts(ctx context.Context) ([]*infra.AccountRow, error) {
+func (m *MockAccountRepository) ListAllAccounts(ctx context.Context) ([]*bigquery.AccountRow, error) {
 	if m.ListAllAccountsFunc != nil {
 		return m.ListAllAccountsFunc(ctx)
 	}
-	return []*infra.AccountRow{}, nil
+	return []*bigquery.AccountRow{}, nil
 }
 
 // MockAIParser is a mock implementation of AIParser for testing.

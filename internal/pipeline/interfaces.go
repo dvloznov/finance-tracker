@@ -3,14 +3,15 @@ package pipeline
 import (
 	"context"
 
-	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/gcs"
 )
 
 // StorageService is an interface for storage operations.
-type StorageService interface {
-	FetchFromGCS(ctx context.Context, gcsURI string) ([]byte, error)
-	ExtractFilenameFromGCSURI(uri string) string
-}
+type StorageService = gcs.StorageService
+
+// CategoryRepository is an interface for category-related database operations.
+type CategoryRepository = bigquery.CategoryRepository
 
 // AIParser provides an interface for AI-powered document parsing operations.
 // This interface enables mocking and testing of AI parsing functionality.
@@ -42,11 +43,4 @@ func (p *GeminiAIParser) ParseStatement(ctx context.Context, pdfBytes []byte) (m
 // ExtractAccountHeader calls the AI model to extract account metadata from the statement header.
 func (p *GeminiAIParser) ExtractAccountHeader(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
 	return extractAccountHeaderWithModel(ctx, pdfBytes)
-}
-
-// CategoryRepository is an interface for category-related database operations.
-// This is a minimal interface used by the AIParser to avoid circular dependencies.
-// For full document repository operations, see infra.DocumentRepository.
-type CategoryRepository interface {
-	ListActiveCategories(ctx context.Context) ([]infra.CategoryRow, error)
 }

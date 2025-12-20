@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
 // CategoryValidator validates transaction categories against the taxonomy.
 type CategoryValidator struct {
 	// Map of "CATEGORY|SUBCATEGORY" or "CATEGORY|" -> category_id
 	validPairs   map[string]string
-	categoryRows []infra.CategoryRow // Keep for other lookups if needed
+	categoryRows []bigquery.CategoryRow // Keep for other lookups if needed
 }
 
 // NewCategoryValidator creates a validator from the categories taxonomy.

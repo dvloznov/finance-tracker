@@ -6,65 +6,13 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
-// DocumentRepository provides an interface for document-related database operations.
-// This interface enables mocking and testing of document storage functionality.
-type DocumentRepository interface {
-	// InsertDocument inserts a single DocumentRow into the database.
-	InsertDocument(ctx context.Context, row *DocumentRow) error
-
-	// InsertTransactions inserts a batch of TransactionRow into the database.
-	InsertTransactions(ctx context.Context, rows []*TransactionRow) error
-
-	// InsertModelOutput inserts a single ModelOutputRow into the database.
-	InsertModelOutput(ctx context.Context, row *ModelOutputRow) error
-
-	// StartParsingRun inserts a new parsing run with status=RUNNING and returns the parsing_run_id.
-	StartParsingRun(ctx context.Context, documentID string) (string, error)
-
-	// MarkParsingRunFailed sets status=FAILED, finished_ts and error_message for a parsing run.
-	// Note: This method does not return an error. Failures are logged but not propagated
-	// to prevent cascading errors during error handling.
-	MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error)
-
-	// MarkParsingRunSucceeded sets status=SUCCESS and finished_ts for a parsing run.
-	MarkParsingRunSucceeded(ctx context.Context, parsingRunID string) error
-
-	// ListActiveCategories retrieves all active categories from the database.
-	ListActiveCategories(ctx context.Context) ([]CategoryRow, error)
-
-	// QueryTransactionsByDateRange queries transactions within the specified date range.
-	QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*TransactionRow, error)
-
-	// ListAllAccounts retrieves all accounts from the database.
-	ListAllAccounts(ctx context.Context) ([]*AccountRow, error)
-
-	// ListAllDocuments retrieves all documents from the database.
-	ListAllDocuments(ctx context.Context) ([]*DocumentRow, error)
-
-	// FindDocumentByChecksum retrieves a document by its SHA-256 checksum.
-	// Returns nil if no document with the given checksum exists.
-	FindDocumentByChecksum(ctx context.Context, checksum string) (*DocumentRow, error)
-
-	// MarkParsingRunsAsSuperseded marks all non-running parsing runs for a document as SUPERSEDED.
-	MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error
-}
-
-// AccountRepository provides an interface for account-related database operations.
-// This interface enables mocking and testing of account storage functionality.
-type AccountRepository interface {
-	// UpsertAccount finds an existing account by (account_number, currency) or creates a new one.
-	// Returns the account_id of the found or created account.
-	UpsertAccount(ctx context.Context, row *AccountRow) (string, error)
-
-	// FindAccountByNumberAndCurrency finds an account by normalized account_number and currency.
-	// Returns nil if no matching account is found.
-	FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency string) (*AccountRow, error)
-
-	// ListAllAccounts retrieves all accounts from the database.
-	ListAllAccounts(ctx context.Context) ([]*AccountRow, error)
-}
+// Re-export interfaces from shared package for backward compatibility
+type DocumentRepository = bq.DocumentRepository
+type AccountRepository = bq.AccountRepository
+type CategoryRepository = bq.CategoryRepository
 
 // BigQueryAccountRepository is the concrete implementation of AccountRepository
 // that interacts with BigQuery.

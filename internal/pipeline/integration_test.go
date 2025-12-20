@@ -7,14 +7,14 @@ import (
 	"time"
 
 	bigquerylib "cloud.google.com/go/bigquery"
-	infra "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/pipeline"
 )
 
 // TestPipelineWithCategoryValidation tests the full pipeline with category validation
 func TestPipelineWithCategoryValidation(t *testing.T) {
 	// Setup mock categories
-	mockCategories := []infra.CategoryRow{
+	mockCategories := []bigquery.CategoryRow{
 		{CategoryID: "cat1-sub1", CategoryName: "Food & Dining", SubcategoryName: bigquerylib.NullString{StringVal: "Groceries", Valid: true}},
 		{CategoryID: "cat2-sub1", CategoryName: "Transportation", SubcategoryName: bigquerylib.NullString{StringVal: "Fuel", Valid: true}},
 		{CategoryID: "cat_healthcare", CategoryName: "Healthcare", SubcategoryName: bigquerylib.NullString{Valid: false}},
@@ -82,7 +82,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 		}
 
 		mockAccountRepo := &MockAccountRepository{
-			UpsertAccountFunc: func(ctx context.Context, row *infra.AccountRow) (string, error) {
+			UpsertAccountFunc: func(ctx context.Context, row *bigquery.AccountRow) (string, error) {
 				return "test-account-id", nil
 			},
 		}
@@ -129,7 +129,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 		}
 
 		mockAccountRepo := &MockAccountRepository{
-			UpsertAccountFunc: func(ctx context.Context, row *infra.AccountRow) (string, error) {
+			UpsertAccountFunc: func(ctx context.Context, row *bigquery.AccountRow) (string, error) {
 				return "test-account-id", nil
 			},
 		}
@@ -176,7 +176,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 		}
 
 		mockAccountRepo := &MockAccountRepository{
-			UpsertAccountFunc: func(ctx context.Context, row *infra.AccountRow) (string, error) {
+			UpsertAccountFunc: func(ctx context.Context, row *bigquery.AccountRow) (string, error) {
 				return "test-account-id", nil
 			},
 		}
@@ -202,21 +202,21 @@ type mockDocumentRepo struct {
 	*MockDocumentRepository
 }
 
-func (m *mockDocumentRepo) InsertDocument(ctx context.Context, row *infra.DocumentRow) error {
+func (m *mockDocumentRepo) InsertDocument(ctx context.Context, row *bigquery.DocumentRow) error {
 	if m.InsertDocumentFunc != nil {
 		return m.InsertDocumentFunc(ctx, row)
 	}
 	return nil
 }
 
-func (m *mockDocumentRepo) InsertTransactions(ctx context.Context, rows []*infra.TransactionRow) error {
+func (m *mockDocumentRepo) InsertTransactions(ctx context.Context, rows []*bigquery.TransactionRow) error {
 	if m.InsertTransactionsFunc != nil {
 		return m.InsertTransactionsFunc(ctx, rows)
 	}
 	return nil
 }
 
-func (m *mockDocumentRepo) InsertModelOutput(ctx context.Context, row *infra.ModelOutputRow) error {
+func (m *mockDocumentRepo) InsertModelOutput(ctx context.Context, row *bigquery.ModelOutputRow) error {
 	if m.InsertModelOutputFunc != nil {
 		return m.InsertModelOutputFunc(ctx, row)
 	}
@@ -243,13 +243,13 @@ func (m *mockDocumentRepo) MarkParsingRunSucceeded(ctx context.Context, parsingR
 	return nil
 }
 
-func (m *mockDocumentRepo) ListActiveCategories(ctx context.Context) ([]infra.CategoryRow, error) {
+func (m *mockDocumentRepo) ListActiveCategories(ctx context.Context) ([]bigquery.CategoryRow, error) {
 	if m.ListActiveCategoriesFunc != nil {
 		result, err := m.ListActiveCategoriesFunc(ctx)
 		if err != nil {
 			return nil, err
 		}
-		if categories, ok := result.([]infra.CategoryRow); ok {
+		if categories, ok := result.([]bigquery.CategoryRow); ok {
 			return categories, nil
 		}
 		return nil, errors.New("invalid categories type")
@@ -257,22 +257,22 @@ func (m *mockDocumentRepo) ListActiveCategories(ctx context.Context) ([]infra.Ca
 	return nil, nil
 }
 
-func (m *mockDocumentRepo) QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*infra.TransactionRow, error) {
+func (m *mockDocumentRepo) QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*bigquery.TransactionRow, error) {
 	// Not needed for pipeline tests, return empty slice
-	return []*infra.TransactionRow{}, nil
+	return []*bigquery.TransactionRow{}, nil
 }
 
-func (m *mockDocumentRepo) ListAllAccounts(ctx context.Context) ([]*infra.AccountRow, error) {
+func (m *mockDocumentRepo) ListAllAccounts(ctx context.Context) ([]*bigquery.AccountRow, error) {
 	// Not needed for pipeline tests, return empty slice
-	return []*infra.AccountRow{}, nil
+	return []*bigquery.AccountRow{}, nil
 }
 
-func (m *mockDocumentRepo) ListAllDocuments(ctx context.Context) ([]*infra.DocumentRow, error) {
+func (m *mockDocumentRepo) ListAllDocuments(ctx context.Context) ([]*bigquery.DocumentRow, error) {
 	// Not needed for pipeline tests, return empty slice
-	return []*infra.DocumentRow{}, nil
+	return []*bigquery.DocumentRow{}, nil
 }
 
-func (m *mockDocumentRepo) FindDocumentByChecksum(ctx context.Context, checksum string) (*infra.DocumentRow, error) {
+func (m *mockDocumentRepo) FindDocumentByChecksum(ctx context.Context, checksum string) (*bigquery.DocumentRow, error) {
 	// For tests, return nil to indicate no duplicate found
 	return nil, nil
 }
