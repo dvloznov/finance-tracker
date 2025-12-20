@@ -21,16 +21,17 @@ const (
 // The external_reference field on transactions is used to track Notion page IDs for idempotency.
 // Deprecated: Use SyncTransactionsWithCategories instead.
 func SyncTransactions(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, startDate, endDate time.Time, dryRun bool) error {
-	return SyncTransactionsWithCategories(ctx, repo, notionClient, notionDBID, startDate, endDate, nil, dryRun)
+	return SyncTransactionsWithCategories(ctx, repo, notionClient, notionDBID, startDate, endDate, nil, nil, dryRun)
 }
 
-// SyncTransactionsWithCategories syncs transactions from BigQuery to Notion with category relations.
+// SyncTransactionsWithCategories syncs transactions from BigQuery to Notion with category and account relations.
 // categoryPageIDs maps category_id -> Notion page ID for creating category relations.
+// accountPageIDs maps account_id -> Notion page ID for creating account relations.
 // This function:
 // 1. Queries all existing Notion transactions
 // 2. Deletes stale transactions (not in BigQuery active set)
 // 3. Creates/updates current transactions from BigQuery
-func SyncTransactionsWithCategories(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, startDate, endDate time.Time, categoryPageIDs map[string]string, dryRun bool) error {
+func SyncTransactionsWithCategories(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, startDate, endDate time.Time, categoryPageIDs map[string]string, accountPageIDs map[string]string, dryRun bool) error {
 	log := logger.FromContext(ctx)
 
 	log.Info().
@@ -148,8 +149,8 @@ func SyncTransactionsWithCategories(ctx context.Context, repo bigquery.DocumentR
 				continue
 			}
 
-			// Convert transaction to Notion properties
-			props := TransactionToNotionPropertiesWithCategories(tx, categoryPageIDs)
+			// Convert transaction to Notion properties with relations
+			props := TransactionToNotionPropertiesWithRelations(tx, categoryPageIDs, accountPageIDs)
 
 			if existingPageID != "" {
 				// Update existing page
@@ -209,124 +210,6 @@ func extractPageID(externalRef string) string {
 		return strings.TrimPrefix(externalRef, "notion:")
 	}
 	return externalRef
-}
-
-// SyncAccounts syncs all accounts from BigQuery to Notion.
-// Deletes stale accounts and creates/updates current ones.
-func SyncAccounts(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, dryRun bool) error {
-	log := logger.FromContext(ctx)
-
-	log.Info().
-		Bool("dry_run", dryRun).
-		Msg("Starting accounts sync to Notion")
-
-	// Query all accounts from BigQuery
-	accounts, err := repo.ListAllAccounts(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to query accounts: %w", err)
-	}
-
-	log.Info().Int("account_count", len(accounts)).Msg("Retrieved accounts from BigQuery")
-
-	// Build set of valid account IDs from BigQuery
-	validAccountIDs := make(map[string]bool)
-	for _, acc := range accounts {
-		validAccountIDs[acc.AccountID] = true
-	}
-
-	// Query all existing accounts from Notion
-	log.Info().Msg("Querying existing accounts from Notion")
-	notionPages, err := queryAllNotionPages(ctx, notionClient, notionDBID)
-	if err != nil {
-		return fmt.Errorf("failed to query Notion pages: %w", err)
-	}
-
-	log.Info().Int("notion_page_count", len(notionPages)).Msg("Retrieved existing Notion pages")
-
-	// Build map of existing account IDs in Notion (for deduplication)
-	existingAccountIDs := make(map[string]bool)
-	for _, page := range notionPages {
-		accID := extractAccountID(page)
-		if accID != "" {
-			existingAccountIDs[accID] = true
-		}
-	}
-
-	// Delete stale accounts from Notion
-	var deleted int
-	for _, page := range notionPages {
-		accID := extractAccountID(page)
-
-		// Delete pages without Account ID (from old sync) or not in valid set
-		if accID == "" || !validAccountIDs[accID] {
-			if dryRun {
-				log.Info().
-					Str("account_id", accID).
-					Str("page_id", string(page.ID)).
-					Msg("[DRY RUN] Would delete stale Notion page")
-				deleted++
-			} else {
-				if err := notionClient.DeletePage(ctx, string(page.ID)); err != nil {
-					log.Warn().
-						Err(err).
-						Str("account_id", accID).
-						Str("page_id", string(page.ID)).
-						Msg("Failed to delete stale Notion page")
-					continue
-				}
-				log.Info().
-					Str("account_id", accID).
-					Str("page_id", string(page.ID)).
-					Msg("Deleted stale Notion page")
-				deleted++
-			}
-		}
-	}
-
-	// Sync accounts
-	var created, skipped int
-	for _, acc := range accounts {
-		// Skip if already exists in Notion
-		if existingAccountIDs[acc.AccountID] {
-			skipped++
-			continue
-		}
-
-		if dryRun {
-			log.Info().
-				Str("account_id", acc.AccountID).
-				Msg("[DRY RUN] Would create/update Notion page for account")
-			created++
-			continue
-		}
-
-		// Convert account to Notion properties
-		props := AccountToNotionProperties(acc)
-
-		// Create new page
-		page, err := notionClient.CreatePage(ctx, notionDBID, props)
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Str("account_id", acc.AccountID).
-				Msg("Failed to create Notion page for account")
-			continue
-		}
-
-		log.Info().
-			Str("account_id", acc.AccountID).
-			Str("page_id", string(page.ID)).
-			Msg("Created Notion page for account")
-		created++
-	}
-
-	log.Info().
-		Int("deleted", deleted).
-		Int("created", created).
-		Int("total", len(accounts)).
-		Msg("Accounts sync completed")
-
-	return nil
 }
 
 // SyncCategories syncs all active categories from BigQuery to Notion.
@@ -405,6 +288,20 @@ func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notio
 	// Map to track category_id -> Notion page ID
 	categoryPageIDs := make(map[string]string)
 
+	// Build mapping for existing categories first
+	for _, page := range notionPages {
+		slug := extractCategorySlug(page)
+		if slug != "" && validCategorySlugs[slug] {
+			// Find the category with this slug to get its category_id
+			for _, cat := range categories {
+				if cat.Slug == slug {
+					categoryPageIDs[cat.CategoryID] = string(page.ID)
+					break
+				}
+			}
+		}
+	}
+
 	var created, skipped int
 	for _, cat := range categories {
 		// Skip if already exists in Notion
@@ -460,6 +357,143 @@ func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notio
 		Msg("Categories sync completed")
 
 	return categoryPageIDs, nil
+}
+
+// SyncAccounts syncs all accounts from BigQuery to Notion.
+// Deletes stale accounts and creates current ones.
+// Returns a map of account_id -> Notion page ID for use in transaction sync.
+func SyncAccounts(ctx context.Context, repo bigquery.DocumentRepository, notionClient NotionService, notionDBID string, dryRun bool) (map[string]string, error) {
+	log := logger.FromContext(ctx)
+
+	log.Info().
+		Bool("dry_run", dryRun).
+		Msg("Starting accounts sync to Notion")
+
+	// Query all accounts from BigQuery
+	accounts, err := repo.ListAllAccounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query accounts: %w", err)
+	}
+
+	log.Info().Int("account_count", len(accounts)).Msg("Retrieved accounts from BigQuery")
+
+	// Build set of valid account IDs from BigQuery
+	validAccountIDs := make(map[string]bool)
+	for _, acc := range accounts {
+		validAccountIDs[acc.AccountID] = true
+	}
+
+	// Query all existing accounts from Notion
+	log.Info().Msg("Querying existing accounts from Notion")
+	notionPages, err := queryAllNotionPages(ctx, notionClient, notionDBID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query Notion pages: %w", err)
+	}
+
+	log.Info().Int("notion_page_count", len(notionPages)).Msg("Retrieved existing Notion pages")
+
+	// Build map of existing account IDs in Notion (for deduplication)
+	existingAccountIDs := make(map[string]bool)
+	for _, page := range notionPages {
+		accID := extractAccountID(page)
+		if accID != "" {
+			existingAccountIDs[accID] = true
+		}
+	}
+
+	// Delete stale accounts from Notion
+	var deleted int
+	for _, page := range notionPages {
+		accID := extractAccountID(page)
+
+		// Delete pages without Account ID (from old sync) or not in valid set
+		if accID == "" || !validAccountIDs[accID] {
+			if dryRun {
+				log.Info().
+					Str("account_id", accID).
+					Str("page_id", string(page.ID)).
+					Msg("[DRY RUN] Would delete stale Notion page")
+				deleted++
+			} else {
+				if err := notionClient.DeletePage(ctx, string(page.ID)); err != nil {
+					log.Warn().
+						Err(err).
+						Str("account_id", accID).
+						Str("page_id", string(page.ID)).
+						Msg("Failed to delete stale Notion page")
+					continue
+				}
+				log.Info().
+					Str("account_id", accID).
+					Str("page_id", string(page.ID)).
+					Msg("Deleted stale Notion page")
+				deleted++
+			}
+		}
+	}
+
+	// Map to track account_id -> Notion page ID
+	accountPageIDs := make(map[string]string)
+
+	// Build mapping for existing accounts first
+	for _, page := range notionPages {
+		accID := extractAccountID(page)
+		if accID != "" && validAccountIDs[accID] {
+			accountPageIDs[accID] = string(page.ID)
+		}
+	}
+
+	// Sync accounts
+	var created, skipped int
+	for _, acc := range accounts {
+		// Skip if already exists in Notion
+		if existingAccountIDs[acc.AccountID] {
+			skipped++
+			continue
+		}
+
+		if dryRun {
+			log.Info().
+				Str("account_id", acc.AccountID).
+				Str("account_name", acc.AccountName).
+				Msg("[DRY RUN] Would create Notion page for account")
+			created++
+			continue
+		}
+
+		// Convert account to Notion properties
+		props := AccountToNotionProperties(acc)
+
+		// Create the page
+		page, err := notionClient.CreatePage(ctx, notionDBID, props)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Str("account_id", acc.AccountID).
+				Str("account_name", acc.AccountName).
+				Msg("Failed to create Notion page for account")
+			continue
+		}
+
+		// Store the mapping
+		accountPageIDs[acc.AccountID] = string(page.ID)
+
+		log.Info().
+			Str("account_id", acc.AccountID).
+			Str("account_name", acc.AccountName).
+			Str("page_id", string(page.ID)).
+			Msg("Created Notion page for account")
+		created++
+	}
+
+	log.Info().
+		Int("deleted", deleted).
+		Int("created", created).
+		Int("skipped", skipped).
+		Int("total", len(accounts)).
+		Msg("Accounts sync completed")
+
+	return accountPageIDs, nil
 }
 
 // SyncDocuments syncs all documents from BigQuery to Notion.

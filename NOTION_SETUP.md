@@ -138,7 +138,7 @@ Total: 21 category rows
 | Amount | Number | Transaction amount | **REQUIRED - Format: Number with 2 decimals** |
 | Currency | Select | Transaction currency | **REQUIRED - Options: GBP, USD, EUR, etc.** |
 | Balance After | Number | Account balance after transaction | Format: Number with 2 decimals |
-| Account | Text | Account identifier | - |
+| Account | Relation | Link to Accounts database | **REQUIRED - Relation to Accounts database. Enables filtering and rollups by account.** |
 | Category | Relation | Link to Categories database | **REQUIRED - Relation to Categories database** |
 | Parsing Run ID | Text | Internal processing ID | - |
 | Document ID | Text | Source document ID | **REQUIRED** |
@@ -168,12 +168,21 @@ Since Categories are denormalized, each transaction has a single relation to one
 - **All Transactions** - Default table view
 - **This Month** - Filter: Date is within this month
 - **By Category** - Group by: Category
-- **Recent** - Sort by: Date (descending)
-- **Needs Review** - Filter: Is Corrected is unchecked
+- **By Account** - Group by: Account (enables per-account spending analysis)
+- **Large Expenses** - Filter: Amount < -100 (or your threshold), Sort by: Amount ascending
+- **Income** - Filter: Amount > 0
 
----
+### Migration Note for Existing Databases:
+If you have an existing Transactions database with Account as a **Text** field, you need to:
+1. Create a new "Account Relation" property of type **Relation** linked to your Accounts database
+2. Re-run the sync to populate the relation (the sync will automatically use relations when account mapping is available)
+3. Once verified, you can rename "Account" to "Account (old)" and rename "Account Relation" to "Account"
+4. Archive or delete the old text field
 
-## 5. Database Relations Setup
+### Documents Database
+
+**Purpose**: Track uploaded/parsed PDF bank statements for auditing and debugging.
+
 
 ### Critical Relations:
 

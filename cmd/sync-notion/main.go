@@ -108,7 +108,7 @@ func main() {
 		if *notionAccountsDBID == "" {
 			log.Fatal().Msg("Error: --notion-accounts-db-id is required for accounts sync")
 		}
-		if err := notionsync.SyncAccounts(ctx, repo, notionClient, *notionAccountsDBID, *dryRun); err != nil {
+		if _, err := notionsync.SyncAccounts(ctx, repo, notionClient, *notionAccountsDBID, *dryRun); err != nil {
 			log.Fatal().Err(err).Msg("Accounts sync failed")
 		}
 
@@ -131,10 +131,13 @@ func main() {
 	case "all":
 		// Sync all tables
 		var categoryPageIDs map[string]string
+		var accountPageIDs map[string]string
 
 		if *notionAccountsDBID != "" {
 			log.Info().Msg("Syncing accounts...")
-			if err := notionsync.SyncAccounts(ctx, repo, notionClient, *notionAccountsDBID, *dryRun); err != nil {
+			var err error
+			accountPageIDs, err = notionsync.SyncAccounts(ctx, repo, notionClient, *notionAccountsDBID, *dryRun)
+			if err != nil {
 				log.Error().Err(err).Msg("Accounts sync failed")
 			}
 		}
@@ -157,7 +160,7 @@ func main() {
 
 		if *notionTransactionsDBID != "" {
 			log.Info().Msg("Syncing transactions...")
-			if err := notionsync.SyncTransactionsWithCategories(ctx, repo, notionClient, *notionTransactionsDBID, startDate, endDate, categoryPageIDs, *dryRun); err != nil {
+			if err := notionsync.SyncTransactionsWithCategories(ctx, repo, notionClient, *notionTransactionsDBID, startDate, endDate, categoryPageIDs, accountPageIDs, *dryRun); err != nil {
 				log.Error().Err(err).Msg("Transactions sync failed")
 			}
 		}

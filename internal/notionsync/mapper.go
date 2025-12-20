@@ -555,11 +555,32 @@ func SetNotionPageIDOnTransaction(pageID string) string {
 // TransactionToNotionPropertiesWithCategories converts a BigQuery TransactionRow to Notion properties
 // with category relations. If categoryPageIDs is provided and the transaction has a category_id,
 // it will create a relation to the Categories database instead of a Select property.
+// Deprecated: Use TransactionToNotionPropertiesWithRelations instead.
 func TransactionToNotionPropertiesWithCategories(tx *bigquery.TransactionRow, categoryPageIDs map[string]string) notionapi.Properties {
+	return TransactionToNotionPropertiesWithRelations(tx, categoryPageIDs, nil)
+}
+
+// TransactionToNotionPropertiesWithRelations converts a BigQuery TransactionRow to Notion properties
+// with category and account relations. If categoryPageIDs is provided and the transaction has a category_id,
+// it will create a relation to the Categories database. If accountPageIDs is provided and the transaction
+// has an account_id, it will create a relation to the Accounts database.
+func TransactionToNotionPropertiesWithRelations(tx *bigquery.TransactionRow, categoryPageIDs map[string]string, accountPageIDs map[string]string) notionapi.Properties {
 	// Start with the base properties
 	props := TransactionToNotionProperties(tx)
 
-	// Override Category with relation if we have category_id and the mapping
+	// Remove Subcategory property since we're using denormalized categories
+	delete(props, "Subcategory")
+
+	// When using relations, remove the Select/Text properties first
+	// to avoid schema conflicts with Notion
+	if categoryPageIDs != nil {
+		delete(props, "Category")
+	}
+	if accountPageIDs != nil {
+		delete(props, "Account")
+	}
+
+	// Add Category relation if we have category_id and the mapping
 	if tx.CategoryID.Valid && tx.CategoryID.StringVal != "" && categoryPageIDs != nil {
 		if pageID, ok := categoryPageIDs[tx.CategoryID.StringVal]; ok {
 			props["Category"] = notionapi.RelationProperty{
@@ -572,8 +593,18 @@ func TransactionToNotionPropertiesWithCategories(tx *bigquery.TransactionRow, ca
 		}
 	}
 
-	// Remove Subcategory property since we're using denormalized categories
-	delete(props, "Subcategory")
+	// Add Account relation if we have account_id and the mapping
+	if tx.AccountID != "" && accountPageIDs != nil {
+		if pageID, ok := accountPageIDs[tx.AccountID]; ok {
+			props["Account"] = notionapi.RelationProperty{
+				Relation: []notionapi.Relation{
+					{
+						ID: notionapi.PageID(pageID),
+					},
+				},
+			}
+		}
+	}
 
 	return props
 }
