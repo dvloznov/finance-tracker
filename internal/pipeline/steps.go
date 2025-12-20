@@ -25,8 +25,13 @@ type PipelineState struct {
 	Transactions   []*Transaction
 	IsReparse      bool // True if we're re-parsing an existing document
 
+	// Account extraction results
+	ExtractedAccountInfo map[string]interface{} // Raw LLM output for account header
+	AccountID            string                 // Resolved/created account ID
+
 	// Injected dependencies
 	DocumentRepo      infra.DocumentRepository
+	AccountRepo       infra.AccountRepository
 	StorageService    StorageService
 	AIParser          AIParser
 	CategoryValidator *CategoryValidator
@@ -134,6 +139,54 @@ func (s *CalculateChecksumStep) Execute(ctx context.Context, state *PipelineStat
 	// Calculate SHA-256 hash
 	hash := sha256.Sum256(state.PDFBytes)
 	state.Checksum = fmt.Sprintf("%x", hash[:])
+	return nil
+}
+
+// Step 3b: ExtractAccountHeaderStep extracts account metadata from the statement header.
+type ExtractAccountHeaderStep struct{}
+
+func (s *ExtractAccountHeaderStep) Name() string {
+	return "ExtractAccountHeader"
+}
+
+func (s *ExtractAccountHeaderStep) Execute(ctx context.Context, state *PipelineState) error {
+	accountInfo, err := state.AIParser.ExtractAccountHeader(ctx, state.PDFBytes)
+	if err != nil {
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		return err
+	}
+	state.ExtractedAccountInfo = accountInfo
+	return nil
+}
+
+// Step 3c: UpsertAccountStep transforms account info and creates/finds account in BigQuery.
+type UpsertAccountStep struct{}
+
+func (s *UpsertAccountStep) Name() string {
+	return "UpsertAccount"
+}
+
+func (s *UpsertAccountStep) Execute(ctx context.Context, state *PipelineState) error {
+	// Transform raw account info to AccountRow
+	accountRow, err := transformAccountInfo(state.ExtractedAccountInfo, state.DocumentID)
+	if err != nil {
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		return err
+	}
+
+	// If extraction returned nothing useful, generate default account
+	if accountRow == nil {
+		accountRow = generateDefaultAccount(state.DocumentID)
+	}
+
+	// Upsert account (find existing or create new)
+	accountID, err := state.AccountRepo.UpsertAccount(ctx, accountRow)
+	if err != nil {
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		return err
+	}
+
+	state.AccountID = accountID
 	return nil
 }
 
@@ -246,7 +299,7 @@ func (s *InsertTransactionsStep) Name() string {
 }
 
 func (s *InsertTransactionsStep) Execute(ctx context.Context, state *PipelineState) error {
-	if err := insertTransactionsWithRepo(ctx, state.DocumentID, state.ParsingRunID, state.Transactions, state.DocumentRepo); err != nil {
+	if err := insertTransactionsWithRepo(ctx, state.DocumentID, state.ParsingRunID, state.AccountID, state.Transactions, state.DocumentRepo); err != nil {
 		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
@@ -295,6 +348,8 @@ func NewStatementIngestionPipeline() *Pipeline {
 		&CreateDocumentStep{},
 		&SupersedeOldParsingRunsStep{},
 		&StartParsingRunStep{},
+		&ExtractAccountHeaderStep{},
+		&UpsertAccountStep{},
 		&ParseStatementStep{},
 		&StoreModelOutputStep{},
 		&TransformTransactionsStep{},

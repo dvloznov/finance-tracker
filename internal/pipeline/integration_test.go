@@ -66,12 +66,24 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 							"description":   "Test transaction",
 							"amount":        -10.50,
 							"currency":      "GBP",
-							"category":      "FOOD",
+							"category":      "Food & Dining",
 							"subcategory":   "Groceries",
 							"balance_after": 100.0,
 						},
 					},
 				}, nil
+			},
+			ExtractAccountHeaderFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+				return map[string]interface{}{
+					"account_number": "12345678",
+					"currency":       "GBP",
+				}, nil
+			},
+		}
+
+		mockAccountRepo := &MockAccountRepository{
+			UpsertAccountFunc: func(ctx context.Context, row *infra.AccountRow) (string, error) {
+				return "test-account-id", nil
 			},
 		}
 
@@ -80,6 +92,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 			context.Background(),
 			"gs://test-bucket/test.pdf",
 			repo,
+			mockAccountRepo,
 			mockStorage,
 			mockAIParser,
 		)
@@ -107,6 +120,18 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 					},
 				}, nil
 			},
+			ExtractAccountHeaderFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+				return map[string]interface{}{
+					"account_number": "12345678",
+					"currency":       "GBP",
+				}, nil
+			},
+		}
+
+		mockAccountRepo := &MockAccountRepository{
+			UpsertAccountFunc: func(ctx context.Context, row *infra.AccountRow) (string, error) {
+				return "test-account-id", nil
+			},
 		}
 
 		repo := &mockDocumentRepo{MockDocumentRepository: mockRepo}
@@ -114,6 +139,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 			context.Background(),
 			"gs://test-bucket/test.pdf",
 			repo,
+			mockAccountRepo,
 			mockStorage,
 			mockAIParser,
 		)
@@ -134,12 +160,24 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 							"description":   "Test transaction",
 							"amount":        -10.50,
 							"currency":      "GBP",
-							"category":      "FOOD",
-							"subcategory":   "Fuel", // Wrong subcategory for FOOD
+							"category":      "Food & Dining",
+							"subcategory":   "Fuel", // Wrong subcategory for Food & Dining
 							"balance_after": 100.0,
 						},
 					},
 				}, nil
+			},
+			ExtractAccountHeaderFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+				return map[string]interface{}{
+					"account_number": "12345678",
+					"currency":       "GBP",
+				}, nil
+			},
+		}
+
+		mockAccountRepo := &MockAccountRepository{
+			UpsertAccountFunc: func(ctx context.Context, row *infra.AccountRow) (string, error) {
+				return "test-account-id", nil
 			},
 		}
 
@@ -148,6 +186,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 			context.Background(),
 			"gs://test-bucket/test.pdf",
 			repo,
+			mockAccountRepo,
 			mockStorage,
 			mockAIParser,
 		)

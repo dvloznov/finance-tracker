@@ -76,7 +76,7 @@ func SyncTransactionsWithCategories(ctx context.Context, repo bigquery.DocumentR
 	var deleted int
 	for _, page := range notionPages {
 		txID := extractTransactionID(page)
-		
+
 		// Delete pages without Transaction ID (from old sync) or not in valid set
 		if txID == "" || !validTransactionIDs[txID] {
 			if dryRun {
@@ -256,7 +256,7 @@ func SyncAccounts(ctx context.Context, repo bigquery.DocumentRepository, notionC
 	var deleted int
 	for _, page := range notionPages {
 		accID := extractAccountID(page)
-		
+
 		// Delete pages without Account ID (from old sync) or not in valid set
 		if accID == "" || !validAccountIDs[accID] {
 			if dryRun {
@@ -375,7 +375,7 @@ func SyncCategories(ctx context.Context, repo bigquery.DocumentRepository, notio
 	var deleted int
 	for _, page := range notionPages {
 		slug := extractCategorySlug(page)
-		
+
 		// Delete pages without Slug (from old sync) or not in valid set
 		if slug == "" || !validCategorySlugs[slug] {
 			if dryRun {
@@ -507,7 +507,7 @@ func SyncDocuments(ctx context.Context, repo bigquery.DocumentRepository, notion
 	var deleted int
 	for _, page := range notionPages {
 		docID := extractDocumentID(page)
-		
+
 		// Delete pages without Document ID (from old sync) or not in valid set
 		if docID == "" || !validDocumentIDs[docID] {
 			if dryRun {

@@ -17,6 +17,9 @@ type StorageService interface {
 type AIParser interface {
 	// ParseStatement sends PDF bytes to an AI model and returns parsed JSON output.
 	ParseStatement(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error)
+
+	// ExtractAccountHeader sends PDF bytes to an AI model to extract account metadata from the header.
+	ExtractAccountHeader(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error)
 }
 
 // GeminiAIParser is the concrete implementation of AIParser that uses Gemini AI.
@@ -36,10 +39,14 @@ func (p *GeminiAIParser) ParseStatement(ctx context.Context, pdfBytes []byte) (m
 	return parseStatementWithModel(ctx, pdfBytes, p.repo)
 }
 
+// ExtractAccountHeader calls the AI model to extract account metadata from the statement header.
+func (p *GeminiAIParser) ExtractAccountHeader(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+	return extractAccountHeaderWithModel(ctx, pdfBytes)
+}
+
 // CategoryRepository is an interface for category-related database operations.
 // This is a minimal interface used by the AIParser to avoid circular dependencies.
 // For full document repository operations, see infra.DocumentRepository.
 type CategoryRepository interface {
 	ListActiveCategories(ctx context.Context) ([]infra.CategoryRow, error)
 }
-

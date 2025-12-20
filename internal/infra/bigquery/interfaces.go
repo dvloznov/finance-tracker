@@ -51,6 +51,62 @@ type DocumentRepository interface {
 	MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error
 }
 
+// AccountRepository provides an interface for account-related database operations.
+// This interface enables mocking and testing of account storage functionality.
+type AccountRepository interface {
+	// UpsertAccount finds an existing account by (account_number, currency) or creates a new one.
+	// Returns the account_id of the found or created account.
+	UpsertAccount(ctx context.Context, row *AccountRow) (string, error)
+
+	// FindAccountByNumberAndCurrency finds an account by normalized account_number and currency.
+	// Returns nil if no matching account is found.
+	FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency string) (*AccountRow, error)
+
+	// ListAllAccounts retrieves all accounts from the database.
+	ListAllAccounts(ctx context.Context) ([]*AccountRow, error)
+}
+
+// BigQueryAccountRepository is the concrete implementation of AccountRepository
+// that interacts with BigQuery.
+type BigQueryAccountRepository struct {
+	client *bigquery.Client
+}
+
+// NewBigQueryAccountRepository creates a new instance of BigQueryAccountRepository
+// with a shared BigQuery client.
+func NewBigQueryAccountRepository(ctx context.Context) (*BigQueryAccountRepository, error) {
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("NewBigQueryAccountRepository: creating client: %w", err)
+	}
+	return &BigQueryAccountRepository{
+		client: client,
+	}, nil
+}
+
+// Close closes the BigQuery client connection.
+func (r *BigQueryAccountRepository) Close() error {
+	if r.client != nil {
+		return r.client.Close()
+	}
+	return nil
+}
+
+// UpsertAccount delegates to the existing UpsertAccount function with the shared client.
+func (r *BigQueryAccountRepository) UpsertAccount(ctx context.Context, row *AccountRow) (string, error) {
+	return UpsertAccountWithClient(ctx, r.client, row)
+}
+
+// FindAccountByNumberAndCurrency delegates to the existing function with the shared client.
+func (r *BigQueryAccountRepository) FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency string) (*AccountRow, error) {
+	return FindAccountByNumberAndCurrencyWithClient(ctx, r.client, accountNumber, currency)
+}
+
+// ListAllAccounts delegates to the existing ListAllAccounts function with the shared client.
+func (r *BigQueryAccountRepository) ListAllAccounts(ctx context.Context) ([]*AccountRow, error) {
+	return ListAllAccountsWithClient(ctx, r.client)
+}
+
 // BigQueryDocumentRepository is the concrete implementation of DocumentRepository
 // that interacts with BigQuery. It holds a shared BigQuery client to avoid
 // creating a new connection for each operation.

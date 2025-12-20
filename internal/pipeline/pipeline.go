@@ -25,10 +25,16 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 	}
 	defer repo.Close()
 
+	accountRepo, err := infra.NewBigQueryAccountRepository(ctx)
+	if err != nil {
+		return fmt.Errorf("IngestStatementFromGCS: creating BigQuery account repository: %w", err)
+	}
+	defer accountRepo.Close()
+
 	storage := &gcsuploader.GCSStorageService{}
 	aiParser := NewGeminiAIParser(repo)
 
-	return IngestStatementFromGCSWithDeps(ctx, gcsURI, repo, storage, aiParser)
+	return IngestStatementFromGCSWithDeps(ctx, gcsURI, repo, accountRepo, storage, aiParser)
 }
 
 // IngestStatementFromGCSWithDeps processes a single bank statement PDF stored in GCS
@@ -37,6 +43,7 @@ func IngestStatementFromGCSWithDeps(
 	ctx context.Context,
 	gcsURI string,
 	repo infra.DocumentRepository,
+	accountRepo infra.AccountRepository,
 	storage StorageService,
 	aiParser AIParser,
 ) error {
@@ -44,6 +51,7 @@ func IngestStatementFromGCSWithDeps(
 	state := &PipelineState{
 		GCSURI:         gcsURI,
 		DocumentRepo:   repo,
+		AccountRepo:    accountRepo,
 		StorageService: storage,
 		AIParser:       aiParser,
 	}
@@ -138,7 +146,7 @@ func insertTransactions(
 	}
 	defer repo.Close()
 
-	return insertTransactionsWithRepo(ctx, documentID, parsingRunID, txs, repo)
+	return insertTransactionsWithRepo(ctx, documentID, parsingRunID, "", txs, repo)
 }
 
 // insertTransactionsWithRepo writes a batch of transactions to the transactions table using the provided repository.
@@ -146,6 +154,7 @@ func insertTransactionsWithRepo(
 	ctx context.Context,
 	documentID string,
 	parsingRunID string,
+	accountID string,
 	txs []*Transaction,
 	repo infra.DocumentRepository,
 ) error {
@@ -207,7 +216,7 @@ func insertTransactionsWithRepo(
 			TransactionID: uuid.NewString(),
 
 			UserID:    DefaultUserID,
-			AccountID: "", // can map accounts later
+			AccountID: accountID, // Link transaction to account
 
 			DocumentID:   documentID,
 			ParsingRunID: parsingRunID,

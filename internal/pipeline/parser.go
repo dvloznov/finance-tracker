@@ -18,23 +18,16 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo Category
 		return nil, fmt.Errorf("parseStatementWithModel: loading categories: %w", err)
 	}
 
-	// 2) Base instructions (very close to your test code).
+	// 2) Base instructions.
 	basePrompt :=
 		"You are a financial statement parser for Barclays UK PDF bank statements.\n\n" +
 			"Task:\n" +
 			"- Parse ALL transactions in the attached Barclays statement.\n" +
 			"- Output STRICT JSON only (no comments, no trailing commas, no extra text).\n" +
-			"- Output a JSON array of objects.\n\n" +
-			"Each object must have these fields:\n" +
-			"- \"account_name\": string or null\n" +
-			"- \"account_number\": string or null\n" +
-			"- \"date\": string, ISO format \"YYYY-MM-DD\"\n" +
-			"- \"description\": string\n" +
-			"- \"amount\": number (positive for money IN, negative for money OUT)\n" +
-			"- \"currency\": string (e.g. \"GBP\")\n" +
-			"- \"balance_after\": number or null\n" +
-			"- \"category\": string (MUST be one of the predefined categories below)\n" +
-			"- \"subcategory\": string (MUST be one of the valid subcategories for that category, or empty string if category has no subcategories)\n\n"
+			"- Output a JSON array of objects.\n\n"
+
+	// Transaction schema (account fields removed - handled separately).
+	txSchema := buildTransactionSchema()
 
 	rulesPrompt :=
 		"Rules:\n" +
@@ -42,9 +35,7 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo Category
 			"- IMPORTANT: If a category has subcategories, you MUST select one - never leave it empty.\n" +
 			"- For ride-sharing services (Uber, Lyft, etc.), always use \"Transportation\" / \"Public Transit\".\n" +
 			"- If the statement has separate \"paid out\" / \"paid in\" columns, convert to a single signed \"amount\".\n" +
-			"- If the running balance is missing, set \"balance_after\" to null.\n" +
-			"- If account name or number cannot be determined, set them to null.\n" +
-			"- If the PDF contains multiple accounts, attribute transactions correctly.\n\n" +
+			"- If the running balance is missing, set \"balance_after\" to null.\n\n" +
 			"CRITICAL OUTPUT REQUIREMENTS:\n" +
 			"- Return ONLY valid, parseable JSON that follows RFC 8259 standard.\n" +
 			"- Separate array elements with COMMAS (,) - never use words or other separators.\n" +
@@ -54,7 +45,7 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo Category
 			"- Output must begin with \"[\" and end with \"]\".\n" +
 			"- Example format: [{...}, {...}, {...}]\n"
 
-	fullPrompt := basePrompt + "\n" + catPrompt + "\n\n" + rulesPrompt
+	fullPrompt := basePrompt + txSchema + "\n" + catPrompt + "\n\n" + rulesPrompt
 
 	// 3) Create GenAI client (same style as your test program).
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
@@ -143,4 +134,61 @@ func cleanModelJSON(raw string) string {
 	}
 
 	return s
+}
+
+// extractAccountHeaderWithModel sends the PDF to Gemini and returns the parsed account metadata.
+// It expects the model to return a STRICT JSON object with account fields.
+func extractAccountHeaderWithModel(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+	// Use the account header extraction prompt
+	prompt := buildAccountHeaderPrompt()
+
+	// Create GenAI client
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		HTTPOptions: genai.HTTPOptions{APIVersion: "v1"},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("extractAccountHeaderWithModel: create genai client: %w", err)
+	}
+
+	contents := []*genai.Content{
+		{
+			Role: "user",
+			Parts: []*genai.Part{
+				{Text: prompt},
+				{
+					InlineData: &genai.Blob{
+						MIMEType: "application/pdf",
+						Data:     pdfBytes,
+					},
+				},
+			},
+		},
+	}
+
+	resp, err := client.Models.GenerateContent(ctx, DefaultModelName, contents, nil)
+	if err != nil {
+		return nil, fmt.Errorf("extractAccountHeaderWithModel: generate content: %w", err)
+	}
+
+	rawText := resp.Text()
+	if rawText == "" {
+		return nil, fmt.Errorf("extractAccountHeaderWithModel: empty response from model")
+	}
+
+	// Clean up Markdown fences / extra text
+	clean := cleanModelJSON(rawText)
+
+	// Parse JSON into a generic value
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(clean), &parsed); err != nil {
+		return nil, fmt.Errorf("extractAccountHeaderWithModel: unmarshal JSON: %w\nraw response: %s", err, rawText)
+	}
+
+	// Expect a JSON object (not array)
+	accountObj, ok := parsed.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("extractAccountHeaderWithModel: expected JSON object, got %T", parsed)
+	}
+
+	return accountObj, nil
 }
