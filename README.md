@@ -1,10 +1,10 @@
 # Finance Tracker
 
-Backend service for a Notion dashboard that processes bank statements and receipts using Gemini AI. State is stored in Google Cloud (BigQuery + Cloud Storage).
+Backend service that processes bank statements and receipts using Gemini AI. State is stored in Google Cloud (BigQuery + Cloud Storage).
 
 ## What it does
 
-Uploads PDFs → Gemini AI extracts transactions → Stores in BigQuery → Powers Notion dashboard
+Uploads PDFs → Gemini AI extracts transactions → Stores in BigQuery → Ready for custom UI frontend
 
 ## Usage
 

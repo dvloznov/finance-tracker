@@ -7,7 +7,6 @@ require (
 	cloud.google.com/go/bigquery v1.69.0
 	cloud.google.com/go/storage v1.57.2
 	github.com/google/uuid v1.6.0
-	github.com/jomei/notionapi v1.13.3
 	github.com/rs/zerolog v1.34.0
 	google.golang.org/api v0.250.0
 	google.golang.org/genai v1.36.0
