@@ -172,19 +172,9 @@ Since Categories are denormalized, each transaction has a single relation to one
 - **Large Expenses** - Filter: Amount < -100 (or your threshold), Sort by: Amount ascending
 - **Income** - Filter: Amount > 0
 
-### Migration Note for Existing Databases:
-If you have an existing Transactions database with Account as a **Text** field, you need to:
-1. Create a new "Account Relation" property of type **Relation** linked to your Accounts database
-2. Re-run the sync to populate the relation (the sync will automatically use relations when account mapping is available)
-3. Once verified, you can rename "Account" to "Account (old)" and rename "Account Relation" to "Account"
-4. Archive or delete the old text field
+---
 
-### Documents Database
-
-**Purpose**: Track uploaded/parsed PDF bank statements for auditing and debugging.
-
-
-### Critical Relations:
+## 5. Database Relations Setup
 
 1. **Transactions → Accounts**
    - Type: Relation
