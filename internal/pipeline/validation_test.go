@@ -53,7 +53,7 @@ func TestCategoryValidator_ValidateCategory(t *testing.T) {
 		},
 		{
 			name:        "valid with extra spaces",
-			category:    "  FOOD  ",
+			category:    "  Food & Dining  ",
 			subcategory: "  Groceries  ",
 			wantErr:     false,
 		},
@@ -71,7 +71,7 @@ func TestCategoryValidator_ValidateCategory(t *testing.T) {
 		},
 		{
 			name:        "valid food and restaurants",
-			category:    "FOOD",
+			category:    "Food & Dining",
 			subcategory: "Restaurants",
 			wantErr:     false,
 		},
