@@ -2,6 +2,8 @@ package bigquery
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -98,53 +100,80 @@ type DocumentRow struct {
 
 // TransactionRow represents a transaction record in BigQuery.
 type TransactionRow struct {
-	TransactionID string `bigquery:"transaction_id"`
+	TransactionID string `bigquery:"transaction_id" json:"transaction_id"`
 
-	UserID    string `bigquery:"user_id"`
-	AccountID string `bigquery:"account_id"`
+	UserID    string `bigquery:"user_id" json:"user_id"`
+	AccountID string `bigquery:"account_id" json:"account_id"`
 
-	DocumentID   string `bigquery:"document_id"`
-	ParsingRunID string `bigquery:"parsing_run_id"`
+	DocumentID   string `bigquery:"document_id" json:"document_id"`
+	ParsingRunID string `bigquery:"parsing_run_id" json:"parsing_run_id"`
 
-	TransactionDate civil.Date            `bigquery:"transaction_date"`
-	PostingDate     bigquery.NullDate     `bigquery:"posting_date"`
-	BookingDatetime bigquery.NullDateTime `bigquery:"booking_datetime"`
+	TransactionDate civil.Date            `bigquery:"transaction_date" json:"transaction_date"`
+	PostingDate     bigquery.NullDate     `bigquery:"posting_date" json:"posting_date,omitempty"`
+	BookingDatetime bigquery.NullDateTime `bigquery:"booking_datetime" json:"booking_datetime,omitempty"`
 
-	Amount   *big.Rat `bigquery:"amount"`
-	Currency string   `bigquery:"currency"`
+	Amount   *big.Rat `bigquery:"amount" json:"amount"`
+	Currency string   `bigquery:"currency" json:"currency"`
 
-	BalanceAfter *big.Rat `bigquery:"balance_after"`
+	BalanceAfter *big.Rat `bigquery:"balance_after" json:"balance_after,omitempty"`
 
-	Direction bigquery.NullString `bigquery:"direction"`
+	Direction bigquery.NullString `bigquery:"direction" json:"direction,omitempty"`
 
-	RawDescription        string              `bigquery:"raw_description"`
-	NormalizedDescription bigquery.NullString `bigquery:"normalized_description"`
+	RawDescription        string              `bigquery:"raw_description" json:"raw_description"`
+	NormalizedDescription bigquery.NullString `bigquery:"normalized_description" json:"normalized_description,omitempty"`
 
-	CategoryID      bigquery.NullString `bigquery:"category_id"`
-	CategoryName    bigquery.NullString `bigquery:"category_name"`
-	SubcategoryName bigquery.NullString `bigquery:"subcategory_name"`
+	CategoryID      bigquery.NullString `bigquery:"category_id" json:"category_id,omitempty"`
+	CategoryName    bigquery.NullString `bigquery:"category_name" json:"category_name,omitempty"`
+	SubcategoryName bigquery.NullString `bigquery:"subcategory_name" json:"subcategory_name,omitempty"`
 
-	StatementLineNo bigquery.NullInt64 `bigquery:"statement_line_no"`
-	StatementPageNo bigquery.NullInt64 `bigquery:"statement_page_no"`
+	StatementLineNo bigquery.NullInt64 `bigquery:"statement_line_no" json:"statement_line_no,omitempty"`
+	StatementPageNo bigquery.NullInt64 `bigquery:"statement_page_no" json:"statement_page_no,omitempty"`
 
-	IsPending          bigquery.NullBool `bigquery:"is_pending"`
-	IsRefund           bigquery.NullBool `bigquery:"is_refund"`
-	IsInternalTransfer bigquery.NullBool `bigquery:"is_internal_transfer"`
-	IsSplitParent      bigquery.NullBool `bigquery:"is_split_parent"`
-	IsSplitChild       bigquery.NullBool `bigquery:"is_split_child"`
+	IsPending          bigquery.NullBool `bigquery:"is_pending" json:"is_pending,omitempty"`
+	IsRefund           bigquery.NullBool `bigquery:"is_refund" json:"is_refund,omitempty"`
+	IsInternalTransfer bigquery.NullBool `bigquery:"is_internal_transfer" json:"is_internal_transfer,omitempty"`
+	IsSplitParent      bigquery.NullBool `bigquery:"is_split_parent" json:"is_split_parent,omitempty"`
+	IsSplitChild       bigquery.NullBool `bigquery:"is_split_child" json:"is_split_child,omitempty"`
 
-	ExternalReference bigquery.NullString `bigquery:"external_reference"`
+	ExternalReference bigquery.NullString `bigquery:"external_reference" json:"external_reference,omitempty"`
 
-	Tags []string `bigquery:"tags"`
+	Tags []string `bigquery:"tags" json:"tags,omitempty"`
 
-	MerchantID bigquery.NullString `bigquery:"merchant_id"`
+	MerchantID bigquery.NullString `bigquery:"merchant_id" json:"merchant_id,omitempty"`
 
-	Notes bigquery.NullString `bigquery:"notes"`
+	Notes bigquery.NullString `bigquery:"notes" json:"notes,omitempty"`
 
-	ModelConfidenceScore bigquery.NullFloat64 `bigquery:"model_confidence_score"`
+	ModelConfidenceScore bigquery.NullFloat64 `bigquery:"model_confidence_score" json:"model_confidence_score,omitempty"`
 
-	CreatedTS time.Time              `bigquery:"created_ts"`
-	UpdatedTS bigquery.NullTimestamp `bigquery:"updated_ts"`
+	CreatedTS time.Time              `bigquery:"created_ts" json:"created_ts"`
+	UpdatedTS bigquery.NullTimestamp `bigquery:"updated_ts" json:"updated_ts,omitempty"`
+}
+
+// MarshalJSON customizes JSON serialization for TransactionRow.
+func (t TransactionRow) MarshalJSON() ([]byte, error) {
+	type Alias TransactionRow
+	return json.Marshal(&struct {
+		Amount       string  `json:"amount"`
+		BalanceAfter *string `json:"balance_after,omitempty"`
+		*Alias
+	}{
+		Amount: func() string {
+			if t.Amount == nil {
+				return "0"
+			}
+			f, _ := t.Amount.Float64()
+			return fmt.Sprintf("%.2f", f)
+		}(),
+		BalanceAfter: func() *string {
+			if t.BalanceAfter == nil {
+				return nil
+			}
+			f, _ := t.BalanceAfter.Float64()
+			s := fmt.Sprintf("%.2f", f)
+			return &s
+		}(),
+		Alias: (*Alias)(&t),
+	})
 }
 
 // AccountRow represents an account record in BigQuery.

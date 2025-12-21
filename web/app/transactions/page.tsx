@@ -35,7 +35,13 @@ export default function TransactionsPage() {
       {
         accessorKey: 'transaction_date',
         header: 'Date',
-        cell: ({ getValue }) => format(new Date(getValue<string>()), 'MMM dd, yyyy'),
+        cell: ({ getValue }) => {
+          const dateStr = getValue<string>();
+          if (!dateStr) return '—';
+          const date = new Date(dateStr);
+          if (isNaN(date.getTime())) return dateStr;
+          return format(date, 'MMM dd, yyyy');
+        },
       },
       {
         accessorKey: 'raw_description',

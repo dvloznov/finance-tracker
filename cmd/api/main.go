@@ -21,12 +21,16 @@ func main() {
 	// Parse command-line flags
 	var (
 		port   = flag.String("port", "8080", "HTTP server port")
-		bucket = flag.String("bucket", "", "GCS bucket name for document uploads")
+		bucket = flag.String("bucket", os.Getenv("GCS_BUCKET"), "GCS bucket name for document uploads (or set GCS_BUCKET env)")
 	)
 	flag.Parse()
 
 	// Initialize logger
 	log := logger.New()
+
+	if *bucket == "" {
+		log.Warn().Msg("No GCS bucket configured - document uploads will be disabled")
+	}
 
 	// Initialize repositories
 	ctx := context.Background()

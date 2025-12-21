@@ -5,18 +5,18 @@ import { apiClient, Transaction } from '@/lib/api-client';
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
 export default function DashboardPage() {
-  const { data: transactions, isLoading } = useQuery({
+  const { data: transactions, isLoading, error } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => apiClient.listTransactions(),
   });
 
   const stats = useMemo(() => {
-    if (!transactions) return null;
+    if (!transactions || !Array.isArray(transactions)) return null;
 
     const totalIncome = transactions
       .filter((t) => parseFloat(t.amount) > 0)
@@ -39,12 +39,21 @@ export default function DashboardPage() {
   }, [transactions]);
 
   const monthlyData = useMemo(() => {
-    if (!transactions) return [];
+    if (!transactions || !Array.isArray(transactions)) return [];
 
     const monthlyMap = new Map<string, { income: number; expenses: number }>();
 
     transactions.forEach((txn) => {
-      const date = new Date(txn.transaction_date);
+      // Handle civil.Date format from BigQuery
+      const dateStr = typeof txn.transaction_date === 'string' 
+        ? txn.transaction_date 
+        : String(txn.transaction_date || '');
+      
+      if (!dateStr) return;
+      
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return; // Skip invalid dates
+      
       const monthKey = format(date, 'MMM yyyy');
       const amount = parseFloat(txn.amount);
 
@@ -66,7 +75,7 @@ export default function DashboardPage() {
   }, [transactions]);
 
   const categoryData = useMemo(() => {
-    if (!transactions) return [];
+    if (!transactions || !Array.isArray(transactions)) return [];
 
     const categoryMap = new Map<string, number>();
 
@@ -82,6 +91,41 @@ export default function DashboardPage() {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
+  }, [transactions]);
+
+  const balanceData = useMemo(() => {
+    if (!transactions || !Array.isArray(transactions)) return [];
+
+    // Sort transactions by date
+    const sorted = [...transactions]
+      .filter(txn => txn.transaction_date) // Filter out transactions without dates
+      .sort((a, b) => {
+        const dateA = new Date(a.transaction_date);
+        const dateB = new Date(b.transaction_date);
+        return dateA.getTime() - dateB.getTime();
+      });
+
+    let runningBalance = 0;
+    const balanceHistory = sorted
+      .map((txn) => {
+        const date = new Date(txn.transaction_date);
+        if (isNaN(date.getTime())) return null; // Skip invalid dates
+        
+        runningBalance += parseFloat(txn.amount);
+        return {
+          date: format(date, 'MMM dd'),
+          balance: runningBalance,
+        };
+      })
+      .filter(Boolean) as Array<{ date: string; balance: number }>; // Remove null entries
+
+    // Sample every nth transaction if too many data points
+    if (balanceHistory.length > 30) {
+      const step = Math.ceil(balanceHistory.length / 30);
+      return balanceHistory.filter((_, i) => i % step === 0);
+    }
+
+    return balanceHistory;
   }, [transactions]);
 
   return (
@@ -112,6 +156,12 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard</h1>
           <p className="text-slate-600">Overview of your financial activity</p>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+            <p className="text-red-800">Error loading data: {error instanceof Error ? error.message : 'Unknown error'}</p>
+          </div>
+        )}
 
         {isLoading ? (
           <p className="text-slate-600">Loading data...</p>
@@ -144,6 +194,33 @@ export default function DashboardPage() {
                 <p className="text-sm text-slate-600 mb-1">Transactions</p>
                 <p className="text-2xl font-bold text-slate-900">{stats.transactionCount}</p>
               </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+              <h2 className="text-xl font-semibold mb-4">Account Balance Over Time</h2>
+              {balanceData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={balanceData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="balance"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      name="Balance"
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-slate-600 text-center py-12">
+                  No transaction history available
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -194,17 +271,20 @@ export default function DashboardPage() {
 
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-semibold mb-4">Recent Transactions</h2>
-              {transactions && transactions.length > 0 ? (
+              {transactions && Array.isArray(transactions) && transactions.length > 0 ? (
                 <div className="space-y-3">
-                  {transactions.slice(0, 10).map((txn) => (
+                  {transactions.slice(0, 10).map((txn, idx) => (
                     <div
-                      key={txn.transaction_id}
+                      key={txn.transaction_id || `txn-${idx}`}
                       className="flex items-center justify-between p-3 border border-slate-200 rounded-lg"
                     >
                       <div>
                         <p className="font-medium text-slate-900">{txn.raw_description}</p>
                         <p className="text-sm text-slate-600">
-                          {format(new Date(txn.transaction_date), 'MMM dd, yyyy')}
+                          {txn.transaction_date && (() => {
+                            const date = new Date(txn.transaction_date);
+                            return !isNaN(date.getTime()) ? format(date, 'MMM dd, yyyy') : txn.transaction_date;
+                          })()}
                         </p>
                       </div>
                       <div className="text-right">

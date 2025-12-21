@@ -186,7 +186,7 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 			return
 		}
 	} else {
-		startDate = time.Now().AddDate(0, 0, -30)
+		startDate = time.Now().AddDate(-1, 0, 0) // 1 year ago
 	}
 
 	if endDateStr != "" {
@@ -206,12 +206,11 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	middleware.WriteJSON(w, http.StatusOK, map[string]interface{}{
-		"transactions": transactions,
-		"count":        len(transactions),
-		"start_date":   startDate.Format("2006-01-02"),
-		"end_date":     endDate.Format("2006-01-02"),
-	})
+	// Return array directly for frontend compatibility
+	if transactions == nil {
+		transactions = []*bigquery.TransactionRow{}
+	}
+	middleware.WriteJSON(w, http.StatusOK, transactions)
 }
 
 // CategoriesHandler handles category-related endpoints.
