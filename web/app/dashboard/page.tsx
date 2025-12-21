@@ -5,7 +5,9 @@ import { apiClient, Transaction } from '@/lib/api-client';
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveLine, SliceTooltipProps } from '@nivo/line';
+import { ResponsiveBar, BarTooltipProps } from '@nivo/bar';
+import { ResponsivePie } from '@nivo/pie';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
@@ -88,7 +90,7 @@ export default function DashboardPage() {
       });
 
     return Array.from(categoryMap.entries())
-      .map(([name, value]) => ({ name, value }))
+      .map(([id, value]) => ({ id, label: id, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
   }, [transactions]);
@@ -113,19 +115,25 @@ export default function DashboardPage() {
         
         runningBalance += parseFloat(txn.amount);
         return {
-          date: format(date, 'MMM dd'),
-          balance: runningBalance,
+          x: format(date, 'MMM dd'),
+          y: runningBalance,
         };
       })
-      .filter(Boolean) as Array<{ date: string; balance: number }>; // Remove null entries
+      .filter(Boolean) as Array<{ x: string; y: number }>; // Remove null entries
 
     // Sample every nth transaction if too many data points
     if (balanceHistory.length > 30) {
       const step = Math.ceil(balanceHistory.length / 30);
-      return balanceHistory.filter((_, i) => i % step === 0);
+      return [{
+        id: 'balance',
+        data: balanceHistory.filter((_, i) => i % step === 0)
+      }];
     }
 
-    return balanceHistory;
+    return [{
+      id: 'balance',
+      data: balanceHistory
+    }];
   }, [transactions]);
 
   return (
@@ -198,24 +206,66 @@ export default function DashboardPage() {
 
             <div className="bg-white rounded-lg shadow-md p-6 mb-8">
               <h2 className="text-xl font-semibold mb-4">Account Balance Over Time</h2>
-              {balanceData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={balanceData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="balance"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      name="Balance"
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+              {balanceData.length > 0 && balanceData[0].data.length > 0 ? (
+                <div style={{ height: 300 }}>
+                  <ResponsiveLine
+                    data={balanceData}
+                    margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
+                    xScale={{ type: 'point' }}
+                    yScale={{ type: 'linear', min: 'auto', max: 'auto' }}
+                    curve="monotoneX"
+                    axisTop={null}
+                    axisRight={null}
+                    axisBottom={{
+                      tickSize: 5,
+                      tickPadding: 5,
+                      tickRotation: 0,
+                      legend: 'Date',
+                      legendOffset: 36,
+                      legendPosition: 'middle'
+                    }}
+                    axisLeft={{
+                      tickSize: 5,
+                      tickPadding: 5,
+                      tickRotation: 0,
+                      legend: 'Balance',
+                      legendOffset: -50,
+                      legendPosition: 'middle'
+                    }}
+                    colors={['#3b82f6']}
+                    lineWidth={2}
+                    pointSize={0}
+                    enableGridX={true}
+                    enableGridY={true}
+                    gridXValues={undefined}
+                    gridYValues={undefined}
+                    useMesh={true}
+                    legends={[
+                      {
+                        anchor: 'top-right',
+                        direction: 'row',
+                        justify: false,
+                        translateX: 0,
+                        translateY: -20,
+                        itemsSpacing: 0,
+                        itemDirection: 'left-to-right',
+                        itemWidth: 80,
+                        itemHeight: 20,
+                        itemOpacity: 0.75,
+                        symbolSize: 12,
+                        symbolShape: 'circle',
+                      }
+                    ]}
+                    tooltip={(point) => (
+                      <div className="bg-white px-3 py-2 shadow-lg rounded border border-slate-200">
+                        <div className="font-medium text-slate-900">{String(point.point.data.x)}</div>
+                        <div className="text-sm text-slate-600">
+                          Balance: <span className="font-semibold">${Number(point.point.data.y).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    )}
+                  />
+                </div>
               ) : (
                 <p className="text-slate-600 text-center py-12">
                   No transaction history available
@@ -226,41 +276,118 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-semibold mb-4">Monthly Overview</h2>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="income" fill="#10b981" name="Income" />
-                    <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {monthlyData.length > 0 ? (
+                  <div style={{ height: 300 }}>
+                    <ResponsiveBar
+                      data={monthlyData}
+                      keys={['income', 'expenses']}
+                      indexBy="month"
+                      margin={{ top: 20, right: 130, bottom: 50, left: 60 }}
+                      padding={0.3}
+                      valueScale={{ type: 'linear' }}
+                      indexScale={{ type: 'band', round: true }}
+                      colors={({ id }) => id === 'income' ? '#10b981' : '#ef4444'}
+                      borderColor={{
+                        from: 'color',
+                        modifiers: [['darker', 1.6]]
+                      }}
+                      axisTop={null}
+                      axisRight={null}
+                      axisBottom={{
+                        tickSize: 5,
+                        tickPadding: 5,
+                        tickRotation: 0,
+                        legend: 'Month',
+                        legendPosition: 'middle',
+                        legendOffset: 40
+                      }}
+                      axisLeft={{
+                        tickSize: 5,
+                        tickPadding: 5,
+                        tickRotation: 0,
+                        legend: 'Amount',
+                        legendPosition: 'middle',
+                        legendOffset: -50
+                      }}
+                      enableGridY={true}
+                      labelSkipWidth={12}
+                      labelSkipHeight={12}
+                      legends={[
+                        {
+                          dataFrom: 'keys',
+                          anchor: 'bottom-right',
+                          direction: 'column',
+                          justify: false,
+                          translateX: 120,
+                          translateY: 0,
+                          itemsSpacing: 2,
+                          itemWidth: 100,
+                          itemHeight: 20,
+                          itemDirection: 'left-to-right',
+                          itemOpacity: 0.85,
+                          symbolSize: 20,
+                        }
+                      ]}
+                      tooltip={({ id, value, indexValue, color }) => (
+                        <div className="bg-white px-3 py-2 shadow-lg rounded border border-slate-200">
+                          <div className="font-medium text-slate-900">{indexValue}</div>
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <div className="w-3 h-3 rounded" style={{ backgroundColor: color }} />
+                            <span className="capitalize">{id}:</span>
+                            <span className="font-semibold">${Number(value).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      )}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-slate-600 text-center py-12">No monthly data available</p>
+                )}
               </div>
 
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-semibold mb-4">Spending by Category</h2>
                 {categoryData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <div style={{ height: 300 }}>
+                    <ResponsivePie
+                      data={categoryData}
+                      margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                      innerRadius={0}
+                      padAngle={0.7}
+                      cornerRadius={3}
+                      activeOuterRadiusOffset={8}
+                      colors={COLORS}
+                      borderWidth={1}
+                      borderColor={{
+                        from: 'color',
+                        modifiers: [['darker', 0.2]]
+                      }}
+                      arcLinkLabelsSkipAngle={10}
+                      arcLinkLabelsTextColor="#333333"
+                      arcLinkLabelsThickness={2}
+                      arcLinkLabelsColor={{ from: 'color' }}
+                      arcLabelsSkipAngle={10}
+                      arcLabelsTextColor={{
+                        from: 'color',
+                        modifiers: [['darker', 2]]
+                      }}
+                      arcLabel={(d) => `${((d.value / categoryData.reduce((sum, c) => sum + c.value, 0)) * 100).toFixed(0)}%`}
+                      tooltip={({ datum }) => (
+                        <div className="bg-white px-3 py-2 shadow-lg rounded border border-slate-200">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded" style={{ backgroundColor: datum.color }} />
+                            <span className="font-medium text-slate-900">{datum.label}</span>
+                          </div>
+                          <div className="text-sm text-slate-600 mt-1">
+                            Amount: <span className="font-semibold">${Number(datum.value).toFixed(2)}</span>
+                          </div>
+                          <div className="text-sm text-slate-600">
+                            Percentage: <span className="font-semibold">{((datum.value / categoryData.reduce((sum, c) => sum + c.value, 0)) * 100).toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      )}
+                    />
+                  </div>
                 ) : (
                   <p className="text-slate-600 text-center py-12">
                     No categorized expenses yet
