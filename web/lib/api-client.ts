@@ -4,10 +4,20 @@ export interface Document {
   document_id: string;
   user_id: string;
   gcs_uri: string;
-  account_id: string;
+  document_type?: string;
+  source_system?: string;
+  institution_id?: string;
+  account_id?: string;
+  statement_start_date?: string;
+  statement_end_date?: string;
   upload_ts: string;
+  processed_ts?: string;
   parsing_status: string;
   original_filename: string;
+  file_mime_type?: string;
+  text_gcs_uri?: string;
+  checksum_sha256?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface Transaction {
@@ -65,7 +75,8 @@ class ApiClient {
 
   // Documents
   async listDocuments(): Promise<Document[]> {
-    return this.fetch<Document[]>('/api/documents');
+    const response = await this.fetch<{ documents: Document[] }>('/api/documents');
+    return response.documents || [];
   }
 
   async createUploadUrl(filename: string): Promise<{ upload_url: string; document_id: string }> {

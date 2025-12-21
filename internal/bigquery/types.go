@@ -70,32 +70,32 @@ type CategoryRepository interface {
 
 // DocumentRow represents a document record in BigQuery.
 type DocumentRow struct {
-	DocumentID string `bigquery:"document_id"`
-	UserID     string `bigquery:"user_id"`
-	GCSURI     string `bigquery:"gcs_uri"`
+	DocumentID string `bigquery:"document_id" json:"document_id"`
+	UserID     string `bigquery:"user_id" json:"user_id"`
+	GCSURI     string `bigquery:"gcs_uri" json:"gcs_uri"`
 
-	DocumentType string `bigquery:"document_type"`
-	SourceSystem string `bigquery:"source_system"`
+	DocumentType string `bigquery:"document_type" json:"document_type,omitempty"`
+	SourceSystem string `bigquery:"source_system" json:"source_system,omitempty"`
 
-	InstitutionID string `bigquery:"institution_id"`
-	AccountID     string `bigquery:"account_id"`
+	InstitutionID string `bigquery:"institution_id" json:"institution_id,omitempty"`
+	AccountID     string `bigquery:"account_id" json:"account_id,omitempty"`
 
-	StatementStartDate bigquery.NullDate `bigquery:"statement_start_date"`
-	StatementEndDate   bigquery.NullDate `bigquery:"statement_end_date"`
+	StatementStartDate bigquery.NullDate `bigquery:"statement_start_date" json:"statement_start_date,omitempty"`
+	StatementEndDate   bigquery.NullDate `bigquery:"statement_end_date" json:"statement_end_date,omitempty"`
 
-	UploadTS    time.Time              `bigquery:"upload_ts"`
-	ProcessedTS bigquery.NullTimestamp `bigquery:"processed_ts"`
+	UploadTS    time.Time              `bigquery:"upload_ts" json:"upload_ts"`
+	ProcessedTS bigquery.NullTimestamp `bigquery:"processed_ts" json:"processed_ts,omitempty"`
 
-	ParsingStatus string `bigquery:"parsing_status"`
+	ParsingStatus string `bigquery:"parsing_status" json:"parsing_status"`
 
-	OriginalFilename string `bigquery:"original_filename"`
-	FileMimeType     string `bigquery:"file_mime_type"`
+	OriginalFilename string `bigquery:"original_filename" json:"original_filename"`
+	FileMimeType     string `bigquery:"file_mime_type" json:"file_mime_type,omitempty"`
 
-	TextGCSURI string `bigquery:"text_gcs_uri"`
+	TextGCSURI string `bigquery:"text_gcs_uri" json:"text_gcs_uri,omitempty"`
 
-	ChecksumSHA256 string `bigquery:"checksum_sha256"`
+	ChecksumSHA256 string `bigquery:"checksum_sha256" json:"checksum_sha256,omitempty"`
 
-	Metadata bigquery.NullJSON `bigquery:"metadata"`
+	Metadata bigquery.NullJSON `bigquery:"metadata" json:"metadata,omitempty"`
 }
 
 // TransactionRow represents a transaction record in BigQuery.
