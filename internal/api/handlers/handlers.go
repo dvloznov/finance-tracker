@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -76,7 +77,7 @@ func (h *DocumentsHandler) CreateUploadURL(w http.ResponseWriter, r *http.Reques
 
 	// For local development with user credentials, return direct upload URL
 	// In production with service accounts, this would use signed URLs
-	uploadURL := fmt.Sprintf("/api/documents/upload/%s", documentID)
+	uploadURL := fmt.Sprintf("/api/documents/upload/%s?object_name=%s&filename=%s", documentID, url.QueryEscape(objectName), url.QueryEscape(req.Filename))
 
 	middleware.WriteJSON(w, http.StatusOK, map[string]string{
 		"upload_url":  uploadURL,
@@ -91,10 +92,11 @@ func (h *DocumentsHandler) CreateUploadURL(w http.ResponseWriter, r *http.Reques
 func (h *DocumentsHandler) UploadDocument(w http.ResponseWriter, r *http.Request, documentID string) {
 	ctx := r.Context()
 
-	// Get filename from query parameter
-	filename := r.URL.Query().Get("filename")
-	if filename == "" {
-		filename = "document.pdf"
+	// Get object name from query parameter (passed from CreateUploadURL)
+	objectName := r.URL.Query().Get("object_name")
+	if objectName == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "object_name is required")
+		return
 	}
 
 	contentType := r.Header.Get("Content-Type")
@@ -102,8 +104,6 @@ func (h *DocumentsHandler) UploadDocument(w http.ResponseWriter, r *http.Request
 		contentType = "application/pdf"
 	}
 
-	// Generate object name
-	objectName := fmt.Sprintf("uploads/%s/%s-%s", time.Now().Format("2006/01/02"), documentID, filename)
 	gcsURI := fmt.Sprintf("gs://%s/%s", h.bucket, objectName)
 
 	// Upload to GCS
@@ -137,6 +137,27 @@ func (h *DocumentsHandler) UploadDocument(w http.ResponseWriter, r *http.Request
 		Str("gcs_uri", gcsURI).
 		Int64("bytes", written).
 		Msg("File uploaded successfully")
+
+	// Save document metadata to BigQuery
+	filename := r.URL.Query().Get("filename")
+	if filename == "" {
+		filename = "document.pdf"
+	}
+
+	doc := &bigquery.DocumentRow{
+		DocumentID:       documentID,
+		OriginalFilename: filename,
+		GCSURI:           gcsURI,
+		UploadTS:         time.Now(),
+		ParsingStatus:    "pending",
+		FileMimeType:     contentType,
+	}
+
+	if err := h.repo.InsertDocument(ctx, doc); err != nil {
+		h.log.Error().Err(err).Msg("Failed to insert document metadata")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to save document metadata")
+		return
+	}
 
 	middleware.WriteJSON(w, http.StatusOK, map[string]string{
 		"document_id": documentID,

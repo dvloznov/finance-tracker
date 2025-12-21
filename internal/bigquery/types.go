@@ -139,12 +139,6 @@ type TransactionRow struct {
 
 	Tags []string `bigquery:"tags" json:"tags,omitempty"`
 
-	MerchantID bigquery.NullString `bigquery:"merchant_id" json:"merchant_id,omitempty"`
-
-	Notes bigquery.NullString `bigquery:"notes" json:"notes,omitempty"`
-
-	ModelConfidenceScore bigquery.NullFloat64 `bigquery:"model_confidence_score" json:"model_confidence_score,omitempty"`
-
 	CreatedTS time.Time              `bigquery:"created_ts" json:"created_ts"`
 	UpdatedTS bigquery.NullTimestamp `bigquery:"updated_ts" json:"updated_ts,omitempty"`
 }

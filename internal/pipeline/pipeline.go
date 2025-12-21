@@ -237,6 +237,8 @@ func insertTransactionsWithRepo(
 			CategoryID:      categoryID,
 			CategoryName:    categoryName,
 			SubcategoryName: subcategoryName,
+
+			CreatedTS: time.Now(),
 		}
 
 		rows = append(rows, row)

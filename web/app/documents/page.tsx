@@ -148,8 +148,14 @@ export default function DocumentsPage() {
       
       setUploadStatus('Uploading file to cloud storage...');
       
+      // Build full URL - if upload_url is relative, prepend API base URL
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const fullUploadUrl = upload_url.startsWith('http') 
+        ? upload_url 
+        : `${apiBaseUrl}${upload_url}`;
+      
       // Append filename as query parameter for the API
-      const uploadUrlWithFilename = `${upload_url}?filename=${encodeURIComponent(file.name)}`;
+      const uploadUrlWithFilename = `${fullUploadUrl}?filename=${encodeURIComponent(file.name)}`;
       
       const uploadResponse = await fetch(uploadUrlWithFilename, {
         method: 'POST',
