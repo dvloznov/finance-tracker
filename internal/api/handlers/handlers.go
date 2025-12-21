@@ -12,8 +12,8 @@ import (
 	"github.com/dvloznov/finance-tracker/internal/api/middleware"
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/jobs"
-	"github.com/rs/zerolog"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 )
 
 // DocumentsHandler handles document-related endpoints.
