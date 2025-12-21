@@ -107,19 +107,51 @@ export default function DashboardPage() {
         return dateA.getTime() - dateB.getTime();
       });
 
-    let runningBalance = 0;
-    const balanceHistory = sorted
-      .map((txn) => {
+    // Use balance_after when available, otherwise calculate running balance
+    const balanceHistory: Array<{ x: string; y: number }> = [];
+    let calculatedBalance: number | null = null;
+
+    // First pass: find if we have any balance_after values to work backwards from
+    const txnsWithBalance = sorted.filter(txn => txn.balance_after);
+    
+    if (txnsWithBalance.length > 0) {
+      // Work backwards from the last known balance
+      const lastKnownBalance = parseFloat(txnsWithBalance[txnsWithBalance.length - 1].balance_after!);
+      let workingBalance = lastKnownBalance;
+      
+      // Go through transactions in reverse to calculate earlier balances
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        const txn = sorted[i];
         const date = new Date(txn.transaction_date);
-        if (isNaN(date.getTime())) return null; // Skip invalid dates
+        if (isNaN(date.getTime())) continue;
+        
+        // If this transaction has balance_after, use it
+        if (txn.balance_after) {
+          workingBalance = parseFloat(txn.balance_after);
+        } else {
+          // Calculate balance before this transaction
+          workingBalance -= parseFloat(txn.amount);
+        }
+        
+        balanceHistory.unshift({
+          x: format(date, 'MMM dd'),
+          y: workingBalance,
+        });
+      }
+    } else {
+      // Fallback: no balance_after values, calculate running balance from 0
+      let runningBalance = 0;
+      for (const txn of sorted) {
+        const date = new Date(txn.transaction_date);
+        if (isNaN(date.getTime())) continue;
         
         runningBalance += parseFloat(txn.amount);
-        return {
+        balanceHistory.push({
           x: format(date, 'MMM dd'),
           y: runningBalance,
-        };
-      })
-      .filter(Boolean) as Array<{ x: string; y: number }>; // Remove null entries
+        });
+      }
+    }
 
     // Sample every nth transaction if too many data points
     if (balanceHistory.length > 30) {
