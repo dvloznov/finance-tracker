@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,8 +14,10 @@ import (
 	"github.com/dvloznov/finance-tracker/internal/api/handlers"
 	"github.com/dvloznov/finance-tracker/internal/api/middleware"
 	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/jobs"
 	"github.com/dvloznov/finance-tracker/internal/jobs/inmemory"
 	"github.com/dvloznov/finance-tracker/internal/logger"
+	"github.com/dvloznov/finance-tracker/internal/pipeline"
 )
 
 func main() {
@@ -44,6 +47,50 @@ func main() {
 	// Initialize job infrastructure
 	jobStore := inmemory.NewStore()
 	jobQueue := inmemory.NewQueue(100, jobStore)
+
+	// Start worker in background to process jobs
+	workerCtx, cancelWorker := context.WithCancel(ctx)
+	defer cancelWorker()
+
+	// Create job handler for processing parse jobs
+	jobHandler := func(ctx context.Context, job jobs.Job) error {
+		parseJob, ok := job.(*jobs.ParseDocumentJob)
+		if !ok {
+			return fmt.Errorf("unexpected job type: %T", job)
+		}
+
+		log.Info().
+			Str("job_id", parseJob.JobID).
+			Str("document_id", parseJob.DocumentID).
+			Str("gcs_uri", parseJob.GCSURI).
+			Msg("Processing parse job")
+
+		// Execute the pipeline
+		err := pipeline.IngestStatementFromGCS(ctx, parseJob.GCSURI)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("job_id", parseJob.JobID).
+				Str("document_id", parseJob.DocumentID).
+				Msg("Pipeline execution failed")
+			return err
+		}
+
+		log.Info().
+			Str("job_id", parseJob.JobID).
+			Str("document_id", parseJob.DocumentID).
+			Msg("Pipeline execution completed successfully")
+
+		return nil
+	}
+
+	// Start job consumer in background
+	go func() {
+		log.Info().Msg("Starting job worker")
+		if err := jobQueue.Start(workerCtx, jobHandler); err != nil {
+			log.Error().Err(err).Msg("Job worker stopped with error")
+		}
+	}()
 
 	// Initialize handlers
 	documentsHandler := handlers.NewDocumentsHandler(docRepo, jobQueue, *bucket, log)
@@ -163,12 +210,20 @@ func main() {
 
 	log.Info().Msg("Shutting down server...")
 
+	// Cancel worker context
+	cancelWorker()
+
 	// Graceful shutdown
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatal().Err(err).Msg("Server forced to shutdown")
+	}
+
+	// Stop job queue and wait for in-flight jobs
+	if err := jobQueue.Stop(shutdownCtx); err != nil {
+		log.Error().Err(err).Msg("Error stopping job queue")
 	}
 
 	// Close job queue

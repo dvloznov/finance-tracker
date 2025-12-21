@@ -143,9 +143,9 @@ export default function DocumentsPage() {
       setUploading(true);
       setUploadStatus('Creating upload URL...');
       
-      const { upload_url, document_id } = await apiClient.createUploadUrl(file.name);
+      const { upload_url, document_id, gcs_uri } = await apiClient.createUploadUrl(file.name);
       
-      setUploadStatus('Uploading file...');
+      setUploadStatus('Uploading file to cloud storage...');
       const uploadResponse = await fetch(upload_url, {
         method: 'PUT',
         body: file,
@@ -158,12 +158,8 @@ export default function DocumentsPage() {
         throw new Error('Upload failed');
       }
 
-      setUploadStatus('Enqueueing parsing...');
-      // Extract GCS URI from the upload URL or construct it
-      const bucketMatch = upload_url.match(/https:\/\/storage\.googleapis\.com\/([^\/]+)\//);
-      const bucket = bucketMatch ? bucketMatch[1] : 'YOUR_BUCKET';
-      const gcsUri = `gs://${bucket}/${file.name}`;
-      await apiClient.enqueueParsing(document_id, gcsUri);
+      setUploadStatus('Triggering document parsing...');
+      await apiClient.enqueueParsing(document_id, gcs_uri);
       
       return document_id;
     },

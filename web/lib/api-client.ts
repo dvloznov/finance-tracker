@@ -79,7 +79,7 @@ class ApiClient {
     return response.documents || [];
   }
 
-  async createUploadUrl(filename: string): Promise<{ upload_url: string; document_id: string }> {
+  async createUploadUrl(filename: string): Promise<{ upload_url: string; document_id: string; gcs_uri: string; object_name: string }> {
     return this.fetch('/api/documents/upload-url', {
       method: 'POST',
       body: JSON.stringify({ filename }),

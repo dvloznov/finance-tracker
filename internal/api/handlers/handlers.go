@@ -86,6 +86,7 @@ func (h *DocumentsHandler) CreateUploadURL(w http.ResponseWriter, r *http.Reques
 		"upload_url":  signedURL,
 		"gcs_uri":     gcsURI,
 		"object_name": objectName,
+		"document_id": uuid.New().String(),
 	})
 }
 
