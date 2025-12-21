@@ -118,6 +118,20 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/api/documents/upload/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost || r.Method == http.MethodPut {
+			// Extract document ID from path
+			documentID := strings.TrimPrefix(r.URL.Path, "/api/documents/upload/")
+			if documentID == "" {
+				middleware.WriteError(w, http.StatusBadRequest, "Document ID is required")
+				return
+			}
+			documentsHandler.UploadDocument(w, r, documentID)
+		} else {
+			middleware.WriteError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+	})
+
 	mux.HandleFunc("/api/documents/parse", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			documentsHandler.EnqueueParsing(w, r)

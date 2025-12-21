@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -70,23 +71,77 @@ func (h *DocumentsHandler) CreateUploadURL(w http.ResponseWriter, r *http.Reques
 
 	// Generate unique object name
 	objectName := fmt.Sprintf("uploads/%s/%s", time.Now().Format("2006/01/02"), uuid.New().String()+"-"+req.Filename)
+	gcsURI := fmt.Sprintf("gs://%s/%s", h.bucket, objectName)
+	documentID := uuid.New().String()
 
-	// Generate signed URL
+	// For local development with user credentials, return direct upload URL
+	// In production with service accounts, this would use signed URLs
+	uploadURL := fmt.Sprintf("/api/documents/upload/%s", documentID)
+
+	middleware.WriteJSON(w, http.StatusOK, map[string]string{
+		"upload_url":  uploadURL,
+		"gcs_uri":     gcsURI,
+		"object_name": objectName,
+		"document_id": documentID,
+	})
+}
+
+// UploadDocument handles POST /api/documents/upload/:documentId
+// Direct upload endpoint for local development with user credentials
+func (h *DocumentsHandler) UploadDocument(w http.ResponseWriter, r *http.Request, documentID string) {
 	ctx := r.Context()
-	signedURL, err := h.generateSignedURL(ctx, h.bucket, objectName, req.ContentType)
+
+	// Get filename from query parameter
+	filename := r.URL.Query().Get("filename")
+	if filename == "" {
+		filename = "document.pdf"
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/pdf"
+	}
+
+	// Generate object name
+	objectName := fmt.Sprintf("uploads/%s/%s-%s", time.Now().Format("2006/01/02"), documentID, filename)
+	gcsURI := fmt.Sprintf("gs://%s/%s", h.bucket, objectName)
+
+	// Upload to GCS
+	client, err := storage.NewClient(ctx)
 	if err != nil {
-		h.log.Error().Err(err).Msg("Failed to generate signed URL")
-		middleware.WriteError(w, http.StatusInternalServerError, "Failed to generate upload URL")
+		h.log.Error().Err(err).Msg("Failed to create storage client")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to upload file")
+		return
+	}
+	defer client.Close()
+
+	wc := client.Bucket(h.bucket).Object(objectName).NewWriter(ctx)
+	wc.ContentType = contentType
+
+	// Copy request body directly to GCS
+	written, err := io.Copy(wc, r.Body)
+	if err != nil {
+		h.log.Error().Err(err).Msg("Failed to write to GCS")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to upload file")
 		return
 	}
 
-	gcsURI := fmt.Sprintf("gs://%s/%s", h.bucket, objectName)
+	if err := wc.Close(); err != nil {
+		h.log.Error().Err(err).Msg("Failed to close GCS writer")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to upload file")
+		return
+	}
+
+	h.log.Info().
+		Str("document_id", documentID).
+		Str("gcs_uri", gcsURI).
+		Int64("bytes", written).
+		Msg("File uploaded successfully")
 
 	middleware.WriteJSON(w, http.StatusOK, map[string]string{
-		"upload_url":  signedURL,
+		"document_id": documentID,
 		"gcs_uri":     gcsURI,
-		"object_name": objectName,
-		"document_id": uuid.New().String(),
+		"status":      "uploaded",
 	})
 }
 

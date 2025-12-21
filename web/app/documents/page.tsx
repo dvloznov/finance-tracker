@@ -24,6 +24,7 @@ export default function DocumentsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: documents, isLoading } = useQuery({
@@ -146,8 +147,12 @@ export default function DocumentsPage() {
       const { upload_url, document_id, gcs_uri } = await apiClient.createUploadUrl(file.name);
       
       setUploadStatus('Uploading file to cloud storage...');
-      const uploadResponse = await fetch(upload_url, {
-        method: 'PUT',
+      
+      // Append filename as query parameter for the API
+      const uploadUrlWithFilename = `${upload_url}?filename=${encodeURIComponent(file.name)}`;
+      
+      const uploadResponse = await fetch(uploadUrlWithFilename, {
+        method: 'POST',
         body: file,
         headers: {
           'Content-Type': file.type,
@@ -155,7 +160,8 @@ export default function DocumentsPage() {
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('Upload failed');
+        const error = await uploadResponse.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(error.error || 'Upload failed');
       }
 
       setUploadStatus('Triggering document parsing...');
@@ -181,6 +187,40 @@ export default function DocumentsPage() {
     const file = e.target.files?.[0];
     if (file) {
       uploadMutation.mutate(file);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type === 'application/pdf') {
+        uploadMutation.mutate(file);
+      } else {
+        setUploadStatus('Error: Please upload a PDF file');
+        setTimeout(() => setUploadStatus(''), 3000);
+      }
     }
   };
 
@@ -215,7 +255,17 @@ export default function DocumentsPage() {
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Upload New Document</h2>
-          <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center">
+          <div 
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              isDragging 
+                ? 'border-slate-900 bg-slate-50' 
+                : 'border-slate-300 hover:border-slate-400'
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <input
               type="file"
               accept=".pdf"
@@ -224,12 +274,34 @@ export default function DocumentsPage() {
               className="hidden"
               id="file-upload"
             />
-            <label
-              htmlFor="file-upload"
-              className="cursor-pointer inline-block px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50"
-            >
-              {uploading ? 'Uploading...' : 'Choose PDF File'}
-            </label>
+            <div className="space-y-4">
+              <div className="text-slate-600">
+                <svg 
+                  className="mx-auto h-12 w-12 text-slate-400" 
+                  stroke="currentColor" 
+                  fill="none" 
+                  viewBox="0 0 48 48" 
+                  aria-hidden="true"
+                >
+                  <path 
+                    d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" 
+                    strokeWidth={2} 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                  />
+                </svg>
+                <p className="mt-2 text-sm font-medium">
+                  {isDragging ? 'Drop your PDF file here' : 'Drag and drop your PDF file here'}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">or</p>
+              </div>
+              <label
+                htmlFor="file-upload"
+                className="cursor-pointer inline-block px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50"
+              >
+                {uploading ? 'Uploading...' : 'Choose PDF File'}
+              </label>
+            </div>
             {uploadStatus && (
               <p className="mt-4 text-sm text-slate-600">{uploadStatus}</p>
             )}
