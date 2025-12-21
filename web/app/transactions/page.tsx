@@ -37,15 +37,18 @@ export default function TransactionsPage() {
         header: 'Date',
         cell: ({ getValue }) => {
           const dateStr = getValue<string>();
-          if (!dateStr) return '—';
+          if (!dateStr) return <span className="text-slate-500">—</span>;
           const date = new Date(dateStr);
-          if (isNaN(date.getTime())) return dateStr;
-          return format(date, 'MMM dd, yyyy');
+          if (isNaN(date.getTime())) return <span className="text-slate-700">{dateStr}</span>;
+          return <span className="text-slate-900 font-medium">{format(date, 'MMM dd, yyyy')}</span>;
         },
       },
       {
         accessorKey: 'raw_description',
         header: 'Description',
+        cell: ({ getValue }) => (
+          <span className="text-slate-900">{getValue<string>()}</span>
+        ),
       },
       {
         accessorKey: 'amount',
@@ -54,7 +57,7 @@ export default function TransactionsPage() {
           const amount = parseFloat(getValue<string>());
           const currency = row.original.currency;
           return (
-            <span className={amount < 0 ? 'text-red-600' : 'text-green-600'}>
+            <span className={amount < 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
               {amount.toFixed(2)} {currency}
             </span>
           );
@@ -93,7 +96,7 @@ export default function TransactionsPage() {
           return (
             <button
               onClick={() => setIsEditing(true)}
-              className="text-left px-2 py-1 rounded hover:bg-slate-100 text-sm"
+              className="text-left px-2 py-1 rounded hover:bg-slate-100 text-sm text-slate-900"
             >
               {currentCategory || (
                 <span className="text-slate-400 italic">Click to categorize</span>
@@ -108,7 +111,7 @@ export default function TransactionsPage() {
         cell: ({ getValue, row }) => {
           const balance = getValue<string | undefined>();
           if (!balance) return <span className="text-slate-400">—</span>;
-          return `${parseFloat(balance).toFixed(2)} ${row.original.currency}`;
+          return <span className="text-slate-900">{`${parseFloat(balance).toFixed(2)} ${row.original.currency}`}</span>;
         },
       },
     ],
@@ -196,7 +199,7 @@ export default function TransactionsPage() {
                   {table.getRowModel().rows.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-50">
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm">
+                        <td key={cell.id} className="px-6 py-4 text-sm">
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
