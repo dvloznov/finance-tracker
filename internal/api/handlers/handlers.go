@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -143,13 +145,18 @@ func (h *DocumentsHandler) UploadDocument(w http.ResponseWriter, r *http.Request
 	if filename == "" {
 		filename = "document.pdf"
 	}
+	// Clean filename - remove any path or query parameters
+	if idx := strings.Index(filename, "?"); idx > 0 {
+		filename = filename[:idx]
+	}
+	filename = filepath.Base(filename)
 
 	doc := &bigquery.DocumentRow{
 		DocumentID:       documentID,
 		OriginalFilename: filename,
 		GCSURI:           gcsURI,
 		UploadTS:         time.Now(),
-		ParsingStatus:    "pending",
+		ParsingStatus:    "PENDING",
 		FileMimeType:     contentType,
 	}
 

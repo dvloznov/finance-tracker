@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
+	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 )
 
 // PipelineStep represents a single step in the ingestion pipeline.
@@ -45,6 +46,11 @@ func (s *CreateDocumentStep) Name() string {
 }
 
 func (s *CreateDocumentStep) Execute(ctx context.Context, state *PipelineState) error {
+	// Skip if documentID is already provided (from upload)
+	if state.DocumentID != "" {
+		return nil
+	}
+
 	// Check if a document with this checksum already exists
 	if state.Checksum != "" {
 		existingDoc, err := state.DocumentRepo.FindDocumentByChecksum(ctx, state.Checksum)
@@ -317,6 +323,12 @@ func (s *MarkSuccessStep) Execute(ctx context.Context, state *PipelineState) err
 	if err := state.DocumentRepo.MarkParsingRunSucceeded(ctx, state.ParsingRunID); err != nil {
 		return err
 	}
+
+	// Update document status to COMPLETED
+	if err := infraBQ.UpdateDocumentParsingStatus(ctx, state.DocumentID, "COMPLETED"); err != nil {
+		return fmt.Errorf("updating document status: %w", err)
+	}
+
 	return nil
 }
 

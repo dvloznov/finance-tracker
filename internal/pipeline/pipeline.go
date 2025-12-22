@@ -18,7 +18,8 @@ import (
 
 // IngestStatementFromGCS processes a single bank statement PDF stored in GCS.
 // gcsURI should look like: "gs://bucket/path/to/statement.pdf".
-func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
+// documentID is optional - if provided, it will use the existing document record instead of creating a new one.
+func IngestStatementFromGCS(ctx context.Context, gcsURI string, documentID ...string) error {
 	// Initialize concrete dependencies
 	repo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
 	if err != nil {
@@ -35,14 +36,22 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string) error {
 	storage := &gcsuploader.GCSStorageService{}
 	aiParser := NewGeminiAIParser(repo)
 
-	return IngestStatementFromGCSWithDeps(ctx, gcsURI, repo, accountRepo, storage, aiParser)
+	// Use provided documentID if available
+	var docID string
+	if len(documentID) > 0 && documentID[0] != "" {
+		docID = documentID[0]
+	}
+
+	return IngestStatementFromGCSWithDeps(ctx, gcsURI, docID, repo, accountRepo, storage, aiParser)
 }
 
 // IngestStatementFromGCSWithDeps processes a single bank statement PDF stored in GCS
 // using the provided dependencies. This enables dependency injection for testing.
+// If documentID is provided, it will use that existing document instead of creating a new one.
 func IngestStatementFromGCSWithDeps(
 	ctx context.Context,
 	gcsURI string,
+	documentID string,
 	repo bigquery.DocumentRepository,
 	accountRepo bigquery.AccountRepository,
 	storage StorageService,
@@ -51,6 +60,7 @@ func IngestStatementFromGCSWithDeps(
 	// Initialize pipeline state
 	state := &PipelineState{
 		GCSURI:         gcsURI,
+		DocumentID:     documentID, // Set documentID if provided
 		DocumentRepo:   repo,
 		AccountRepo:    accountRepo,
 		StorageService: storage,

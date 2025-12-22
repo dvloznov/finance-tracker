@@ -66,13 +66,19 @@ func main() {
 			Msg("Processing parse job")
 
 		// Execute the pipeline
-		err := pipeline.IngestStatementFromGCS(ctx, parseJob.GCSURI)
+		err := pipeline.IngestStatementFromGCS(ctx, parseJob.GCSURI, parseJob.DocumentID)
 		if err != nil {
 			log.Error().
 				Err(err).
 				Str("job_id", parseJob.JobID).
 				Str("document_id", parseJob.DocumentID).
 				Msg("Pipeline execution failed")
+
+			// Update document status to FAILED
+			if updateErr := infraBQ.UpdateDocumentParsingStatus(ctx, parseJob.DocumentID, "FAILED"); updateErr != nil {
+				log.Error().Err(updateErr).Msg("Failed to update document status")
+			}
+
 			return err
 		}
 

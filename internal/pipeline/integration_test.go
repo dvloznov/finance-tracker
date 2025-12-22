@@ -91,6 +91,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 		err := pipeline.IngestStatementFromGCSWithDeps(
 			context.Background(),
 			"gs://test-bucket/test.pdf",
+			"", // empty documentID - let pipeline create it
 			repo,
 			mockAccountRepo,
 			mockStorage,
@@ -138,6 +139,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 		err := pipeline.IngestStatementFromGCSWithDeps(
 			context.Background(),
 			"gs://test-bucket/test.pdf",
+			"", // empty documentID - let pipeline create it
 			repo,
 			mockAccountRepo,
 			mockStorage,
@@ -185,6 +187,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 		err := pipeline.IngestStatementFromGCSWithDeps(
 			context.Background(),
 			"gs://test-bucket/test.pdf",
+			"", // empty documentID - let pipeline create it
 			repo,
 			mockAccountRepo,
 			mockStorage,
