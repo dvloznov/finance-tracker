@@ -5,6 +5,7 @@ import { apiClient, Document } from '@/lib/api-client';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
+import { Trash2, X } from 'lucide-react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -25,6 +26,8 @@ export default function DocumentsPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; documentId: string | null }>({ show: false, documentId: null });
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: documents, isLoading } = useQuery({
@@ -121,6 +124,22 @@ export default function DocumentsPage() {
         </span>
       ),
     }),
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: (info: any) => {
+        const document = info.row.original;
+        return (
+          <button
+            onClick={() => setDeleteConfirm({ show: true, documentId: document.document_id })}
+            className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
+            title="Delete document"
+          >
+            <Trash2 size={18} />
+          </button>
+        );
+      },
+    },
   ], []);
 
   const table = useReactTable({
@@ -188,6 +207,34 @@ export default function DocumentsPage() {
       setUploading(false);
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      return apiClient.deleteDocument(documentId);
+    },
+    onSuccess: () => {
+      setDeleteConfirm({ show: false, documentId: null });
+      setDeleteError(null);
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+    onError: (error: Error) => {
+      console.error('Delete failed:', error);
+      setDeleteError(error.message);
+    },
+  });
+
+  const handleDeleteConfirm = () => {
+    if (deleteConfirm.documentId) {
+      setDeleteError(null);
+      deleteMutation.mutate(deleteConfirm.documentId);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm({ show: false, documentId: null });
+    setDeleteError(null);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -401,6 +448,63 @@ export default function DocumentsPage() {
           )}
         </div>
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                    <Trash2 className="text-red-600" size={24} />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                    Delete Document
+                  </h3>
+                  <p className="text-slate-600 mb-4">
+                    Are you sure you want to delete this document? This will also delete all associated transactions and cannot be undone.
+                  </p>
+                  
+                  {deleteError && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                      <p className="text-sm text-red-800 flex items-start gap-2">
+                        <X size={16} className="flex-shrink-0 mt-0.5" />
+                        <span>{deleteError}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="bg-slate-50 px-6 py-4 flex gap-3 justify-end rounded-b-lg">
+              <button
+                onClick={handleDeleteCancel}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {deleteMutation.isPending ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

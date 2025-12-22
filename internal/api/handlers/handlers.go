@@ -15,6 +15,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/dvloznov/finance-tracker/internal/api/middleware"
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
+	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/jobs"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -212,6 +213,90 @@ func (h *DocumentsHandler) EnqueueParsing(w http.ResponseWriter, r *http.Request
 		"document_id": req.DocumentID,
 		"status":      string(job.Status),
 	})
+}
+
+// DeleteDocument handles DELETE /api/documents/:documentId
+// Deletes the document and all related data (transactions, parsing runs, model outputs, GCS file)
+func (h *DocumentsHandler) DeleteDocument(w http.ResponseWriter, r *http.Request, documentID string) {
+	ctx := r.Context()
+
+	// Get document details to find GCS URI
+	docs, err := h.repo.ListAllDocuments(ctx)
+	if err != nil {
+		h.log.Error().Err(err).Msg("Failed to list documents")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to retrieve document")
+		return
+	}
+
+	var gcsURI string
+	var found bool
+	for _, doc := range docs {
+		if doc.DocumentID == documentID {
+			gcsURI = doc.GCSURI
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		middleware.WriteError(w, http.StatusNotFound, "Document not found")
+		return
+	}
+
+	// Delete from BigQuery (cascades to all related data)
+	if err := infraBQ.DeleteDocument(ctx, documentID); err != nil {
+		h.log.Error().Err(err).Str("document_id", documentID).Msg("Failed to delete document from BigQuery")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to delete document")
+		return
+	}
+
+	// Delete from GCS
+	if gcsURI != "" {
+		if err := h.deleteFromGCS(ctx, gcsURI); err != nil {
+			h.log.Warn().Err(err).Str("gcs_uri", gcsURI).Msg("Failed to delete file from GCS (document already deleted from database)")
+			// Continue anyway - document is deleted from DB
+		}
+	}
+
+	h.log.Info().
+		Str("document_id", documentID).
+		Str("gcs_uri", gcsURI).
+		Msg("Document deleted successfully")
+
+	middleware.WriteJSON(w, http.StatusOK, map[string]string{
+		"document_id": documentID,
+		"status":      "deleted",
+	})
+}
+
+// deleteFromGCS deletes a file from GCS given its gs:// URI
+func (h *DocumentsHandler) deleteFromGCS(ctx context.Context, gcsURI string) error {
+	// Parse gs://bucket/path format
+	if !strings.HasPrefix(gcsURI, "gs://") {
+		return fmt.Errorf("invalid GCS URI format: %s", gcsURI)
+	}
+
+	path := strings.TrimPrefix(gcsURI, "gs://")
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid GCS URI format: %s", gcsURI)
+	}
+
+	bucket := parts[0]
+	objectName := parts[1]
+
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create storage client: %w", err)
+	}
+	defer client.Close()
+
+	obj := client.Bucket(bucket).Object(objectName)
+	if err := obj.Delete(ctx); err != nil {
+		return fmt.Errorf("failed to delete object: %w", err)
+	}
+
+	return nil
 }
 
 // generateSignedURL generates a signed URL for uploading to GCS.

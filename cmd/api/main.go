@@ -116,6 +116,21 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/api/documents/", func(w http.ResponseWriter, r *http.Request) {
+		// Handle DELETE /api/documents/:id
+		if r.Method == http.MethodDelete {
+			documentID := strings.TrimPrefix(r.URL.Path, "/api/documents/")
+			documentID = strings.TrimSuffix(documentID, "/")
+			if documentID == "" || strings.Contains(documentID, "/") {
+				middleware.WriteError(w, http.StatusBadRequest, "Invalid document ID")
+				return
+			}
+			documentsHandler.DeleteDocument(w, r, documentID)
+			return
+		}
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	})
+
 	mux.HandleFunc("/api/documents/upload-url", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			documentsHandler.CreateUploadURL(w, r)

@@ -93,6 +93,12 @@ class ApiClient {
     });
   }
 
+  async deleteDocument(documentId: string): Promise<{ document_id: string; status: string }> {
+    return this.fetch(`/api/documents/${documentId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Transactions
   async listTransactions(params?: { start_date?: string; end_date?: string }): Promise<Transaction[]> {
     const query = new URLSearchParams(params as Record<string, string>);
