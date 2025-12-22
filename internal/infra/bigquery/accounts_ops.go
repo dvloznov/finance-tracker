@@ -172,9 +172,52 @@ func UpsertAccountWithClient(ctx context.Context, client *bigquery.Client, row *
 		row.AccountID = uuid.NewString()
 	}
 
-	inserter := client.Dataset(datasetID).Table("accounts").Inserter()
-	if err := inserter.Put(ctx, row); err != nil {
-		return "", fmt.Errorf("UpsertAccountWithClient: inserting account: %w", err)
+	q := client.Query(`
+		INSERT INTO ` + "`" + projectID + "." + datasetID + ".accounts" + "`" + ` (
+			account_id, user_id, institution_id,
+			account_name, account_number, sort_code, iban,
+			currency, account_type,
+			opened_date, closed_date, is_primary,
+			metadata, created_ts, updated_ts
+		)
+		VALUES (
+			@account_id, @user_id, @institution_id,
+			@account_name, @account_number, @sort_code, @iban,
+			@currency, @account_type,
+			@opened_date, @closed_date, @is_primary,
+			@metadata, @created_ts, @updated_ts
+		)
+	`)
+
+	q.Parameters = []bigquery.QueryParameter{
+		{Name: "account_id", Value: row.AccountID},
+		{Name: "user_id", Value: row.UserID},
+		{Name: "institution_id", Value: row.InstitutionID},
+		{Name: "account_name", Value: row.AccountName},
+		{Name: "account_number", Value: row.AccountNumber},
+		{Name: "sort_code", Value: row.SortCode},
+		{Name: "iban", Value: row.IBAN},
+		{Name: "currency", Value: row.Currency},
+		{Name: "account_type", Value: row.AccountType},
+		{Name: "opened_date", Value: row.OpenedDate},
+		{Name: "closed_date", Value: row.ClosedDate},
+		{Name: "is_primary", Value: row.IsPrimary},
+		{Name: "metadata", Value: row.Metadata},
+		{Name: "created_ts", Value: row.CreatedTS},
+		{Name: "updated_ts", Value: row.UpdatedTS},
+	}
+
+	job, err := q.Run(ctx)
+	if err != nil {
+		return "", fmt.Errorf("UpsertAccountWithClient: running insert query: %w", err)
+	}
+
+	status, err := job.Wait(ctx)
+	if err != nil {
+		return "", fmt.Errorf("UpsertAccountWithClient: waiting for job: %w", err)
+	}
+	if err := status.Err(); err != nil {
+		return "", fmt.Errorf("UpsertAccountWithClient: job error: %w", err)
 	}
 
 	return row.AccountID, nil
