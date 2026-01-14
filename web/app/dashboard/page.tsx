@@ -36,7 +36,6 @@ export default function DashboardPage() {
       totalIncome,
       totalExpenses,
       netBalance,
-      transactionCount: transactions.length,
     };
   }, [transactions]);
 
@@ -207,7 +206,7 @@ export default function DashboardPage() {
           <p className="text-slate-600">Loading data...</p>
         ) : stats ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow-md p-6">
                 <p className="text-sm text-slate-600 mb-1">Total Income</p>
                 <p className="text-2xl font-bold text-green-600">
@@ -229,10 +228,6 @@ export default function DashboardPage() {
                 >
                   £{stats.netBalance.toFixed(2)}
                 </p>
-              </div>
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <p className="text-sm text-slate-600 mb-1">Transactions</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.transactionCount}</p>
               </div>
             </div>
 
@@ -426,44 +421,6 @@ export default function DashboardPage() {
                   </p>
                 )}
               </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-4">Recent Transactions</h2>
-              {transactions && Array.isArray(transactions) && transactions.length > 0 ? (
-                <div className="space-y-3">
-                  {transactions.slice(0, 10).map((txn, idx) => (
-                    <div
-                      key={txn.transaction_id || `txn-${idx}`}
-                      className="flex items-center justify-between p-3 border border-slate-200 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-slate-900">{txn.raw_description}</p>
-                        <p className="text-sm text-slate-600">
-                          {txn.transaction_date && (() => {
-                            const date = new Date(txn.transaction_date);
-                            return !isNaN(date.getTime()) ? format(date, 'MMM dd, yyyy') : txn.transaction_date;
-                          })()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p
-                          className={`font-semibold ${
-                            parseFloat(txn.amount) < 0 ? 'text-red-600' : 'text-green-600'
-                          }`}
-                        >
-                          £{parseFloat(txn.amount).toFixed(2)}
-                        </p>
-                        {txn.category_name && (
-                          <p className="text-sm text-slate-600">{txn.category_name}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-slate-600">No transactions available</p>
-              )}
             </div>
           </>
         ) : (
