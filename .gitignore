@@ -11,6 +11,9 @@ bin/
 /upload-pdf
 /sync-notion
 /migrate
+/worker
+/cli
+/api
 
 # Local sample statements (keep folder, ignore files)
 static/*
