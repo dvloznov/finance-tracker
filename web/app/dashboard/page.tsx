@@ -210,13 +210,13 @@ export default function DashboardPage() {
               <div className="bg-white rounded-lg shadow-md p-6">
                 <p className="text-sm text-slate-600 mb-1">Total Income</p>
                 <p className="text-2xl font-bold text-green-600">
-                  £{stats.totalIncome.toFixed(2)}
+                  £{Math.round(stats.totalIncome)}
                 </p>
               </div>
               <div className="bg-white rounded-lg shadow-md p-6">
                 <p className="text-sm text-slate-600 mb-1">Total Expenses</p>
                 <p className="text-2xl font-bold text-red-600">
-                  £{stats.totalExpenses.toFixed(2)}
+                  £{Math.round(stats.totalExpenses)}
                 </p>
               </div>
               <div className="bg-white rounded-lg shadow-md p-6">
@@ -226,7 +226,7 @@ export default function DashboardPage() {
                     stats.netBalance >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}
                 >
-                  £{stats.netBalance.toFixed(2)}
+                  £{Math.round(stats.netBalance)}
                 </p>
               </div>
             </div>
@@ -287,7 +287,7 @@ export default function DashboardPage() {
                       <div className="bg-white px-3 py-2 shadow-lg rounded border border-slate-200">
                         <div className="font-medium text-slate-900">{String(point.point.data.x)}</div>
                         <div className="text-sm text-slate-600">
-                          Balance: <span className="font-semibold">£{Number(point.point.data.y).toFixed(2)}</span>
+                          Balance: <span className="font-semibold">£{Math.round(Number(point.point.data.y))}</span>
                         </div>
                       </div>
                     )}
@@ -311,6 +311,7 @@ export default function DashboardPage() {
                       indexBy="month"
                       margin={{ top: 20, right: 130, bottom: 50, left: 60 }}
                       padding={0.3}
+                      groupMode="grouped"
                       valueScale={{ type: 'linear' }}
                       indexScale={{ type: 'band', round: true }}
                       colors={({ id }) => id === 'income' ? '#10b981' : '#ef4444'}
@@ -334,11 +335,13 @@ export default function DashboardPage() {
                         tickRotation: 0,
                         legend: 'Amount',
                         legendPosition: 'middle',
-                        legendOffset: -50
+                        legendOffset: -50,
+                        format: (value) => `£${Math.round(value)}`
                       }}
                       enableGridY={true}
                       labelSkipWidth={12}
                       labelSkipHeight={12}
+                      valueFormat={(value) => `£${Math.round(value)}`}
                       legends={[
                         {
                           dataFrom: 'keys',
@@ -361,7 +364,7 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-2 text-sm text-slate-600">
                             <div className="w-3 h-3 rounded" style={{ backgroundColor: color }} />
                             <span className="capitalize">{id}:</span>
-                            <span className="font-semibold">£{Number(value).toFixed(2)}</span>
+                            <span className="font-semibold">£{Math.round(Number(value))}</span>
                           </div>
                         </div>
                       )}
@@ -406,10 +409,10 @@ export default function DashboardPage() {
                             <span className="font-medium text-slate-900">{datum.label}</span>
                           </div>
                           <div className="text-sm text-slate-600 mt-1">
-                            Amount: <span className="font-semibold">£{Number(datum.value).toFixed(2)}</span>
+                            Amount: <span className="font-semibold">£{Math.round(Number(datum.value))}</span>
                           </div>
                           <div className="text-sm text-slate-600">
-                            Percentage: <span className="font-semibold">{((datum.value / categoryData.reduce((sum, c) => sum + c.value, 0)) * 100).toFixed(1)}%</span>
+                            Percentage: <span className="font-semibold">{Math.round((datum.value / categoryData.reduce((sum, c) => sum + c.value, 0)) * 100)}%</span>
                           </div>
                         </div>
                       )}
