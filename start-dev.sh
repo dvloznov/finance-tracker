@@ -2,7 +2,7 @@
 
 # Start API server in background
 echo "Starting API server on port 8080..."
-go run cmd/api/main.go -port 8080 -bucket finance-tracker-dev &
+go run cmd/api/main.go -port 8080 -bucket personal-tracker-finance-pdfs &
 API_PID=$!
 
 # Start Next.js frontend
