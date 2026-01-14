@@ -4,23 +4,37 @@ AI-powered financial document processor. Upload bank statements/receipts → Gem
 
 ## Quick Start
 
-**1. Setup Backend**
+**1. Setup**
 ```bash
 # Authenticate with GCP
 gcloud auth application-default login
 
 # Initialize BigQuery tables
 go run cmd/migrate/main.go -project YOUR_PROJECT_ID
+
+# Install frontend dependencies
+cd web && npm install && cd ..
 ```
 
-**2. Run Frontend**
+**2. Run (both backend + frontend)**
 ```bash
-cd web
-npm install
-npm run dev
+./start-dev.sh
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+This starts:
+- API server on [http://localhost:8080](http://localhost:8080)
+- Frontend on [http://localhost:3000](http://localhost:3000)
+
+Press Ctrl+C to stop both services.
+
+**Or run separately:**
+```bash
+# Terminal 1 - API
+go run cmd/api/main.go -port 8080 -bucket YOUR_BUCKET_NAME
+
+# Terminal 2 - Frontend
+cd web && npm run dev
+```
 
 ## CLI Usage
 
