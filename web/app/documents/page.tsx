@@ -18,6 +18,7 @@ import {
 } from '@tanstack/react-table';
 
 const columnHelper = createColumnHelper<Document>();
+const cardClass = 'bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-6';
 
 export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
@@ -279,20 +280,20 @@ export default function DocumentsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <nav className="border-b bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4">
+      <nav className="border-b border-slate-100 bg-white">
+        <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="text-2xl font-bold text-slate-900">
+            <Link href="/" className="text-xl font-semibold tracking-tight text-slate-900">
               Finance Tracker
             </Link>
-            <div className="flex gap-4">
-              <Link href="/dashboard" className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium">
+            <div className="flex gap-1">
+              <Link href="/dashboard" className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent">
                 Dashboard
               </Link>
-              <Link href="/documents" className="px-4 py-2 text-slate-900 font-medium border-b-2 border-slate-900">
+              <Link href="/documents" className="px-4 py-2 text-sm font-medium text-slate-900 border-b-2 border-slate-900">
                 Documents
               </Link>
-              <Link href="/transactions" className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium">
+              <Link href="/transactions" className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent">
                 Transactions
               </Link>
             </div>
@@ -300,14 +301,15 @@ export default function DocumentsPage() {
         </div>
       </nav>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Documents</h1>
-          <p className="text-slate-600">Upload and manage your bank statements</p>
-        </div>
+      <main className="container mx-auto px-6 py-8">
+        <div className="space-y-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Documents</h1>
+            <p className="text-sm text-slate-600">Upload and manage your bank statements</p>
+          </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Upload New Document</h2>
+          <div className={cardClass}>
+            <h2 className="text-sm font-semibold text-slate-900 mb-6">Upload New Document</h2>
           <div 
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               isDragging 
@@ -350,7 +352,7 @@ export default function DocumentsPage() {
               </div>
               <label
                 htmlFor="file-upload"
-                className="cursor-pointer inline-block px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50"
+                className="cursor-pointer inline-block px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 text-sm font-medium"
               >
                 {uploading ? 'Uploading...' : 'Choose PDF File'}
               </label>
@@ -359,100 +361,103 @@ export default function DocumentsPage() {
               <p className="mt-4 text-sm text-slate-600">{uploadStatus}</p>
             )}
           </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-4">Uploaded Documents</h2>
-            
-            <div className="flex gap-4 mb-4">
-              <input
-                type="text"
-                placeholder="Search documents..."
-                value={globalFilter ?? ''}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
-              />
-              <select
-                value={(columnFilters.find(f => f.id === 'parsing_status')?.value as string) ?? ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setColumnFilters(prev => 
-                    value 
-                      ? [...prev.filter(f => f.id !== 'parsing_status'), { id: 'parsing_status', value }]
-                      : prev.filter(f => f.id !== 'parsing_status')
-                  );
-                }}
-                className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
-              >
-                <option value="">All Statuses</option>
-                <option value="PENDING">Pending</option>
-                <option value="RUNNING">Running</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="FAILED">Failed</option>
-              </select>
-            </div>
           </div>
-          
-          {isLoading ? (
-            <p className="text-slate-600">Loading documents...</p>
-          ) : documents && documents.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <th
-                          key={header.id}
-                          className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          <div className="flex items-center gap-2">
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                            {{
-                              asc: ' ↑',
-                              desc: ' ↓',
-                            }[header.column.getIsSorted() as string] ?? null}
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
-                  {table.getRowModel().rows.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50">
-                      {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-4 py-3 text-sm">
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+          <div className={cardClass}>
+            <div className="mb-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-900">Uploaded Documents</h2>
+              </div>
               
-              {table.getRowModel().rows.length === 0 && (
-                <p className="text-slate-600 text-center py-8">No documents match your search</p>
-              )}
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  type="text"
+                  placeholder="Search documents..."
+                  value={globalFilter ?? ''}
+                  onChange={(e) => setGlobalFilter(e.target.value)}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm"
+                />
+                <select
+                  value={(columnFilters.find(f => f.id === 'parsing_status')?.value as string) ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setColumnFilters(prev => 
+                      value 
+                        ? [...prev.filter(f => f.id !== 'parsing_status'), { id: 'parsing_status', value }]
+                        : prev.filter(f => f.id !== 'parsing_status')
+                    );
+                  }}
+                  className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="RUNNING">Running</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="FAILED">Failed</option>
+                </select>
+              </div>
             </div>
-          ) : (
-            <p className="text-slate-600">No documents uploaded yet</p>
-          )}
+            
+            {isLoading ? (
+              <p className="text-sm text-slate-600">Loading documents...</p>
+            ) : documents && documents.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <tr key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <th
+                            key={header.id}
+                            className="px-4 py-3 text-left text-[11px] font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            <div className="flex items-center gap-2">
+                              {flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                              {{
+                                asc: ' ↑',
+                                desc: ' ↓',
+                              }[header.column.getIsSorted() as string] ?? null}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-100">
+                    {table.getRowModel().rows.map((row) => (
+                      <tr key={row.id} className="hover:bg-slate-50">
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="px-4 py-3 text-sm">
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                
+                {table.getRowModel().rows.length === 0 && (
+                  <p className="text-sm text-slate-500 text-center py-8">No documents match your search</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-600">No documents uploaded yet</p>
+            )}
+          </div>
         </div>
       </main>
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm max-w-md w-full mx-4">
             <div className="p-6">
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0">
@@ -461,15 +466,15 @@ export default function DocumentsPage() {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  <h3 className="text-base font-semibold text-slate-900 mb-2">
                     Delete Document
                   </h3>
-                  <p className="text-slate-600 mb-4">
+                  <p className="text-sm text-slate-600 mb-4">
                     Are you sure you want to delete this document? This will also delete all associated transactions and cannot be undone.
                   </p>
                   
                   {deleteError && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <div className="mb-4 p-3 bg-red-50 ring-1 ring-red-200 rounded-lg">
                       <p className="text-sm text-red-800 flex items-start gap-2">
                         <X size={16} className="flex-shrink-0 mt-0.5" />
                         <span>{deleteError}</span>
@@ -479,18 +484,18 @@ export default function DocumentsPage() {
                 </div>
               </div>
             </div>
-            <div className="bg-slate-50 px-6 py-4 flex gap-3 justify-end rounded-b-lg">
+            <div className="bg-slate-50 px-6 py-4 flex gap-3 justify-end rounded-b-2xl">
               <button
                 onClick={handleDeleteCancel}
                 disabled={deleteMutation.isPending}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
                 disabled={deleteMutation.isPending}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {deleteMutation.isPending ? (
                   <>

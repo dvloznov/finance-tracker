@@ -132,22 +132,24 @@ export default function TransactionsPage() {
     getFilteredRowModel: getFilteredRowModel(),
   });
 
+  const cardClass = 'bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-6';
+
   return (
     <div className="min-h-screen bg-slate-50">
-      <nav className="border-b bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4">
+      <nav className="border-b border-slate-100 bg-white">
+        <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="text-2xl font-bold text-slate-900">
+            <Link href="/" className="text-xl font-semibold tracking-tight text-slate-900">
               Finance Tracker
             </Link>
-            <div className="flex gap-4">
-              <Link href="/dashboard" className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium">
+            <div className="flex gap-1">
+              <Link href="/dashboard" className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent">
                 Dashboard
               </Link>
-              <Link href="/documents" className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium">
+              <Link href="/documents" className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent">
                 Documents
               </Link>
-              <Link href="/transactions" className="px-4 py-2 text-slate-900 font-medium border-b-2 border-slate-900">
+              <Link href="/transactions" className="px-4 py-2 text-sm font-medium text-slate-900 border-b-2 border-slate-900">
                 Transactions
               </Link>
             </div>
@@ -155,62 +157,64 @@ export default function TransactionsPage() {
         </div>
       </nav>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Transactions</h1>
-          <p className="text-slate-600">View and categorize your transactions</p>
-        </div>
+      <main className="container mx-auto px-6 py-8">
+        <div className="space-y-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Transactions</h1>
+            <p className="text-sm text-slate-600">View and categorize your transactions</p>
+          </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <input
-            type="text"
-            placeholder="Search transactions..."
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
-          />
-        </div>
+          <div className={cardClass}>
+            <input
+              type="text"
+              placeholder="Search transactions..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm"
+            />
+          </div>
 
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {transactionsLoading ? (
-            <p className="p-6 text-slate-600">Loading transactions...</p>
-          ) : transactions && transactions.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <th
-                          key={header.id}
-                          className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
-                  {table.getRowModel().rows.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50">
-                      {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-6 py-4 text-sm">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="p-6 text-slate-600">No transactions found</p>
-          )}
+          <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm overflow-hidden">
+            {transactionsLoading ? (
+              <p className="p-6 text-sm text-slate-600">Loading transactions...</p>
+            ) : transactions && transactions.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <tr key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <th
+                            key={header.id}
+                            className="px-6 py-3 text-left text-[11px] font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-100">
+                    {table.getRowModel().rows.map((row) => (
+                      <tr key={row.id} className="hover:bg-slate-50">
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="px-6 py-4 text-sm">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="p-6 text-sm text-slate-600">No transactions found</p>
+            )}
+          </div>
         </div>
       </main>
     </div>
