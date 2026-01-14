@@ -1,96 +1,54 @@
 # Finance Tracker
 
-Full-stack application that processes bank statements and receipts using Gemini AI. Backend is built with Go, frontend with Next.js. State is stored in Google Cloud (BigQuery + Cloud Storage).
+AI-powered financial document processor. Upload bank statements/receipts → Gemini extracts transactions → Browse via web UI.
 
-## What it does
+## Quick Start
 
-Uploads PDFs → Gemini AI extracts transactions → Stores in BigQuery → View & manage through web UI
-
-## Usage
-
-**Initialize BigQuery tables:**
+**1. Setup Backend**
 ```bash
-go run cmd/migrate/main.go -project studious-union-470122-v7
+# Authenticate with GCP
+gcloud auth application-default login
+
+# Initialize BigQuery tables
+go run cmd/migrate/main.go -project YOUR_PROJECT_ID
 ```
 
-**Upload a PDF:**
-```bash
-go run cmd/upload-pdf/main.go -bucket BUCKET -file statement.pdf
-```
-
-**Process it:**
-```bash
-go run cmd/ingest/main.go -gcs-uri gs://bucket/statement.pdf
-```
-
-## Tech Stack
-
-**Backend:**
-- **Go 1.24.2**
-- **Google Cloud Storage** - PDF storage
-- **Google BigQuery** - Transaction database
-- **Gemini 2.5 Flash** - AI extraction & categorization
-
-**Frontend:**
-- **Next.js 16** - React framework
-- **TypeScript** - Type-safe development
-- **TanStack Query** - Data fetching & caching
-- **TanStack Table** - Advanced table features
-- **Nivo** - Interactive charts & visualizations
-- **Tailwind CSS** - Styling
-
-## BigQuery Schema
-
-The schema is managed through versioned SQL migrations in `migrations/bigquery/`:
-
-- `schema_migrations` - Migration version tracking
-- `institutions` - Financial institutions
-- `accounts` - User accounts
-- `categories` - Hierarchical transaction taxonomy
-- `merchants` - Merchant information
-- `documents` - Uploaded PDFs metadata
-- `parsing_runs` - Processing status tracking
-- `model_outputs` - Raw AI responses
-- `transactions` - Extracted transactions with categories
-- `receipts` - Receipt data
-- `receipt_line_items` - Individual line items from receipts
-
-## Setup
-
-**Backend:**
-1. GCP project with BigQuery & Storage enabled
-2. `gcloud auth application-default login`
-3. Create `finance` dataset in BigQuery
-4. Run migrations: `go run cmd/migrate/main.go -project YOUR_PROJECT_ID`
-
-**Frontend:**
+**2. Run Frontend**
 ```bash
 cd web
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to access the web UI.
+Open [http://localhost:3000](http://localhost:3000)
 
-## Database Migrations
+## CLI Usage
 
-The project uses a migration system to manage BigQuery table schemas:
-
+Build the CLI:
 ```bash
-# Apply all pending migrations (project ID is required)
-go run cmd/migrate/main.go -project studious-union-470122-v7
-
-# Use custom project/dataset
-go run cmd/migrate/main.go -project my-project -dataset my-dataset
+go build -o cli cmd/cli/main.go
 ```
 
-Migrations are SQL files in `migrations/bigquery/` with format `NNNN_description.sql`.
-The tool tracks applied migrations in the `schema_migrations` table and only applies new ones.
+**Upload a PDF to GCS:**
+```bash
+./cli upload -bucket BUCKET_NAME -file statement.pdf
+```
 
-## Web UI
+**Parse a document:**
+```bash
+./cli ingest -gcs-uri gs://bucket/statement.pdf
+```
 
-The frontend provides three main views:
+**Re-parse existing document:**
+```bash
+./cli reparse -id DOCUMENT_ID
+```
 
-- **Dashboard** - Financial overview with charts showing income/expenses trends, spending by category, and monthly comparisons
-- **Documents** - Upload and manage PDFs (bank statements, receipts), trigger parsing jobs, view processing status
-- **Transactions** - Browse, search, and filter all extracted transactions with sortable columns
+**Inspect document details:**
+```bash
+./cli inspect -id DOCUMENT_ID
+```
+
+## Tech Stack
+
+Go 1.24 · Next.js 16 · BigQuery · Cloud Storage · Gemini 2.5 Flash
