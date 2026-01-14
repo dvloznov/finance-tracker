@@ -1,10 +1,10 @@
 # Finance Tracker
 
-Backend service that processes bank statements and receipts using Gemini AI. State is stored in Google Cloud (BigQuery + Cloud Storage).
+Full-stack application that processes bank statements and receipts using Gemini AI. Backend is built with Go, frontend with Next.js. State is stored in Google Cloud (BigQuery + Cloud Storage).
 
 ## What it does
 
-Uploads PDFs → Gemini AI extracts transactions → Stores in BigQuery → Ready for custom UI frontend
+Uploads PDFs → Gemini AI extracts transactions → Stores in BigQuery → View & manage through web UI
 
 ## Usage
 
@@ -25,10 +25,19 @@ go run cmd/ingest/main.go -gcs-uri gs://bucket/statement.pdf
 
 ## Tech Stack
 
+**Backend:**
 - **Go 1.24.2**
 - **Google Cloud Storage** - PDF storage
 - **Google BigQuery** - Transaction database
 - **Gemini 2.5 Flash** - AI extraction & categorization
+
+**Frontend:**
+- **Next.js 16** - React framework
+- **TypeScript** - Type-safe development
+- **TanStack Query** - Data fetching & caching
+- **TanStack Table** - Advanced table features
+- **Nivo** - Interactive charts & visualizations
+- **Tailwind CSS** - Styling
 
 ## BigQuery Schema
 
@@ -48,10 +57,20 @@ The schema is managed through versioned SQL migrations in `migrations/bigquery/`
 
 ## Setup
 
+**Backend:**
 1. GCP project with BigQuery & Storage enabled
 2. `gcloud auth application-default login`
 3. Create `finance` dataset in BigQuery
 4. Run migrations: `go run cmd/migrate/main.go -project YOUR_PROJECT_ID`
+
+**Frontend:**
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to access the web UI.
 
 ## Database Migrations
 
@@ -67,3 +86,11 @@ go run cmd/migrate/main.go -project my-project -dataset my-dataset
 
 Migrations are SQL files in `migrations/bigquery/` with format `NNNN_description.sql`.
 The tool tracks applied migrations in the `schema_migrations` table and only applies new ones.
+
+## Web UI
+
+The frontend provides three main views:
+
+- **Dashboard** - Financial overview with charts showing income/expenses trends, spending by category, and monthly comparisons
+- **Documents** - Upload and manage PDFs (bank statements, receipts), trigger parsing jobs, view processing status
+- **Transactions** - Browse, search, and filter all extracted transactions with sortable columns
