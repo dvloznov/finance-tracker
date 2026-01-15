@@ -5,7 +5,8 @@ import { apiClient, Transaction } from '@/lib/api-client';
 import { cardClass, currencyClass, statLabelClass, statValueClass } from '@/lib/ui';
 import { AppNav } from '@/components/app-nav';
 import { useMemo, useState } from 'react';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format } from 'date-fns';
+import { formatCurrency } from '@/lib/formatters';
 import { ResponsiveLine, SliceTooltipProps } from '@nivo/line';
 import { ResponsiveBar, BarTooltipProps } from '@nivo/bar';
 import { ResponsivePie } from '@nivo/pie';
@@ -222,14 +223,14 @@ export default function DashboardPage() {
                   <p className={statLabelClass}>Total Income</p>
                   <p className={`${statValueClass} text-emerald-600 flex items-baseline gap-1`}>
                     <span className={currencyClass}>£</span>
-                    <span>{Math.round(stats.totalIncome).toLocaleString()}</span>
+                    <span>{formatCurrency(stats.totalIncome).replace('£', '')}</span>
                   </p>
                 </div>
                 <div className={`${cardClass} flex flex-col gap-3`}>
                   <p className={statLabelClass}>Total Expenses</p>
                   <p className={`${statValueClass} text-rose-600 flex items-baseline gap-1`}>
                     <span className={currencyClass}>£</span>
-                    <span>{Math.round(stats.totalExpenses).toLocaleString()}</span>
+                    <span>{formatCurrency(stats.totalExpenses).replace('£', '')}</span>
                   </p>
                 </div>
                 <div className={`${cardClass} flex flex-col gap-3`}>
@@ -237,7 +238,7 @@ export default function DashboardPage() {
                   <p className={`${statValueClass} flex items-baseline gap-1`}>
                     <span className={currencyClass}>£</span>
                     <span className={stats.netBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                      {Math.round(stats.netBalance).toLocaleString()}
+                      {formatCurrency(stats.netBalance).replace('£', '')}
                     </span>
                   </p>
                 </div>

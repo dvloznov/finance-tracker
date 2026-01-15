@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Category, Transaction } from '@/lib/api-client';
+import { formatCurrencyWithCode, formatShortDate } from '@/lib/formatters';
 
 export function getTransactionColumns(categories: Category[] | undefined): ColumnDef<Transaction>[] {
   return [
@@ -11,9 +11,9 @@ export function getTransactionColumns(categories: Category[] | undefined): Colum
       cell: ({ getValue }) => {
         const dateStr = getValue<string>();
         if (!dateStr) return <span className="text-slate-500">—</span>;
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) return <span className="text-slate-700">{dateStr}</span>;
-        return <span className="text-slate-900 font-medium">{format(date, 'MMM dd, yyyy')}</span>;
+        const formatted = formatShortDate(dateStr);
+        if (formatted === dateStr) return <span className="text-slate-700">{dateStr}</span>;
+        return <span className="text-slate-900 font-medium">{formatted}</span>;
       },
     },
     {
@@ -31,7 +31,7 @@ export function getTransactionColumns(categories: Category[] | undefined): Colum
         const currency = row.original.currency;
         return (
           <span className={amount < 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
-            {amount.toFixed(2)} {currency}
+            {formatCurrencyWithCode(amount, currency)}
           </span>
         );
       },
@@ -84,7 +84,7 @@ export function getTransactionColumns(categories: Category[] | undefined): Colum
       cell: ({ getValue, row }) => {
         const balance = getValue<string | undefined>();
         if (!balance) return <span className="text-slate-400">—</span>;
-        return <span className="text-slate-900">{`${parseFloat(balance).toFixed(2)} ${row.original.currency}`}</span>;
+        return <span className="text-slate-900">{formatCurrencyWithCode(parseFloat(balance), row.original.currency)}</span>;
       },
     },
   ];

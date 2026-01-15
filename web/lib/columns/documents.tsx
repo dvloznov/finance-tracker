@@ -1,7 +1,7 @@
 import { createColumnHelper } from '@tanstack/react-table';
-import { format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
 import type { Document } from '@/lib/api-client';
+import { formatMonthDay, formatShortDateTime } from '@/lib/formatters';
 
 const columnHelper = createColumnHelper<Document>();
 
@@ -40,11 +40,9 @@ export function getDocumentColumns(setDeleteConfirm: SetDeleteConfirm) {
         const end = info.row.original.statement_end_date;
         if (!start || !end) return <span className="text-slate-500">-</span>;
         try {
-          const startDate = new Date(start);
-          const endDate = new Date(end);
           return (
             <span className="text-slate-700">
-              {format(startDate, 'MMM d')} - {format(endDate, 'MMM d, yyyy')}
+              {formatMonthDay(start)} - {formatMonthDay(end)}
             </span>
           );
         } catch {
@@ -56,10 +54,9 @@ export function getDocumentColumns(setDeleteConfirm: SetDeleteConfirm) {
       header: 'Uploaded',
       cell: (info) => {
         try {
-          const date = new Date(info.getValue());
           return (
             <span className="text-slate-700">
-              {format(date, 'MMM d, yyyy HH:mm')}
+              {formatShortDateTime(info.getValue())}
             </span>
           );
         } catch {
