@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, Transaction, Category } from '@/lib/api-client';
 import { cardClass } from '@/lib/ui';
-import Link from 'next/link';
+import { AppNav } from '@/components/app-nav';
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import {
@@ -135,26 +135,7 @@ export default function TransactionsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <nav className="border-b border-slate-100 bg-white">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="text-xl font-semibold tracking-tight text-slate-900">
-              Finance Tracker
-            </Link>
-            <div className="flex gap-1">
-              <Link href="/dashboard" className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent">
-                Dashboard
-              </Link>
-              <Link href="/documents" className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent">
-                Documents
-              </Link>
-              <Link href="/transactions" className="px-4 py-2 text-sm font-medium text-slate-900 border-b-2 border-slate-900">
-                Transactions
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AppNav active="transactions" />
 
       <main className="container mx-auto px-6 py-8">
         <div className="space-y-6">
