@@ -34,7 +34,15 @@ export default function DashboardPage() {
         .reduce((sum, t) => sum + parseFloat(t.amount), 0)
     );
 
-    const netBalance = totalIncome - totalExpenses;
+    const latestBalance = [...transactions]
+      .filter((t) => t.transaction_date && t.balance_after)
+      .sort((a, b) => {
+        const dateA = new Date(a.transaction_date).getTime();
+        const dateB = new Date(b.transaction_date).getTime();
+        return dateB - dateA;
+      })[0]?.balance_after;
+
+    const netBalance = latestBalance ? parseFloat(latestBalance) : totalIncome - totalExpenses;
 
     return {
       totalIncome,
