@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, Transaction } from '@/lib/api-client';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ResponsiveLine, SliceTooltipProps } from '@nivo/line';
 import { ResponsiveBar, BarTooltipProps } from '@nivo/bar';
@@ -16,6 +16,7 @@ const statValueClass = 'text-4xl font-semibold tabular-nums tracking-tight';
 const currencyClass = 'text-slate-400 text-2xl font-medium';
 
 export default function DashboardPage() {
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { data: transactions, isLoading, error } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => apiClient.listTransactions(),
@@ -105,6 +106,25 @@ export default function DashboardPage() {
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
   }, [transactions]);
+
+  const subcategoryData = useMemo(() => {
+    if (!transactions || !Array.isArray(transactions) || !selectedCategory) return [];
+
+    const subcategoryMap = new Map<string, number>();
+
+    transactions
+      .filter((t) => parseFloat(t.amount) < 0 && t.category_name === selectedCategory)
+      .forEach((txn) => {
+        const subcategory = (txn as Transaction & { subcategory_name?: string }).subcategory_name || 'Uncategorized';
+        const amount = Math.abs(parseFloat(txn.amount));
+        subcategoryMap.set(subcategory, (subcategoryMap.get(subcategory) || 0) + amount);
+      });
+
+    return Array.from(subcategoryMap.entries())
+      .map(([id, value]) => ({ id, label: id, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [transactions, selectedCategory]);
 
   const balanceData = useMemo(() => {
     if (!transactions || !Array.isArray(transactions)) return [];
@@ -414,11 +434,24 @@ export default function DashboardPage() {
                 </div>
 
                 <div className={cardClass}>
-                  <h2 className="text-sm font-semibold text-slate-900 mb-6">Spending by Category</h2>
-                  {categoryData.length > 0 ? (
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-sm font-semibold text-slate-900">
+                      {selectedCategory ? `Spending in ${selectedCategory}` : 'Spending by Category'}
+                    </h2>
+                    {selectedCategory && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategory(null)}
+                        className="text-xs font-medium text-slate-600 hover:text-slate-900"
+                      >
+                        Back to categories
+                      </button>
+                    )}
+                  </div>
+                  {(selectedCategory ? subcategoryData : categoryData).length > 0 ? (
                     <div style={{ height: 300 }}>
                       <ResponsivePie
-                        data={categoryData}
+                        data={selectedCategory ? subcategoryData : categoryData}
                         margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
                         innerRadius={0.5}
                         padAngle={1}
@@ -432,13 +465,21 @@ export default function DashboardPage() {
                         arcLinkLabelsColor={{ from: 'color', modifiers: [['opacity', 0.4]] }}
                         arcLabelsSkipAngle={15}
                         arcLabelsTextColor="#ffffff"
-                        arcLabel={(d) => `${((d.value / categoryData.reduce((sum, c) => sum + c.value, 0)) * 100).toFixed(0)}%`}
+                        arcLabel={(d) => {
+                          const total = (selectedCategory ? subcategoryData : categoryData).reduce((sum, c) => sum + c.value, 0);
+                          return total ? `${((d.value / total) * 100).toFixed(0)}%` : '';
+                        }}
                         theme={{
                           labels: {
                             text: {
                               fontSize: 11,
                               fontWeight: 600
                             }
+                          }
+                        }}
+                        onClick={(datum) => {
+                          if (!selectedCategory) {
+                            setSelectedCategory(String(datum.id));
                           }
                         }}
                         tooltip={({ datum }) => (
@@ -449,7 +490,7 @@ export default function DashboardPage() {
                             </div>
                             <div className="text-xs text-slate-600 mt-1">
                               <span className="tabular-nums font-semibold">£{Math.round(Number(datum.value)).toLocaleString()}</span>
-                              <span className="text-slate-500 ml-1">({Math.round((datum.value / categoryData.reduce((sum, c) => sum + c.value, 0)) * 100)}%)</span>
+                              <span className="text-slate-500 ml-1">({Math.round((datum.value / (selectedCategory ? subcategoryData : categoryData).reduce((sum, c) => sum + c.value, 0)) * 100)}%)</span>
                             </div>
                           </div>
                         )}
@@ -457,7 +498,7 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     <p className="text-sm text-slate-500 text-center py-12">
-                      No categorized expenses yet
+                      {selectedCategory ? 'No subcategory data available' : 'No categorized expenses yet'}
                     </p>
                   )}
                 </div>
