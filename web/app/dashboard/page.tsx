@@ -110,7 +110,7 @@ export default function DashboardPage() {
     transactions
       .filter((t) => parseFloat(t.amount) < 0 && t.category_name === selectedCategory)
       .forEach((txn) => {
-        const subcategory = (txn as Transaction & { subcategory_name?: string }).subcategory_name || 'Uncategorized';
+        const subcategory = txn.subcategory_name || 'Uncategorized';
         const amount = Math.abs(parseFloat(txn.amount));
         subcategoryMap.set(subcategory, (subcategoryMap.get(subcategory) || 0) + amount);
       });
