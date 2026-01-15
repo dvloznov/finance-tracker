@@ -1,10 +1,11 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, Document } from '@/lib/api-client';
 import { cardClass } from '@/lib/ui';
 import { AppNav } from '@/components/app-nav';
 import { getDocumentColumns } from '@/lib/columns/documents';
+import { useDocuments } from '@/lib/hooks/useDocuments';
 import { useState, useMemo } from 'react';
 import { Trash2, X } from 'lucide-react';
 import {
@@ -286,10 +287,7 @@ export default function DocumentsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: documents, isLoading } = useQuery({
-    queryKey: ['documents'],
-    queryFn: () => apiClient.listDocuments(),
-  });
+  const { data: documents, isLoading } = useDocuments();
 
   const columns = useMemo(() => getDocumentColumns(setDeleteConfirm), [setDeleteConfirm]);
 

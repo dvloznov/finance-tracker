@@ -1,8 +1,8 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { apiClient, Transaction } from '@/lib/api-client';
+import { Transaction } from '@/lib/api-client';
 import { cardClass, currencyClass, statLabelClass, statValueClass } from '@/lib/ui';
+import { useTransactions } from '@/lib/hooks/useTransactions';
 import { AppNav } from '@/components/app-nav';
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
@@ -15,10 +15,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'
 
 export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const { data: transactions, isLoading, error } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: () => apiClient.listTransactions(),
-  });
+  const { data: transactions, isLoading, error } = useTransactions();
 
   const stats = useMemo(() => {
     if (!transactions || !Array.isArray(transactions)) return null;

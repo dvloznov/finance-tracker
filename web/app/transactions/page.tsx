@@ -1,10 +1,11 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { apiClient, Transaction, Category } from '@/lib/api-client';
+import type { Transaction, Category } from '@/lib/api-client';
 import { cardClass } from '@/lib/ui';
 import { AppNav } from '@/components/app-nav';
 import { getTransactionColumns } from '@/lib/columns/transactions';
+import { useCategories } from '@/lib/hooks/useCategories';
+import { useTransactions } from '@/lib/hooks/useTransactions';
 import { useState, useMemo } from 'react';
 import {
   useReactTable,
@@ -20,15 +21,8 @@ export default function TransactionsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
 
-  const { data: transactions, isLoading: transactionsLoading } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: () => apiClient.listTransactions(),
-  });
-
-  const { data: categories } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => apiClient.listCategories(),
-  });
+  const { data: transactions, isLoading: transactionsLoading } = useTransactions();
+  const { data: categories } = useCategories();
 
   const columns = useMemo<ColumnDef<Transaction>[]>(
     () => getTransactionColumns(categories),
