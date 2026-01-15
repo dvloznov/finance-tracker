@@ -3,9 +3,11 @@ package bigquery
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"cloud.google.com/go/civil"
 	"google.golang.org/api/iterator"
 )
 
@@ -36,6 +38,20 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 		return nil
 	}
 
+	paramNumericString := func(v *big.Rat) bigquery.NullString {
+		if v == nil {
+			return bigquery.NullString{Valid: false}
+		}
+		return bigquery.NullString{StringVal: bigquery.NumericString(v), Valid: true}
+	}
+
+	paramTags := func(v []string) interface{} {
+		if v == nil {
+			return []string{}
+		}
+		return v
+	}
+
 	// Build INSERT statement with multiple rows
 	queryStr := `
 		INSERT INTO ` + "`" + txProjectID + "." + txDatasetID + ".transactions" + "`" + ` (
@@ -60,7 +76,7 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 		queryStr += fmt.Sprintf(`
 			(@transaction_id_%d, @user_id_%d, @account_id_%d, @document_id_%d, @parsing_run_id_%d,
 			 @transaction_date_%d, @posting_date_%d, @booking_datetime_%d,
-			 @amount_%d, @currency_%d, @balance_after_%d, @direction_%d,
+			 CAST(@amount_%d AS NUMERIC), @currency_%d, CAST(@balance_after_%d AS NUMERIC), @direction_%d,
 			 @raw_description_%d, @normalized_description_%d,
 			 @category_id_%d, @category_name_%d, @subcategory_name_%d,
 			 @statement_line_no_%d, @statement_page_no_%d,
@@ -76,9 +92,9 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 			bigquery.QueryParameter{Name: fmt.Sprintf("transaction_date_%d", i), Value: row.TransactionDate},
 			bigquery.QueryParameter{Name: fmt.Sprintf("posting_date_%d", i), Value: row.PostingDate},
 			bigquery.QueryParameter{Name: fmt.Sprintf("booking_datetime_%d", i), Value: row.BookingDatetime},
-			bigquery.QueryParameter{Name: fmt.Sprintf("amount_%d", i), Value: row.Amount},
+			bigquery.QueryParameter{Name: fmt.Sprintf("amount_%d", i), Value: paramNumericString(row.Amount)},
 			bigquery.QueryParameter{Name: fmt.Sprintf("currency_%d", i), Value: row.Currency},
-			bigquery.QueryParameter{Name: fmt.Sprintf("balance_after_%d", i), Value: row.BalanceAfter},
+			bigquery.QueryParameter{Name: fmt.Sprintf("balance_after_%d", i), Value: paramNumericString(row.BalanceAfter)},
 			bigquery.QueryParameter{Name: fmt.Sprintf("direction_%d", i), Value: row.Direction},
 			bigquery.QueryParameter{Name: fmt.Sprintf("raw_description_%d", i), Value: row.RawDescription},
 			bigquery.QueryParameter{Name: fmt.Sprintf("normalized_description_%d", i), Value: row.NormalizedDescription},
@@ -93,7 +109,7 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 			bigquery.QueryParameter{Name: fmt.Sprintf("is_split_parent_%d", i), Value: row.IsSplitParent},
 			bigquery.QueryParameter{Name: fmt.Sprintf("is_split_child_%d", i), Value: row.IsSplitChild},
 			bigquery.QueryParameter{Name: fmt.Sprintf("external_reference_%d", i), Value: row.ExternalReference},
-			bigquery.QueryParameter{Name: fmt.Sprintf("tags_%d", i), Value: row.Tags},
+			bigquery.QueryParameter{Name: fmt.Sprintf("tags_%d", i), Value: paramTags(row.Tags)},
 			bigquery.QueryParameter{Name: fmt.Sprintf("created_ts_%d", i), Value: row.CreatedTS},
 			bigquery.QueryParameter{Name: fmt.Sprintf("updated_ts_%d", i), Value: row.UpdatedTS},
 		)
@@ -173,8 +189,8 @@ func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquer
 		ORDER BY t.transaction_date, t.created_ts
 	`)
 	q.Parameters = []bigquery.QueryParameter{
-		{Name: "start_date", Value: startDate.Format(dateFormat)},
-		{Name: "end_date", Value: endDate.Format(dateFormat)},
+		{Name: "start_date", Value: civil.DateOf(startDate)},
+		{Name: "end_date", Value: civil.DateOf(endDate)},
 	}
 
 	it, err := q.Read(ctx)
