@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, Transaction } from '@/lib/api-client';
+import { cardClass, currencyClass, statLabelClass, statValueClass } from '@/lib/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
@@ -10,10 +11,6 @@ import { ResponsiveBar, BarTooltipProps } from '@nivo/bar';
 import { ResponsivePie } from '@nivo/pie';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
-const cardClass = 'bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-6';
-const statLabelClass = 'text-[11px] font-medium uppercase tracking-wider text-slate-500';
-const statValueClass = 'text-4xl font-semibold tabular-nums tracking-tight';
-const currencyClass = 'text-slate-400 text-2xl font-medium';
 
 export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);

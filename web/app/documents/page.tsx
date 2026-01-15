@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, Document } from '@/lib/api-client';
+import { cardClass } from '@/lib/ui';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
@@ -18,7 +19,6 @@ import {
 } from '@tanstack/react-table';
 
 const columnHelper = createColumnHelper<Document>();
-const cardClass = 'bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-6';
 
 export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);

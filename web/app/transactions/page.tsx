@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, Transaction, Category } from '@/lib/api-client';
+import { cardClass } from '@/lib/ui';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
@@ -131,8 +132,6 @@ export default function TransactionsPage() {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
-
-  const cardClass = 'bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-6';
 
   return (
     <div className="min-h-screen bg-slate-50">
