@@ -1,3 +1,3 @@
-import type { Transaction } from '@/lib/api-client';
+import type { Transaction } from '@/shared/types/api';
 
 export type TransactionVM = Transaction;

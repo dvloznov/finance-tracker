@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import type { Category } from '@/lib/api-client';
+import type { Category } from '@/shared/types/api';
 import { formatShortDate } from '@/shared/formatters/date';
 import type { TransactionVM } from '@/features/transactions/types';
 import { AmountCell } from '@/features/transactions/components/cells/AmountCell';

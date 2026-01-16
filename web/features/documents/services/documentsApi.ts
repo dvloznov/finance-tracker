@@ -1,4 +1,5 @@
-import { apiClient, type Document } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
+import type { Document } from '@/shared/types/api';
 
 type UploadUrlResponse = {
   upload_url: string;

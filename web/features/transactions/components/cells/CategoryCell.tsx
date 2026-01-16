@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Category } from '@/lib/api-client';
+import type { Category } from '@/shared/types/api';
 
 type CategoryCellProps = {
   categories: Category[] | undefined;
