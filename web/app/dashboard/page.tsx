@@ -4,19 +4,16 @@ import { cardClass, currencyClass, statLabelClass, statValueClass } from '@/lib/
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { AppNav } from '@/components/app-nav';
 import { useMemo, useState } from 'react';
-import { format } from 'date-fns';
 import { formatCurrency } from '@/shared/formatters/currency';
+import { getBalanceSeries } from '@/features/dashboard/analytics/balance';
+import { getCategoryTotals, getSubcategoryTotals } from '@/features/dashboard/analytics/categories';
+import { getMonthlyTotals } from '@/features/dashboard/analytics/monthly';
+import { getStatsSummary, type StatsSummary } from '@/features/dashboard/analytics/stats';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
 import { ResponsivePie } from '@nivo/pie';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
-
-type StatsSummary = {
-  totalIncome: number;
-  totalExpenses: number;
-  netBalance: number;
-};
 
 type StatCardsProps = {
   stats: StatsSummary;
@@ -330,180 +327,23 @@ export default function DashboardPage() {
   const { data: transactions, isLoading, error } = useTransactions();
 
   const stats = useMemo(() => {
-    if (!transactions || !Array.isArray(transactions)) return null;
-
-    const totalIncome = transactions
-      .filter((t) => parseFloat(t.amount) > 0)
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-
-    const totalExpenses = Math.abs(
-      transactions
-        .filter((t) => parseFloat(t.amount) < 0)
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-    );
-
-    const latestBalance = [...transactions]
-      .filter((t) => t.transaction_date && t.balance_after)
-      .sort((a, b) => {
-        const dateA = new Date(a.transaction_date).getTime();
-        const dateB = new Date(b.transaction_date).getTime();
-        return dateB - dateA;
-      })[0]?.balance_after;
-
-    const netBalance = latestBalance ? parseFloat(latestBalance) : totalIncome - totalExpenses;
-
-    return {
-      totalIncome,
-      totalExpenses,
-      netBalance,
-    };
+    return getStatsSummary(transactions);
   }, [transactions]);
 
   const monthlyData = useMemo(() => {
-    if (!transactions || !Array.isArray(transactions)) return [];
-
-    const monthlyMap = new Map<string, { income: number; expenses: number }>();
-
-    transactions.forEach((txn) => {
-      // Handle civil.Date format from BigQuery
-      const dateStr = typeof txn.transaction_date === 'string' 
-        ? txn.transaction_date 
-        : String(txn.transaction_date || '');
-      
-      if (!dateStr) return;
-      
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return; // Skip invalid dates
-      
-      const monthKey = format(date, 'MMM yyyy');
-      const amount = parseFloat(txn.amount);
-
-      if (!monthlyMap.has(monthKey)) {
-        monthlyMap.set(monthKey, { income: 0, expenses: 0 });
-      }
-
-      const data = monthlyMap.get(monthKey)!;
-      if (amount > 0) {
-        data.income += amount;
-      } else {
-        data.expenses += Math.abs(amount);
-      }
-    });
-
-    return Array.from(monthlyMap.entries())
-      .map(([month, data]) => ({ month, ...data }))
-      .slice(-6);
+    return getMonthlyTotals(transactions);
   }, [transactions]);
 
   const categoryData = useMemo(() => {
-    if (!transactions || !Array.isArray(transactions)) return [];
-
-    const categoryMap = new Map<string, number>();
-
-    transactions
-      .filter((t) => parseFloat(t.amount) < 0 && t.category_name)
-      .forEach((txn) => {
-        const category = txn.category_name!;
-        const amount = Math.abs(parseFloat(txn.amount));
-        categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
-      });
-
-    return Array.from(categoryMap.entries())
-      .map(([id, value]) => ({ id, label: id, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
+    return getCategoryTotals(transactions);
   }, [transactions]);
 
   const subcategoryData = useMemo(() => {
-    if (!transactions || !Array.isArray(transactions) || !selectedCategory) return [];
-
-    const subcategoryMap = new Map<string, number>();
-
-    transactions
-      .filter((t) => parseFloat(t.amount) < 0 && t.category_name === selectedCategory)
-      .forEach((txn) => {
-        const subcategory = txn.subcategory_name || 'Uncategorized';
-        const amount = Math.abs(parseFloat(txn.amount));
-        subcategoryMap.set(subcategory, (subcategoryMap.get(subcategory) || 0) + amount);
-      });
-
-    return Array.from(subcategoryMap.entries())
-      .map(([id, value]) => ({ id, label: id, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
+    return getSubcategoryTotals(transactions, selectedCategory);
   }, [transactions, selectedCategory]);
 
   const balanceData = useMemo(() => {
-    if (!transactions || !Array.isArray(transactions)) return [];
-
-    // Sort transactions by date
-    const sorted = [...transactions]
-      .filter(txn => txn.transaction_date) // Filter out transactions without dates
-      .sort((a, b) => {
-        const dateA = new Date(a.transaction_date);
-        const dateB = new Date(b.transaction_date);
-        return dateA.getTime() - dateB.getTime();
-      });
-
-    // Use balance_after when available, otherwise calculate running balance
-    const balanceHistory: Array<{ x: string; y: number }> = [];
-    let calculatedBalance: number | null = null;
-
-    // First pass: find if we have any balance_after values to work backwards from
-    const txnsWithBalance = sorted.filter(txn => txn.balance_after);
-    
-    if (txnsWithBalance.length > 0) {
-      // Work backwards from the last known balance
-      const lastKnownBalance = parseFloat(txnsWithBalance[txnsWithBalance.length - 1].balance_after!);
-      let workingBalance = lastKnownBalance;
-      
-      // Go through transactions in reverse to calculate earlier balances
-      for (let i = sorted.length - 1; i >= 0; i--) {
-        const txn = sorted[i];
-        const date = new Date(txn.transaction_date);
-        if (isNaN(date.getTime())) continue;
-        
-        // If this transaction has balance_after, use it
-        if (txn.balance_after) {
-          workingBalance = parseFloat(txn.balance_after);
-        } else {
-          // Calculate balance before this transaction
-          workingBalance -= parseFloat(txn.amount);
-        }
-        
-        balanceHistory.unshift({
-          x: format(date, 'MMM dd'),
-          y: workingBalance,
-        });
-      }
-    } else {
-      // Fallback: no balance_after values, calculate running balance from 0
-      let runningBalance = 0;
-      for (const txn of sorted) {
-        const date = new Date(txn.transaction_date);
-        if (isNaN(date.getTime())) continue;
-        
-        runningBalance += parseFloat(txn.amount);
-        balanceHistory.push({
-          x: format(date, 'MMM dd'),
-          y: runningBalance,
-        });
-      }
-    }
-
-    // Sample every nth transaction if too many data points
-    if (balanceHistory.length > 30) {
-      const step = Math.ceil(balanceHistory.length / 30);
-      return [{
-        id: 'balance',
-        data: balanceHistory.filter((_, i) => i % step === 0)
-      }];
-    }
-
-    return [{
-      id: 'balance',
-      data: balanceHistory
-    }];
+    return getBalanceSeries(transactions);
   }, [transactions]);
 
   return (
