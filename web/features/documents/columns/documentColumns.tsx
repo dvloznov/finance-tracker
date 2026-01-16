@@ -1,9 +1,9 @@
 import { createColumnHelper, type CellContext } from '@tanstack/react-table';
 import { Trash2 } from 'lucide-react';
-import type { Document } from '@/lib/api-client';
 import { formatMonthDay, formatShortDateTime } from '@/lib/formatters';
+import type { DocumentVM } from '@/features/documents/types';
 
-const columnHelper = createColumnHelper<Document>();
+const columnHelper = createColumnHelper<DocumentVM>();
 
 type SetDeleteConfirm = (value: { show: boolean; documentId: string | null }) => void;
 
@@ -97,7 +97,7 @@ export function getDocumentColumns(setDeleteConfirm: SetDeleteConfirm) {
     {
       id: 'actions',
       header: 'Actions',
-      cell: (info: CellContext<Document, unknown>) => {
+      cell: (info: CellContext<DocumentVM, unknown>) => {
         const document = info.row.original;
         return (
           <button

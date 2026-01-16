@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient, Document } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import { AppNav } from '@/components/app-nav';
 import { getDocumentColumns } from '@/features/documents/columns/documentColumns';
 import { DeleteConfirmModal } from '@/components/documents/delete-confirm-modal';

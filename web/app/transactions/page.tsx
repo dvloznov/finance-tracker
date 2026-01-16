@@ -1,6 +1,6 @@
 'use client';
 
-import type { Transaction, Category } from '@/lib/api-client';
+import type { TransactionVM } from '@/features/transactions/types';
 import { cardClass } from '@/lib/ui';
 import { AppNav } from '@/components/app-nav';
 import { getTransactionColumns } from '@/features/transactions/columns/transactionColumns';
@@ -24,7 +24,7 @@ export default function TransactionsPage() {
   const { data: transactions, isLoading: transactionsLoading } = useTransactions();
   const { data: categories } = useCategories();
 
-  const columns = useMemo<ColumnDef<Transaction>[]>(
+  const columns = useMemo<ColumnDef<TransactionVM>[]>(
     () => getTransactionColumns(categories),
     [categories]
   );

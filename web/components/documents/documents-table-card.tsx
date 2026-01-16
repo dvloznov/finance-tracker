@@ -1,12 +1,12 @@
 import { flexRender, type Table } from '@tanstack/react-table';
 import type { ColumnFiltersState } from '@tanstack/react-table';
-import type { Document } from '@/lib/api-client';
+import type { DocumentVM } from '@/features/documents/types';
 import { cardClass } from '@/lib/ui';
 
 export type DocumentsTableCardProps = {
   isLoading: boolean;
-  documents: Document[] | undefined;
-  table: Table<Document>;
+  documents: DocumentVM[] | undefined;
+  table: Table<DocumentVM>;
   globalFilter: string;
   setGlobalFilter: (value: string) => void;
   columnFilters: ColumnFiltersState;

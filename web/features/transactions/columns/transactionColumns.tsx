@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { Category, Transaction } from '@/lib/api-client';
+import type { Category } from '@/lib/api-client';
 import { formatCurrencyWithCode, formatShortDate } from '@/lib/formatters';
+import type { TransactionVM } from '@/features/transactions/types';
 
-export function getTransactionColumns(categories: Category[] | undefined): ColumnDef<Transaction>[] {
+export function getTransactionColumns(categories: Category[] | undefined): ColumnDef<TransactionVM>[] {
   return [
     {
       accessorKey: 'transaction_date',
