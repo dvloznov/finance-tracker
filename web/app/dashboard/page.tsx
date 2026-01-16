@@ -2,7 +2,7 @@
 
 import { cardClass, currencyClass, statLabelClass, statValueClass } from '@/lib/ui';
 import { useTransactions } from '@/features/transactions/hooks/useTransactions';
-import { AppNav } from '@/components/app-nav';
+import { AppNav } from '@/shared/ui/AppNav';
 import { useMemo, useState } from 'react';
 import { formatCurrency } from '@/shared/formatters/currency';
 import { getBalanceSeries } from '@/features/dashboard/analytics/balance';

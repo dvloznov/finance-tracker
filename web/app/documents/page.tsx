@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { AppNav } from '@/components/app-nav';
+import { AppNav } from '@/shared/ui/AppNav';
 import { getDocumentColumns } from '@/features/documents/columns/documentColumns';
 import { DeleteConfirmModal } from '@/features/documents/components/DeleteConfirmModal';
 import { DocumentsTableCard } from '@/features/documents/components/DocumentsTableCard';
