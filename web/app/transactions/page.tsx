@@ -3,7 +3,7 @@
 import type { Transaction, Category } from '@/lib/api-client';
 import { cardClass } from '@/lib/ui';
 import { AppNav } from '@/components/app-nav';
-import { getTransactionColumns } from '@/lib/columns/transactions';
+import { getTransactionColumns } from '@/features/transactions/columns/transactionColumns';
 import { useCategories } from '@/lib/hooks/useCategories';
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { useState, useMemo } from 'react';

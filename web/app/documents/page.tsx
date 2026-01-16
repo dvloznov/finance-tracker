@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, Document } from '@/lib/api-client';
 import { AppNav } from '@/components/app-nav';
-import { getDocumentColumns } from '@/lib/columns/documents';
+import { getDocumentColumns } from '@/features/documents/columns/documentColumns';
 import { DeleteConfirmModal } from '@/components/documents/delete-confirm-modal';
 import { DocumentsTableCard } from '@/components/documents/documents-table-card';
 import { UploadCard } from '@/components/documents/upload-card';
