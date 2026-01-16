@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { listTransactions } from '@/features/transactions/services/transactionsApi';
 
 export function useTransactions() {
   return useQuery({
     queryKey: ['transactions'],
-    queryFn: () => apiClient.listTransactions(),
+    queryFn: () => listTransactions(),
   });
 }

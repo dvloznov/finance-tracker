@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { listCategories } from '@/features/categories/services/categoriesApi';
 
 export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
-    queryFn: () => apiClient.listCategories(),
+    queryFn: () => listCategories(),
   });
 }
