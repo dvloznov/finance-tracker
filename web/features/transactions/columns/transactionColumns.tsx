@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Category } from '@/lib/api-client';
-import { formatCurrencyWithCode, formatShortDate } from '@/lib/formatters';
+import { formatCurrencyWithCode } from '@/shared/formatters/currency';
+import { formatShortDate } from '@/shared/formatters/date';
 import type { TransactionVM } from '@/features/transactions/types';
 
 export function getTransactionColumns(categories: Category[] | undefined): ColumnDef<TransactionVM>[] {

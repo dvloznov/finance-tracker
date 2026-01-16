@@ -5,7 +5,7 @@ import { useTransactions } from '@/lib/hooks/useTransactions';
 import { AppNav } from '@/components/app-nav';
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency } from '@/shared/formatters/currency';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
 import { ResponsivePie } from '@nivo/pie';

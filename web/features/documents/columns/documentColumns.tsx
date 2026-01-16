@@ -1,6 +1,6 @@
 import { createColumnHelper, type CellContext } from '@tanstack/react-table';
 import { Trash2 } from 'lucide-react';
-import { formatMonthDay, formatShortDateTime } from '@/lib/formatters';
+import { formatMonthDay, formatShortDateTime } from '@/shared/formatters/date';
 import type { DocumentVM } from '@/features/documents/types';
 
 const columnHelper = createColumnHelper<DocumentVM>();
