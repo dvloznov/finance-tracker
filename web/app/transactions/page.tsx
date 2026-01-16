@@ -4,8 +4,8 @@ import type { TransactionVM } from '@/features/transactions/types';
 import { cardClass } from '@/lib/ui';
 import { AppNav } from '@/components/app-nav';
 import { getTransactionColumns } from '@/features/transactions/columns/transactionColumns';
-import { useCategories } from '@/lib/hooks/useCategories';
-import { useTransactions } from '@/lib/hooks/useTransactions';
+import { useCategories } from '@/features/categories/hooks/useCategories';
+import { useTransactions } from '@/features/transactions/hooks/useTransactions';
 import { useState, useMemo } from 'react';
 import {
   useReactTable,

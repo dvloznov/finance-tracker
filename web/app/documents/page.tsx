@@ -7,7 +7,7 @@ import { getDocumentColumns } from '@/features/documents/columns/documentColumns
 import { DeleteConfirmModal } from '@/features/documents/components/DeleteConfirmModal';
 import { DocumentsTableCard } from '@/features/documents/components/DocumentsTableCard';
 import { UploadCard } from '@/features/documents/components/UploadCard';
-import { useDocuments } from '@/lib/hooks/useDocuments';
+import { useDocuments } from '@/features/documents/hooks/useDocuments';
 import { useState, useMemo } from 'react';
 import {
   useReactTable,
