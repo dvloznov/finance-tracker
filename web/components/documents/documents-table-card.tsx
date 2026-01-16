@@ -1,7 +1,8 @@
 import { flexRender, type Table } from '@tanstack/react-table';
 import type { ColumnFiltersState } from '@tanstack/react-table';
 import type { DocumentVM } from '@/features/documents/types';
-import { cardClass } from '@/lib/ui';
+import { Card } from '@/shared/ui/Card';
+import { EmptyState } from '@/shared/ui/EmptyState';
 
 export type DocumentsTableCardProps = {
   isLoading: boolean;
@@ -23,12 +24,8 @@ export function DocumentsTableCard({
   setColumnFilters,
 }: DocumentsTableCardProps) {
   return (
-    <div className={cardClass}>
+    <Card title="Uploaded Documents">
       <div className="mb-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Uploaded Documents</h2>
-        </div>
-
         <div className="flex flex-col gap-3 sm:flex-row">
           <input
             type="text"
@@ -59,7 +56,7 @@ export function DocumentsTableCard({
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-slate-600">Loading documents...</p>
+        <EmptyState title="Loading documents..." className="py-2" />
       ) : documents && documents.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -98,12 +95,12 @@ export function DocumentsTableCard({
           </table>
 
           {table.getRowModel().rows.length === 0 && (
-            <p className="text-sm text-slate-500 text-center py-8">No documents match your search</p>
+            <EmptyState title="No documents match your search" className="py-8" />
           )}
         </div>
       ) : (
-        <p className="text-sm text-slate-600">No documents uploaded yet</p>
+        <EmptyState title="No documents uploaded yet" className="py-2" />
       )}
-    </div>
+    </Card>
   );
 }

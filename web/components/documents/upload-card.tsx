@@ -1,4 +1,4 @@
-import { cardClass } from '@/lib/ui';
+import { Card } from '@/shared/ui/Card';
 
 export type UploadCardProps = {
   isDragging: boolean;
@@ -22,8 +22,7 @@ export function UploadCard({
   handleFileChange,
 }: UploadCardProps) {
   return (
-    <div className={cardClass}>
-      <h2 className="text-sm font-semibold text-slate-900 mb-6">Upload New Document</h2>
+    <Card title="Upload New Document">
       <div
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
           isDragging
@@ -75,6 +74,6 @@ export function UploadCard({
           <p className="mt-4 text-sm text-slate-600">{uploadStatus}</p>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
