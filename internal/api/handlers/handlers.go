@@ -388,6 +388,76 @@ type CategoriesHandler struct {
 	log  zerolog.Logger
 }
 
+// AccountsHandler handles account-related endpoints.
+type AccountsHandler struct {
+	repo bigquery.DocumentRepository
+	log  zerolog.Logger
+}
+
+// NewAccountsHandler creates a new accounts handler.
+func NewAccountsHandler(repo bigquery.DocumentRepository, log zerolog.Logger) *AccountsHandler {
+	return &AccountsHandler{
+		repo: repo,
+		log:  log,
+	}
+}
+
+// ListAccounts handles GET /api/accounts
+func (h *AccountsHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	accounts, err := h.repo.ListAllAccounts(ctx)
+	if err != nil {
+		h.log.Error().Err(err).Msg("Failed to list accounts")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to list accounts")
+		return
+	}
+
+	if accounts == nil {
+		accounts = []*bigquery.AccountRow{}
+	}
+
+	middleware.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"accounts": accounts,
+		"count":    len(accounts),
+	})
+}
+
+// InstitutionsHandler handles institution-related endpoints.
+type InstitutionsHandler struct {
+	repo bigquery.InstitutionRepository
+	log  zerolog.Logger
+}
+
+// NewInstitutionsHandler creates a new institutions handler.
+func NewInstitutionsHandler(repo bigquery.InstitutionRepository, log zerolog.Logger) *InstitutionsHandler {
+	return &InstitutionsHandler{
+		repo: repo,
+		log:  log,
+	}
+}
+
+// ListInstitutions handles GET /api/institutions
+func (h *InstitutionsHandler) ListInstitutions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	institutions, err := h.repo.ListAllInstitutions(ctx)
+	if err != nil {
+		h.log.Error().Err(err).Msg("Failed to list institutions")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to list institutions")
+		return
+	}
+
+	if institutions == nil {
+		institutions = []*bigquery.InstitutionRow{}
+	}
+
+	middleware.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"institutions": institutions,
+		"count":        len(institutions),
+	})
+}
+
 // NewCategoriesHandler creates a new categories handler.
 func NewCategoriesHandler(repo bigquery.DocumentRepository, log zerolog.Logger) *CategoriesHandler {
 	return &CategoriesHandler{

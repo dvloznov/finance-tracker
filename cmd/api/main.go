@@ -102,6 +102,14 @@ func main() {
 	documentsHandler := handlers.NewDocumentsHandler(docRepo, jobQueue, *bucket, log)
 	transactionsHandler := handlers.NewTransactionsHandler(docRepo, log)
 	categoriesHandler := handlers.NewCategoriesHandler(docRepo, log)
+	accountsHandler := handlers.NewAccountsHandler(docRepo, log)
+
+	institutionRepo, err := infraBQ.NewBigQueryInstitutionRepository(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create institution repository")
+	}
+	defer institutionRepo.Close()
+	institutionsHandler := handlers.NewInstitutionsHandler(institutionRepo, log)
 	jobsHandler := handlers.NewJobsHandler(jobStore, log)
 
 	// Create router
@@ -174,6 +182,24 @@ func main() {
 	mux.HandleFunc("/api/categories", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			categoriesHandler.ListCategories(w, r)
+		} else {
+			middleware.WriteError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+	})
+
+	// Accounts endpoints
+	mux.HandleFunc("/api/accounts", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			accountsHandler.ListAccounts(w, r)
+		} else {
+			middleware.WriteError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+	})
+
+	// Institutions endpoints
+	mux.HandleFunc("/api/institutions", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			institutionsHandler.ListInstitutions(w, r)
 		} else {
 			middleware.WriteError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		}

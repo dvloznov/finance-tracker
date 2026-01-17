@@ -1,4 +1,4 @@
-import type { Category, Document, Job, Transaction } from '@/shared/types/api';
+import type { Account, Category, Document, Institution, Job, Transaction } from '@/shared/types/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -69,6 +69,18 @@ class ApiClient {
   // Categories
   async listCategories(): Promise<Category[]> {
     return this.fetch<Category[]>('/api/categories');
+  }
+
+  // Accounts
+  async listAccounts(): Promise<Account[]> {
+    const response = await this.fetch<{ accounts: Account[] }>('/api/accounts');
+    return response.accounts || [];
+  }
+
+  // Institutions
+  async listInstitutions(): Promise<Institution[]> {
+    const response = await this.fetch<{ institutions: Institution[] }>('/api/institutions');
+    return response.institutions || [];
   }
 
   // Jobs
