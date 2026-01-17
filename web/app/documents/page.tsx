@@ -8,6 +8,7 @@ import { DeleteConfirmModal } from '@/features/documents/components/DeleteConfir
 import { DocumentsTableCard } from '@/features/documents/components/DocumentsTableCard';
 import { UploadCard } from '@/features/documents/components/UploadCard';
 import { useDocuments } from '@/features/documents/hooks/useDocuments';
+import { useAccountScope } from '@/shared/account-scope/context';
 import { useState, useMemo } from 'react';
 import {
   useReactTable,
@@ -29,8 +30,9 @@ export default function DocumentsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; documentId: string | null }>({ show: false, documentId: null });
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { scope } = useAccountScope();
 
-  const { data: documents, isLoading } = useDocuments();
+  const { data: documents, isLoading } = useDocuments({ scope });
 
   const columns = useMemo(() => getDocumentColumns(setDeleteConfirm), [setDeleteConfirm]);
 

@@ -6,6 +6,7 @@ import { AppNav } from '@/shared/ui/AppNav';
 import { getTransactionColumns } from '@/features/transactions/columns/transactionColumns';
 import { useCategories } from '@/features/categories/hooks/useCategories';
 import { useTransactions } from '@/features/transactions/hooks/useTransactions';
+import { useAccountScope } from '@/shared/account-scope/context';
 import { useState, useMemo } from 'react';
 import {
   useReactTable,
@@ -20,8 +21,9 @@ import {
 export default function TransactionsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const { scope } = useAccountScope();
 
-  const { data: transactions, isLoading: transactionsLoading } = useTransactions();
+  const { data: transactions, isLoading: transactionsLoading } = useTransactions({ scope });
   const { data: categories } = useCategories();
 
   const columns = useMemo<ColumnDef<TransactionVM>[]>(

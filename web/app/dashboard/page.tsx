@@ -9,6 +9,7 @@ import { getBalanceSeries } from '@/features/dashboard/analytics/balance';
 import { getCategoryTotals, getSubcategoryTotals } from '@/features/dashboard/analytics/categories';
 import { getMonthlyTotals } from '@/features/dashboard/analytics/monthly';
 import { getStatsSummary, type StatsSummary } from '@/features/dashboard/analytics/stats';
+import { useAccountScope } from '@/shared/account-scope/context';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
 import { ResponsivePie } from '@nivo/pie';
@@ -324,7 +325,8 @@ function SpendingByCategoryCard({
 
 export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const { data: transactions, isLoading, error } = useTransactions();
+  const { scope } = useAccountScope();
+  const { data: transactions, isLoading, error } = useTransactions({ scope });
 
   const stats = useMemo(() => {
     return getStatsSummary(transactions);

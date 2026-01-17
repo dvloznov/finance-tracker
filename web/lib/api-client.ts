@@ -27,8 +27,10 @@ class ApiClient {
   }
 
   // Documents
-  async listDocuments(): Promise<Document[]> {
-    const response = await this.fetch<{ documents: Document[] }>('/api/documents');
+  async listDocuments(params?: { institution_id?: string; account_id?: string }): Promise<Document[]> {
+    const query = new URLSearchParams(params as Record<string, string>);
+    const endpoint = `/api/documents${query.toString() ? `?${query}` : ''}`;
+    const response = await this.fetch<{ documents: Document[] }>(endpoint);
     return response.documents || [];
   }
 
@@ -53,7 +55,12 @@ class ApiClient {
   }
 
   // Transactions
-  async listTransactions(params?: { start_date?: string; end_date?: string }): Promise<Transaction[]> {
+  async listTransactions(params?: {
+    start_date?: string;
+    end_date?: string;
+    institution_id?: string;
+    account_id?: string;
+  }): Promise<Transaction[]> {
     const query = new URLSearchParams(params as Record<string, string>);
     const endpoint = `/api/transactions${query.toString() ? `?${query}` : ''}`;
     return this.fetch<Transaction[]>(endpoint);

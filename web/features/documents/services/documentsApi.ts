@@ -8,8 +8,13 @@ type UploadUrlResponse = {
   object_name: string;
 };
 
-export async function listDocuments(): Promise<Document[]> {
-  return apiClient.listDocuments();
+type ListDocumentsParams = {
+  institution_id?: string;
+  account_id?: string;
+};
+
+export async function listDocuments(params?: ListDocumentsParams): Promise<Document[]> {
+  return apiClient.listDocuments(params);
 }
 
 export async function createUploadUrl(filename: string): Promise<UploadUrlResponse> {
