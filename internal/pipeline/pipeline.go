@@ -33,6 +33,12 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string, documentID ...st
 	}
 	defer accountRepo.Close()
 
+	institutionRepo, err := infraBQ.NewBigQueryInstitutionRepository(ctx)
+	if err != nil {
+		return fmt.Errorf("IngestStatementFromGCS: creating BigQuery institution repository: %w", err)
+	}
+	defer institutionRepo.Close()
+
 	storage := &gcsuploader.GCSStorageService{}
 	aiParser := NewGeminiAIParser(repo)
 
@@ -42,7 +48,7 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string, documentID ...st
 		docID = documentID[0]
 	}
 
-	return IngestStatementFromGCSWithDeps(ctx, gcsURI, docID, repo, accountRepo, storage, aiParser)
+	return IngestStatementFromGCSWithDeps(ctx, gcsURI, docID, repo, accountRepo, institutionRepo, storage, aiParser)
 }
 
 // IngestStatementFromGCSWithDeps processes a single bank statement PDF stored in GCS
@@ -54,6 +60,7 @@ func IngestStatementFromGCSWithDeps(
 	documentID string,
 	repo bigquery.DocumentRepository,
 	accountRepo bigquery.AccountRepository,
+	institutionRepo bigquery.InstitutionRepository,
 	storage StorageService,
 	aiParser AIParser,
 ) error {
@@ -63,6 +70,7 @@ func IngestStatementFromGCSWithDeps(
 		DocumentID:     documentID, // Set documentID if provided
 		DocumentRepo:   repo,
 		AccountRepo:    accountRepo,
+		InstitutionRepo: institutionRepo,
 		StorageService: storage,
 		AIParser:       aiParser,
 	}

@@ -74,7 +74,7 @@ func buildAccountHeaderPrompt() string {
 		"- \"account_name\": string or null (e.g., \"Current Account\", \"Savings Account\")\n" +
 		"- \"account_type\": string or null (e.g., \"CURRENT\", \"SAVINGS\", \"CREDIT_CARD\")\n" +
 		"- \"currency\": string or null (e.g., \"GBP\", \"USD\", \"EUR\")\n" +
-		"- \"institution_id\": string or null (bank name, e.g., \"BARCLAYS\")\n" +
+		"- \"institution_name\": string or null (bank name, e.g., \"Barclays\")\n" +
 		"- \"opened_date\": string or null (ISO format \"YYYY-MM-DD\" if shown on statement)\n\n" +
 		"Rules:\n" +
 		"- Set a field to null if the information is not present in the statement header.\n" +

@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
 	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
@@ -29,10 +31,12 @@ type PipelineState struct {
 	// Account extraction results
 	ExtractedAccountInfo map[string]interface{} // Raw LLM output for account header
 	AccountID            string                 // Resolved/created account ID
+	InstitutionID        string                 // Resolved/created institution ID
 
 	// Injected dependencies
 	DocumentRepo      bigquery.DocumentRepository
 	AccountRepo       bigquery.AccountRepository
+	InstitutionRepo   bigquery.InstitutionRepository
 	StorageService    StorageService
 	AIParser          AIParser
 	CategoryValidator *CategoryValidator
@@ -174,7 +178,7 @@ func (s *UpsertAccountStep) Name() string {
 
 func (s *UpsertAccountStep) Execute(ctx context.Context, state *PipelineState) error {
 	// Transform raw account info to AccountRow
-	accountRow, err := transformAccountInfo(state.ExtractedAccountInfo, state.DocumentID)
+	accountRow, institutionName, err := transformAccountInfo(state.ExtractedAccountInfo, state.DocumentID)
 	if err != nil {
 		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
@@ -184,6 +188,28 @@ func (s *UpsertAccountStep) Execute(ctx context.Context, state *PipelineState) e
 	if accountRow == nil {
 		accountRow = generateDefaultAccount(state.DocumentID)
 	}
+
+	if state.InstitutionRepo == nil {
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, fmt.Errorf("UpsertAccount: institution repository is nil"))
+		return fmt.Errorf("UpsertAccount: institution repository is nil")
+	}
+
+	name := strings.TrimSpace(DefaultSourceSystem)
+	if institutionName != nil && strings.TrimSpace(*institutionName) != "" {
+		name = strings.TrimSpace(*institutionName)
+	}
+
+	institutionID, err := state.InstitutionRepo.UpsertInstitution(ctx, &bigquery.InstitutionRow{
+		Name:      name,
+		CreatedTS: time.Now(),
+	})
+	if err != nil {
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		return err
+	}
+
+	accountRow.InstitutionID = institutionID
+	state.InstitutionID = institutionID
 
 	// Upsert account (find existing or create new)
 	accountID, err := state.AccountRepo.UpsertAccount(ctx, accountRow)

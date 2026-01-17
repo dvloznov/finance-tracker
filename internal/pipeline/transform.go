@@ -165,7 +165,7 @@ func getOptionalFloat64Field(m map[string]interface{}, key string) (*float64, er
 
 // transformAccountInfo converts raw LLM account extraction output into an AccountRow.
 // Returns nil if the extraction failed or data is invalid.
-func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (*bigquery.AccountRow, error) {
+func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (*bigquery.AccountRow, *string, error) {
 	// Extract optional fields
 	accountNumber, err := getOptionalStringField(rawOutput, "account_number")
 	if err != nil {
@@ -191,9 +191,9 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 	if err != nil {
 		return nil, fmt.Errorf("transformAccountInfo: %w", err)
 	}
-	institutionID, err := getOptionalStringField(rawOutput, "institution_id")
+	institutionName, err := getOptionalStringField(rawOutput, "institution_name")
 	if err != nil {
-		return nil, fmt.Errorf("transformAccountInfo: %w", err)
+		return nil, nil, fmt.Errorf("transformAccountInfo: %w", err)
 	}
 	openedDateStr, err := getOptionalStringField(rawOutput, "opened_date")
 	if err != nil {
@@ -206,7 +206,7 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 	if openedDateStr != nil {
 		parsed, err := time.Parse("2006-01-02", *openedDateStr)
 		if err != nil {
-			return nil, fmt.Errorf("transformAccountInfo: invalid opened_date %q: %w", *openedDateStr, err)
+			return nil, nil, fmt.Errorf("transformAccountInfo: invalid opened_date %q: %w", *openedDateStr, err)
 		}
 		openedDate = civil.DateOf(parsed)
 		hasOpenedDate = true
@@ -235,22 +235,16 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 	if currency != nil {
 		row.Currency = strings.ToUpper(*currency)
 	}
-	if institutionID != nil {
-		row.InstitutionID = strings.ToUpper(*institutionID)
-	} else {
-		// Default to BARCLAYS if not extracted
-		row.InstitutionID = DefaultSourceSystem
-	}
 	if hasOpenedDate {
 		row.OpenedDate = bigquerylib.NullDate{Date: openedDate, Valid: true}
 	}
 
 	// If we got nothing useful, return nil to signal we should use default
 	if row.AccountNumber == "" && row.IBAN == "" && row.SortCode == "" {
-		return nil, nil
+		return nil, institutionName, nil
 	}
 
-	return row, nil
+	return row, institutionName, nil
 }
 
 // generateDefaultAccount creates a document-scoped fallback account when
@@ -261,7 +255,6 @@ func generateDefaultAccount(documentID string) *bigquery.AccountRow {
 
 	return &bigquery.AccountRow{
 		UserID:        DefaultUserID,
-		InstitutionID: DefaultSourceSystem,
 		AccountNumber: accountNumber,
 		AccountName:   fmt.Sprintf("Barclays Current Account (%s)", documentID[:8]),
 		AccountType:   "CURRENT",
