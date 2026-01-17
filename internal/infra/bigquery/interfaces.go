@@ -13,10 +13,17 @@ import (
 type DocumentRepository = bq.DocumentRepository
 type AccountRepository = bq.AccountRepository
 type CategoryRepository = bq.CategoryRepository
+type InstitutionRepository = bq.InstitutionRepository
 
 // BigQueryAccountRepository is the concrete implementation of AccountRepository
 // that interacts with BigQuery.
 type BigQueryAccountRepository struct {
+	client *bigquery.Client
+}
+
+// BigQueryInstitutionRepository is the concrete implementation of InstitutionRepository
+// that interacts with BigQuery.
+type BigQueryInstitutionRepository struct {
 	client *bigquery.Client
 }
 
@@ -32,8 +39,28 @@ func NewBigQueryAccountRepository(ctx context.Context) (*BigQueryAccountReposito
 	}, nil
 }
 
+// NewBigQueryInstitutionRepository creates a new instance of BigQueryInstitutionRepository
+// with a shared BigQuery client.
+func NewBigQueryInstitutionRepository(ctx context.Context) (*BigQueryInstitutionRepository, error) {
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("NewBigQueryInstitutionRepository: creating client: %w", err)
+	}
+	return &BigQueryInstitutionRepository{
+		client: client,
+	}, nil
+}
+
 // Close closes the BigQuery client connection.
 func (r *BigQueryAccountRepository) Close() error {
+	if r.client != nil {
+		return r.client.Close()
+	}
+	return nil
+}
+
+// Close closes the BigQuery client connection.
+func (r *BigQueryInstitutionRepository) Close() error {
 	if r.client != nil {
 		return r.client.Close()
 	}
@@ -53,6 +80,16 @@ func (r *BigQueryAccountRepository) FindAccountByNumberAndCurrency(ctx context.C
 // ListAllAccounts delegates to the existing ListAllAccounts function with the shared client.
 func (r *BigQueryAccountRepository) ListAllAccounts(ctx context.Context) ([]*AccountRow, error) {
 	return ListAllAccountsWithClient(ctx, r.client)
+}
+
+// UpsertInstitution delegates to the existing UpsertInstitution function with the shared client.
+func (r *BigQueryInstitutionRepository) UpsertInstitution(ctx context.Context, row *InstitutionRow) (string, error) {
+	return UpsertInstitutionWithClient(ctx, r.client, row)
+}
+
+// ListAllInstitutions delegates to the existing ListAllInstitutions function with the shared client.
+func (r *BigQueryInstitutionRepository) ListAllInstitutions(ctx context.Context) ([]*InstitutionRow, error) {
+	return ListAllInstitutionsWithClient(ctx, r.client)
 }
 
 // BigQueryDocumentRepository is the concrete implementation of DocumentRepository
