@@ -50,8 +50,28 @@ func (m *MockStorageService) ExtractFilenameFromGCSURI(uri string) string {
 // MockAccountRepository is a mock implementation of AccountRepository for testing.
 type MockAccountRepository struct {
 	UpsertAccountFunc                  func(ctx context.Context, row *bigquery.AccountRow) (string, error)
-	FindAccountByNumberAndCurrencyFunc func(ctx context.Context, accountNumber, currency string) (*bigquery.AccountRow, error)
+	FindAccountByNumberAndCurrencyFunc func(ctx context.Context, accountNumber, currency, institutionID string) (*bigquery.AccountRow, error)
 	ListAllAccountsFunc                func(ctx context.Context) ([]*bigquery.AccountRow, error)
+}
+
+// MockInstitutionRepository is a mock implementation of InstitutionRepository for testing.
+type MockInstitutionRepository struct {
+	UpsertInstitutionFunc   func(ctx context.Context, row *bigquery.InstitutionRow) (string, error)
+	ListAllInstitutionsFunc func(ctx context.Context) ([]*bigquery.InstitutionRow, error)
+}
+
+func (m *MockInstitutionRepository) UpsertInstitution(ctx context.Context, row *bigquery.InstitutionRow) (string, error) {
+	if m.UpsertInstitutionFunc != nil {
+		return m.UpsertInstitutionFunc(ctx, row)
+	}
+	return "mock-institution-id", nil
+}
+
+func (m *MockInstitutionRepository) ListAllInstitutions(ctx context.Context) ([]*bigquery.InstitutionRow, error) {
+	if m.ListAllInstitutionsFunc != nil {
+		return m.ListAllInstitutionsFunc(ctx)
+	}
+	return []*bigquery.InstitutionRow{}, nil
 }
 
 func (m *MockAccountRepository) UpsertAccount(ctx context.Context, row *bigquery.AccountRow) (string, error) {
@@ -61,9 +81,9 @@ func (m *MockAccountRepository) UpsertAccount(ctx context.Context, row *bigquery
 	return "mock-account-id", nil
 }
 
-func (m *MockAccountRepository) FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency string) (*bigquery.AccountRow, error) {
+func (m *MockAccountRepository) FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency, institutionID string) (*bigquery.AccountRow, error) {
 	if m.FindAccountByNumberAndCurrencyFunc != nil {
-		return m.FindAccountByNumberAndCurrencyFunc(ctx, accountNumber, currency)
+		return m.FindAccountByNumberAndCurrencyFunc(ctx, accountNumber, currency, institutionID)
 	}
 	return nil, nil
 }

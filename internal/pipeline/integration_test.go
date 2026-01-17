@@ -87,6 +87,12 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 			},
 		}
 
+		mockInstitutionRepo := &MockInstitutionRepository{
+			UpsertInstitutionFunc: func(ctx context.Context, row *bigquery.InstitutionRow) (string, error) {
+				return "test-institution-id", nil
+			},
+		}
+
 		repo := &mockDocumentRepo{MockDocumentRepository: mockRepo}
 		err := pipeline.IngestStatementFromGCSWithDeps(
 			context.Background(),
@@ -94,6 +100,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 			"", // empty documentID - let pipeline create it
 			repo,
 			mockAccountRepo,
+			mockInstitutionRepo,
 			mockStorage,
 			mockAIParser,
 		)
@@ -135,6 +142,12 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 			},
 		}
 
+		mockInstitutionRepo := &MockInstitutionRepository{
+			UpsertInstitutionFunc: func(ctx context.Context, row *bigquery.InstitutionRow) (string, error) {
+				return "test-institution-id", nil
+			},
+		}
+
 		repo := &mockDocumentRepo{MockDocumentRepository: mockRepo}
 		err := pipeline.IngestStatementFromGCSWithDeps(
 			context.Background(),
@@ -142,6 +155,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 			"", // empty documentID - let pipeline create it
 			repo,
 			mockAccountRepo,
+			mockInstitutionRepo,
 			mockStorage,
 			mockAIParser,
 		)
@@ -183,6 +197,12 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 			},
 		}
 
+		mockInstitutionRepo := &MockInstitutionRepository{
+			UpsertInstitutionFunc: func(ctx context.Context, row *bigquery.InstitutionRow) (string, error) {
+				return "test-institution-id", nil
+			},
+		}
+
 		repo := &mockDocumentRepo{MockDocumentRepository: mockRepo}
 		err := pipeline.IngestStatementFromGCSWithDeps(
 			context.Background(),
@@ -190,6 +210,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 			"", // empty documentID - let pipeline create it
 			repo,
 			mockAccountRepo,
+			mockInstitutionRepo,
 			mockStorage,
 			mockAIParser,
 		)
@@ -282,6 +303,10 @@ func (m *mockDocumentRepo) FindDocumentByChecksum(ctx context.Context, checksum 
 
 func (m *mockDocumentRepo) MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error {
 	// For tests, just return success
+	return nil
+}
+
+func (m *mockDocumentRepo) UpdateDocumentAccountAndInstitution(ctx context.Context, documentID, accountID, institutionID string) error {
 	return nil
 }
 

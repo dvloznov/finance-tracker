@@ -66,30 +66,34 @@ func ListAllAccountsWithClient(ctx context.Context, client *bigquery.Client) ([]
 	return accounts, nil
 }
 
-// FindAccountByNumberAndCurrency finds an account by normalized account_number and currency.
+// FindAccountByNumberAndCurrency finds an account by normalized account_number, currency, and institution_id.
 // Returns nil if no matching account is found.
 // Normalization: trims whitespace and converts to uppercase for comparison.
-func FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency string) (*AccountRow, error) {
+func FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency, institutionID string) (*AccountRow, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("FindAccountByNumberAndCurrency: creating client: %w", err)
 	}
 	defer client.Close()
 
-	return FindAccountByNumberAndCurrencyWithClient(ctx, client, accountNumber, currency)
+	return FindAccountByNumberAndCurrencyWithClient(ctx, client, accountNumber, currency, institutionID)
 }
 
 // FindAccountByNumberAndCurrencyWithClient finds an account using the provided BigQuery client.
-func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigquery.Client, accountNumber, currency string) (*AccountRow, error) {
+func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigquery.Client, accountNumber, currency, institutionID string) (*AccountRow, error) {
 	// Normalize inputs
 	normNumber := strings.ToUpper(strings.TrimSpace(accountNumber))
 	normCurrency := strings.ToUpper(strings.TrimSpace(currency))
+	normInstitution := strings.ToUpper(strings.TrimSpace(institutionID))
 
 	if normNumber == "" {
 		return nil, fmt.Errorf("FindAccountByNumberAndCurrencyWithClient: account_number cannot be empty")
 	}
 	if normCurrency == "" {
 		return nil, fmt.Errorf("FindAccountByNumberAndCurrencyWithClient: currency cannot be empty")
+	}
+	if normInstitution == "" {
+		return nil, fmt.Errorf("FindAccountByNumberAndCurrencyWithClient: institution_id cannot be empty")
 	}
 
 	query := fmt.Sprintf(`
@@ -112,6 +116,7 @@ func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigqu
 		FROM `+"`%s.%s.accounts`"+`
 		WHERE UPPER(TRIM(account_number)) = @accountNumber
 		  AND UPPER(TRIM(currency)) = @currency
+		  AND UPPER(TRIM(institution_id)) = @institution_id
 		ORDER BY created_ts DESC
 		LIMIT 1
 	`, projectID, datasetID)
@@ -120,6 +125,7 @@ func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigqu
 	q.Parameters = []bigquery.QueryParameter{
 		{Name: "accountNumber", Value: normNumber},
 		{Name: "currency", Value: normCurrency},
+		{Name: "institution_id", Value: normInstitution},
 	}
 
 	it, err := q.Read(ctx)
@@ -140,7 +146,7 @@ func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigqu
 	return &row, nil
 }
 
-// UpsertAccount finds an existing account by (account_number, currency) or creates a new one.
+// UpsertAccount finds an existing account by (account_number, currency, institution_id) or creates a new one.
 // Returns the account_id of the found or created account.
 // If account_number is empty/null, always creates a new account (for document-scoped defaults).
 func UpsertAccount(ctx context.Context, row *AccountRow) (string, error) {
@@ -156,8 +162,8 @@ func UpsertAccount(ctx context.Context, row *AccountRow) (string, error) {
 // UpsertAccountWithClient finds or creates an account using the provided BigQuery client.
 func UpsertAccountWithClient(ctx context.Context, client *bigquery.Client, row *AccountRow) (string, error) {
 	// If account_number is provided, try to find existing account
-	if row.AccountNumber != "" && row.Currency != "" {
-		existing, err := FindAccountByNumberAndCurrencyWithClient(ctx, client, row.AccountNumber, row.Currency)
+	if row.AccountNumber != "" && row.Currency != "" && row.InstitutionID != "" {
+		existing, err := FindAccountByNumberAndCurrencyWithClient(ctx, client, row.AccountNumber, row.Currency, row.InstitutionID)
 		if err != nil {
 			return "", fmt.Errorf("UpsertAccountWithClient: finding existing account: %w", err)
 		}

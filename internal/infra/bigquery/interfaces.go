@@ -73,8 +73,8 @@ func (r *BigQueryAccountRepository) UpsertAccount(ctx context.Context, row *Acco
 }
 
 // FindAccountByNumberAndCurrency delegates to the existing function with the shared client.
-func (r *BigQueryAccountRepository) FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency string) (*AccountRow, error) {
-	return FindAccountByNumberAndCurrencyWithClient(ctx, r.client, accountNumber, currency)
+func (r *BigQueryAccountRepository) FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency, institutionID string) (*AccountRow, error) {
+	return FindAccountByNumberAndCurrencyWithClient(ctx, r.client, accountNumber, currency, institutionID)
 }
 
 // ListAllAccounts delegates to the existing ListAllAccounts function with the shared client.
@@ -178,4 +178,9 @@ func (r *BigQueryDocumentRepository) FindDocumentByChecksum(ctx context.Context,
 // MarkParsingRunsAsSuperseded delegates to the existing MarkParsingRunsAsSuperseded function with the shared client.
 func (r *BigQueryDocumentRepository) MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error {
 	return MarkParsingRunsAsSupersededWithClient(ctx, r.client, documentID)
+}
+
+// UpdateDocumentAccountAndInstitution delegates to the existing UpdateDocumentAccountAndInstitution function with the shared client.
+func (r *BigQueryDocumentRepository) UpdateDocumentAccountAndInstitution(ctx context.Context, documentID, accountID, institutionID string) error {
+	return UpdateDocumentAccountAndInstitutionWithClient(ctx, r.client, documentID, accountID, institutionID)
 }

@@ -218,6 +218,11 @@ func (s *UpsertAccountStep) Execute(ctx context.Context, state *PipelineState) e
 		return err
 	}
 
+	if err := state.DocumentRepo.UpdateDocumentAccountAndInstitution(ctx, state.DocumentID, accountID, state.InstitutionID); err != nil {
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		return err
+	}
+
 	state.AccountID = accountID
 	return nil
 }

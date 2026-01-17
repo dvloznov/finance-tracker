@@ -48,6 +48,9 @@ type DocumentRepository interface {
 
 	// MarkParsingRunsAsSuperseded marks all non-running parsing runs for a document as SUPERSEDED.
 	MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error
+
+	// UpdateDocumentAccountAndInstitution updates the account_id and institution_id for a document.
+	UpdateDocumentAccountAndInstitution(ctx context.Context, documentID, accountID, institutionID string) error
 }
 
 // AccountRepository provides an interface for account-related database operations.
@@ -55,8 +58,8 @@ type AccountRepository interface {
 	// UpsertAccount finds an existing account by (account_number, currency) or creates a new one.
 	UpsertAccount(ctx context.Context, row *AccountRow) (string, error)
 
-	// FindAccountByNumberAndCurrency finds an account by normalized account_number and currency.
-	FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency string) (*AccountRow, error)
+	// FindAccountByNumberAndCurrency finds an account by normalized account_number, currency, and institution_id.
+	FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency, institutionID string) (*AccountRow, error)
 
 	// ListAllAccounts retrieves all accounts from the database.
 	ListAllAccounts(ctx context.Context) ([]*AccountRow, error)

@@ -141,3 +141,46 @@ func UpdateDocumentParsingStatusWithClient(ctx context.Context, client *bigquery
 
 	return nil
 }
+
+// UpdateDocumentAccountAndInstitution updates the account_id and institution_id fields for a document.
+func UpdateDocumentAccountAndInstitution(ctx context.Context, documentID, accountID, institutionID string) error {
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("UpdateDocumentAccountAndInstitution: bigquery client: %w", err)
+	}
+	defer client.Close()
+
+	return UpdateDocumentAccountAndInstitutionWithClient(ctx, client, documentID, accountID, institutionID)
+}
+
+// UpdateDocumentAccountAndInstitutionWithClient updates the account_id and institution_id fields for a document
+// using the provided BigQuery client.
+func UpdateDocumentAccountAndInstitutionWithClient(ctx context.Context, client *bigquery.Client, documentID, accountID, institutionID string) error {
+	query := client.Query(`
+		UPDATE ` + "`" + projectID + "." + datasetID + "." + documentsTable + "`" + `
+		SET account_id = @account_id,
+			institution_id = @institution_id
+		WHERE document_id = @document_id
+	`)
+	query.Parameters = []bigquery.QueryParameter{
+		{Name: "account_id", Value: accountID},
+		{Name: "institution_id", Value: institutionID},
+		{Name: "document_id", Value: documentID},
+	}
+
+	job, err := query.Run(ctx)
+	if err != nil {
+		return fmt.Errorf("UpdateDocumentAccountAndInstitution: query run: %w", err)
+	}
+
+	status, err := job.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("UpdateDocumentAccountAndInstitution: job wait: %w", err)
+	}
+
+	if status.Err() != nil {
+		return fmt.Errorf("UpdateDocumentAccountAndInstitution: job error: %w", status.Err())
+	}
+
+	return nil
+}
