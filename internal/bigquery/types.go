@@ -62,6 +62,15 @@ type AccountRepository interface {
 	ListAllAccounts(ctx context.Context) ([]*AccountRow, error)
 }
 
+// InstitutionRepository provides an interface for institution-related database operations.
+type InstitutionRepository interface {
+	// UpsertInstitution creates or updates an institution and returns its ID.
+	UpsertInstitution(ctx context.Context, row *InstitutionRow) (string, error)
+
+	// ListAllInstitutions retrieves all institutions from the database.
+	ListAllInstitutions(ctx context.Context) ([]*InstitutionRow, error)
+}
+
 // CategoryRepository provides an interface for category-related database operations.
 type CategoryRepository interface {
 	// ListActiveCategories retrieves all active categories from the database.
@@ -96,6 +105,17 @@ type DocumentRow struct {
 	ChecksumSHA256 string `bigquery:"checksum_sha256" json:"checksum_sha256,omitempty"`
 
 	Metadata bigquery.NullJSON `bigquery:"metadata" json:"metadata,omitempty"`
+}
+
+// InstitutionRow represents an institution record in BigQuery.
+type InstitutionRow struct {
+	InstitutionID string `bigquery:"institution_id" json:"institution_id"`
+	Name          string `bigquery:"name" json:"name"`
+	CountryCode   string `bigquery:"country_code" json:"country_code,omitempty"`
+	LogoURL       string `bigquery:"logo_url" json:"logo_url,omitempty"`
+	Metadata      bigquery.NullJSON `bigquery:"metadata" json:"metadata,omitempty"`
+	CreatedTS     time.Time         `bigquery:"created_ts" json:"created_ts,omitempty"`
+	UpdatedTS     bigquery.NullTimestamp `bigquery:"updated_ts" json:"updated_ts,omitempty"`
 }
 
 // TransactionRow represents a transaction record in BigQuery.
