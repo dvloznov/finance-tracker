@@ -43,11 +43,29 @@ func NewDocumentsHandler(repo bigquery.DocumentRepository, publisher jobs.Publis
 func (h *DocumentsHandler) ListDocuments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	query := r.URL.Query()
+	institutionID := strings.TrimSpace(query.Get("institution_id"))
+	accountID := strings.TrimSpace(query.Get("account_id"))
+
 	documents, err := h.repo.ListAllDocuments(ctx)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to list documents")
 		middleware.WriteError(w, http.StatusInternalServerError, "Failed to list documents")
 		return
+	}
+
+	if institutionID != "" || accountID != "" {
+		filtered := make([]*bigquery.DocumentRow, 0, len(documents))
+		for _, doc := range documents {
+			if institutionID != "" && doc.InstitutionID != institutionID {
+				continue
+			}
+			if accountID != "" && doc.AccountID != accountID {
+				continue
+			}
+			filtered = append(filtered, doc)
+		}
+		documents = filtered
 	}
 
 	middleware.WriteJSON(w, http.StatusOK, map[string]interface{}{
@@ -344,6 +362,8 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 	query := r.URL.Query()
 	startDateStr := query.Get("start_date")
 	endDateStr := query.Get("end_date")
+	institutionID := strings.TrimSpace(query.Get("institution_id"))
+	accountID := strings.TrimSpace(query.Get("account_id"))
 
 	var startDate, endDate time.Time
 	var err error
@@ -373,6 +393,20 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 		h.log.Error().Err(err).Msg("Failed to query transactions")
 		middleware.WriteError(w, http.StatusInternalServerError, "Failed to query transactions")
 		return
+	}
+
+	if institutionID != "" || accountID != "" {
+		filtered := make([]*bigquery.TransactionRow, 0, len(transactions))
+		for _, tx := range transactions {
+			if institutionID != "" && tx.InstitutionID != institutionID {
+				continue
+			}
+			if accountID != "" && tx.AccountID != accountID {
+				continue
+			}
+			filtered = append(filtered, tx)
+		}
+		transactions = filtered
 	}
 
 	// Return array directly for frontend compatibility

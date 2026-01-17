@@ -196,23 +196,23 @@ func (t TransactionRow) MarshalJSON() ([]byte, error) {
 
 // AccountRow represents an account record in BigQuery.
 type AccountRow struct {
-	AccountID string `bigquery:"account_id"`
+	AccountID string `bigquery:"account_id" json:"account_id"`
 
-	UserID        string `bigquery:"user_id"`
-	InstitutionID string `bigquery:"institution_id"`
-	AccountName   string `bigquery:"account_name"`
-	AccountNumber string `bigquery:"account_number"`
-	SortCode      string `bigquery:"sort_code"`
-	IBAN          string `bigquery:"iban"`
-	Currency      string `bigquery:"currency"`
-	AccountType   string `bigquery:"account_type"`
+	UserID        string `bigquery:"user_id" json:"user_id"`
+	InstitutionID string `bigquery:"institution_id" json:"institution_id"`
+	AccountName   string `bigquery:"account_name" json:"account_name"`
+	AccountNumber string `bigquery:"account_number" json:"account_number"`
+	SortCode      string `bigquery:"sort_code" json:"sort_code"`
+	IBAN          string `bigquery:"iban" json:"iban"`
+	Currency      string `bigquery:"currency" json:"currency"`
+	AccountType   string `bigquery:"account_type" json:"account_type"`
 
-	OpenedDate bigquery.NullDate      `bigquery:"opened_date"`
-	ClosedDate bigquery.NullDate      `bigquery:"closed_date"`
-	IsPrimary  bigquery.NullBool      `bigquery:"is_primary"`
-	Metadata   bigquery.NullJSON      `bigquery:"metadata"`
-	CreatedTS  bigquery.NullTimestamp `bigquery:"created_ts"`
-	UpdatedTS  bigquery.NullTimestamp `bigquery:"updated_ts"`
+	OpenedDate bigquery.NullDate      `bigquery:"opened_date" json:"opened_date,omitempty"`
+	ClosedDate bigquery.NullDate      `bigquery:"closed_date" json:"closed_date,omitempty"`
+	IsPrimary  bigquery.NullBool      `bigquery:"is_primary" json:"is_primary,omitempty"`
+	Metadata   bigquery.NullJSON      `bigquery:"metadata" json:"metadata,omitempty"`
+	CreatedTS  bigquery.NullTimestamp `bigquery:"created_ts" json:"created_ts,omitempty"`
+	UpdatedTS  bigquery.NullTimestamp `bigquery:"updated_ts" json:"updated_ts,omitempty"`
 }
 
 // CategoryRow represents a denormalized category-subcategory pair.
