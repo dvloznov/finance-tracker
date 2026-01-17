@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AccountScopeSelect } from '@/shared/ui/AccountScopeSelect';
 
 const linkBase = 'px-4 py-2 text-sm font-medium border-b-2';
 const activeLink = `${linkBase} text-slate-900 border-slate-900`;
@@ -16,7 +17,7 @@ export function AppNav({ active }: AppNavProps) {
           <Link href="/" className="text-xl font-semibold tracking-tight text-slate-900">
             Finance Tracker
           </Link>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-4">
             <Link href="/dashboard" className={active === 'dashboard' ? activeLink : inactiveLink}>
               Dashboard
             </Link>
@@ -26,6 +27,7 @@ export function AppNav({ active }: AppNavProps) {
             <Link href="/transactions" className={active === 'transactions' ? activeLink : inactiveLink}>
               Transactions
             </Link>
+            <AccountScopeSelect />
           </div>
         </div>
       </div>

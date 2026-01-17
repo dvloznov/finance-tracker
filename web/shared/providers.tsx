@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode, useState } from 'react';
+import { AccountScopeProvider } from '@/shared/account-scope/context';
 
 type ProvidersProps = {
   children: ReactNode;
@@ -22,7 +23,9 @@ export function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <AccountScopeProvider>
+        {children}
+      </AccountScopeProvider>
     </QueryClientProvider>
   );
 }
