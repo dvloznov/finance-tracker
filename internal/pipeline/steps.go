@@ -336,7 +336,7 @@ func (s *InsertTransactionsStep) Name() string {
 }
 
 func (s *InsertTransactionsStep) Execute(ctx context.Context, state *PipelineState) error {
-	if err := insertTransactionsWithRepo(ctx, state.DocumentID, state.ParsingRunID, state.AccountID, state.Transactions, state.DocumentRepo); err != nil {
+	if err := insertTransactionsWithRepo(ctx, state.DocumentID, state.ParsingRunID, state.AccountID, state.InstitutionID, state.Transactions, state.DocumentRepo); err != nil {
 		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}

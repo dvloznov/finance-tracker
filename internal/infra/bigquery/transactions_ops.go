@@ -55,7 +55,7 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 	// Build INSERT statement with multiple rows
 	queryStr := `
 		INSERT INTO ` + "`" + txProjectID + "." + txDatasetID + ".transactions" + "`" + ` (
-			transaction_id, user_id, account_id, document_id, parsing_run_id,
+			transaction_id, user_id, account_id, institution_id, document_id, parsing_run_id,
 			transaction_date, posting_date, booking_datetime,
 			amount, currency, balance_after, direction,
 			raw_description, normalized_description,
@@ -74,19 +74,20 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 			queryStr += ","
 		}
 		queryStr += fmt.Sprintf(`
-			(@transaction_id_%d, @user_id_%d, @account_id_%d, @document_id_%d, @parsing_run_id_%d,
+			(@transaction_id_%d, @user_id_%d, @account_id_%d, @institution_id_%d, @document_id_%d, @parsing_run_id_%d,
 			 @transaction_date_%d, @posting_date_%d, @booking_datetime_%d,
 			 CAST(@amount_%d AS NUMERIC), @currency_%d, CAST(@balance_after_%d AS NUMERIC), @direction_%d,
 			 @raw_description_%d, @normalized_description_%d,
 			 @category_id_%d, @category_name_%d, @subcategory_name_%d,
 			 @statement_line_no_%d, @statement_page_no_%d,
 			 @is_pending_%d, @is_refund_%d, @is_internal_transfer_%d, @is_split_parent_%d, @is_split_child_%d,
-			 @external_reference_%d, @tags_%d, @created_ts_%d, @updated_ts_%d)`, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
+			 @external_reference_%d, @tags_%d, @created_ts_%d, @updated_ts_%d)`, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
 
 		params = append(params,
 			bigquery.QueryParameter{Name: fmt.Sprintf("transaction_id_%d", i), Value: row.TransactionID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("user_id_%d", i), Value: row.UserID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("account_id_%d", i), Value: row.AccountID},
+			bigquery.QueryParameter{Name: fmt.Sprintf("institution_id_%d", i), Value: row.InstitutionID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("document_id_%d", i), Value: row.DocumentID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("parsing_run_id_%d", i), Value: row.ParsingRunID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("transaction_date_%d", i), Value: row.TransactionDate},
@@ -154,6 +155,7 @@ func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquer
 			t.transaction_id,
 			t.user_id,
 			t.account_id,
+			t.institution_id,
 			t.document_id,
 			t.parsing_run_id,
 			t.transaction_date,

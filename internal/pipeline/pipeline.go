@@ -165,7 +165,7 @@ func insertTransactions(
 	}
 	defer repo.Close()
 
-	return insertTransactionsWithRepo(ctx, documentID, parsingRunID, "", txs, repo)
+	return insertTransactionsWithRepo(ctx, documentID, parsingRunID, "", "", txs, repo)
 }
 
 // insertTransactionsWithRepo writes a batch of transactions to the transactions table using the provided repository.
@@ -174,6 +174,7 @@ func insertTransactionsWithRepo(
 	documentID string,
 	parsingRunID string,
 	accountID string,
+	institutionID string,
 	txs []*Transaction,
 	repo bigquery.DocumentRepository,
 ) error {
@@ -232,13 +233,12 @@ func insertTransactionsWithRepo(
 		}
 
 		row := &bigquery.TransactionRow{
-			TransactionID: uuid.NewString(),
-
-			UserID:    DefaultUserID,
-			AccountID: accountID, // Link transaction to account
-
-			DocumentID:   documentID,
-			ParsingRunID: parsingRunID,
+			TransactionID: t.ID,
+			UserID:        DefaultUserID,
+			AccountID:     accountID,
+			InstitutionID: institutionID,
+			DocumentID:    documentID,
+			ParsingRunID:  parsingRunID,
 
 			TransactionDate: txDate,
 

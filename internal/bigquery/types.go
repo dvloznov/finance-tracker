@@ -127,6 +127,7 @@ type TransactionRow struct {
 
 	UserID    string `bigquery:"user_id" json:"user_id"`
 	AccountID string `bigquery:"account_id" json:"account_id"`
+	InstitutionID string `bigquery:"institution_id" json:"institution_id"`
 
 	DocumentID   string `bigquery:"document_id" json:"document_id"`
 	ParsingRunID string `bigquery:"parsing_run_id" json:"parsing_run_id"`
