@@ -169,27 +169,27 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 	// Extract optional fields
 	accountNumber, err := getOptionalStringField(rawOutput, "account_number")
 	if err != nil {
-		return nil, fmt.Errorf("transformAccountInfo: %w", err)
+		return nil, nil, fmt.Errorf("transformAccountInfo: %w", err)
 	}
 	iban, err := getOptionalStringField(rawOutput, "iban")
 	if err != nil {
-		return nil, fmt.Errorf("transformAccountInfo: %w", err)
+		return nil, nil, fmt.Errorf("transformAccountInfo: %w", err)
 	}
 	sortCode, err := getOptionalStringField(rawOutput, "sort_code")
 	if err != nil {
-		return nil, fmt.Errorf("transformAccountInfo: %w", err)
+		return nil, nil, fmt.Errorf("transformAccountInfo: %w", err)
 	}
 	accountName, err := getOptionalStringField(rawOutput, "account_name")
 	if err != nil {
-		return nil, fmt.Errorf("transformAccountInfo: %w", err)
+		return nil, nil, fmt.Errorf("transformAccountInfo: %w", err)
 	}
 	accountType, err := getOptionalStringField(rawOutput, "account_type")
 	if err != nil {
-		return nil, fmt.Errorf("transformAccountInfo: %w", err)
+		return nil, nil, fmt.Errorf("transformAccountInfo: %w", err)
 	}
 	currency, err := getOptionalStringField(rawOutput, "currency")
 	if err != nil {
-		return nil, fmt.Errorf("transformAccountInfo: %w", err)
+		return nil, nil, fmt.Errorf("transformAccountInfo: %w", err)
 	}
 	institutionName, err := getOptionalStringField(rawOutput, "institution_name")
 	if err != nil {
@@ -197,7 +197,7 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 	}
 	openedDateStr, err := getOptionalStringField(rawOutput, "opened_date")
 	if err != nil {
-		return nil, fmt.Errorf("transformAccountInfo: %w", err)
+		return nil, nil, fmt.Errorf("transformAccountInfo: %w", err)
 	}
 
 	// Parse opened_date if present

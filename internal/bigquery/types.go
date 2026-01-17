@@ -112,12 +112,12 @@ type DocumentRow struct {
 
 // InstitutionRow represents an institution record in BigQuery.
 type InstitutionRow struct {
-	InstitutionID string `bigquery:"institution_id" json:"institution_id"`
-	Name          string `bigquery:"name" json:"name"`
-	CountryCode   string `bigquery:"country_code" json:"country_code,omitempty"`
-	LogoURL       string `bigquery:"logo_url" json:"logo_url,omitempty"`
-	Metadata      bigquery.NullJSON `bigquery:"metadata" json:"metadata,omitempty"`
-	CreatedTS     time.Time         `bigquery:"created_ts" json:"created_ts,omitempty"`
+	InstitutionID string                 `bigquery:"institution_id" json:"institution_id"`
+	Name          string                 `bigquery:"name" json:"name"`
+	CountryCode   string                 `bigquery:"country_code" json:"country_code,omitempty"`
+	LogoURL       string                 `bigquery:"logo_url" json:"logo_url,omitempty"`
+	Metadata      bigquery.NullJSON      `bigquery:"metadata" json:"metadata,omitempty"`
+	CreatedTS     time.Time              `bigquery:"created_ts" json:"created_ts,omitempty"`
 	UpdatedTS     bigquery.NullTimestamp `bigquery:"updated_ts" json:"updated_ts,omitempty"`
 }
 
@@ -125,8 +125,8 @@ type InstitutionRow struct {
 type TransactionRow struct {
 	TransactionID string `bigquery:"transaction_id" json:"transaction_id"`
 
-	UserID    string `bigquery:"user_id" json:"user_id"`
-	AccountID string `bigquery:"account_id" json:"account_id"`
+	UserID        string `bigquery:"user_id" json:"user_id"`
+	AccountID     string `bigquery:"account_id" json:"account_id"`
 	InstitutionID string `bigquery:"institution_id" json:"institution_id"`
 
 	DocumentID   string `bigquery:"document_id" json:"document_id"`

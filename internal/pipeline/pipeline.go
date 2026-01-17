@@ -66,13 +66,13 @@ func IngestStatementFromGCSWithDeps(
 ) error {
 	// Initialize pipeline state
 	state := &PipelineState{
-		GCSURI:         gcsURI,
-		DocumentID:     documentID, // Set documentID if provided
-		DocumentRepo:   repo,
-		AccountRepo:    accountRepo,
+		GCSURI:          gcsURI,
+		DocumentID:      documentID, // Set documentID if provided
+		DocumentRepo:    repo,
+		AccountRepo:     accountRepo,
 		InstitutionRepo: institutionRepo,
-		StorageService: storage,
-		AIParser:       aiParser,
+		StorageService:  storage,
+		AIParser:        aiParser,
 	}
 
 	// Create and execute the standard ingestion pipeline
@@ -233,7 +233,7 @@ func insertTransactionsWithRepo(
 		}
 
 		row := &bigquery.TransactionRow{
-			TransactionID: t.ID,
+			TransactionID: uuid.NewString(),
 			UserID:        DefaultUserID,
 			AccountID:     accountID,
 			InstitutionID: institutionID,
