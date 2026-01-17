@@ -1,18 +1,17 @@
 'use client';
 
-import type { Account, Institution } from '@/shared/types/api';
 import { useAccountScope } from '@/shared/account-scope/context';
+import { useAccountOptions } from '@/shared/account-scope/useAccountOptions';
 
-export type AccountScopeSelectProps = {
-  institutions?: Institution[];
-  accounts?: Account[];
-};
-
-export function AccountScopeSelect({ institutions = [], accounts = [] }: AccountScopeSelectProps) {
+export function AccountScopeSelect() {
   const { scope, setMode, setInstitutionId, setAccountId } = useAccountScope();
+  const { institutions, accounts, isLoading } = useAccountOptions();
 
   const hasInstitutions = institutions.length > 0;
-  const hasAccounts = accounts.length > 0;
+  const filteredAccounts = scope.institutionId
+    ? accounts.filter((account) => account.institution_id === scope.institutionId)
+    : accounts;
+  const hasAccounts = filteredAccounts.length > 0;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -31,7 +30,7 @@ export function AccountScopeSelect({ institutions = [], accounts = [] }: Account
           value={scope.institutionId ?? ''}
           onChange={(e) => setInstitutionId(e.target.value || null)}
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-          disabled={!hasInstitutions}
+          disabled={!hasInstitutions || isLoading}
         >
           <option value="">Select institution</option>
           {institutions.map((institution) => (
@@ -47,10 +46,10 @@ export function AccountScopeSelect({ institutions = [], accounts = [] }: Account
           value={scope.accountId ?? ''}
           onChange={(e) => setAccountId(e.target.value || null)}
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
-          disabled={!hasAccounts}
+          disabled={!hasAccounts || isLoading}
         >
           <option value="">Select account</option>
-          {accounts.map((account) => (
+          {filteredAccounts.map((account) => (
             <option key={account.account_id} value={account.account_id}>
               {account.account_name || account.account_number || account.account_id}
             </option>
