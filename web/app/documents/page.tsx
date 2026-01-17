@@ -91,6 +91,7 @@ export default function DocumentsPage() {
     onSuccess: () => {
       setUploadStatus('Upload successful!');
       queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['documents', 'options'] });
       setTimeout(() => {
         setUploading(false);
         setUploadStatus('');
@@ -110,6 +111,7 @@ export default function DocumentsPage() {
       setDeleteConfirm({ show: false, documentId: null });
       setDeleteError(null);
       queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['documents', 'options'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
     onError: (error: Error) => {
