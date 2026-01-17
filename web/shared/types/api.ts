@@ -21,6 +21,8 @@ export interface Document {
 export interface Transaction {
   transaction_id: string;
   document_id: string;
+  account_id?: string;
+  institution_id?: string;
   transaction_date: string;
   amount: string;
   currency: string;
@@ -28,6 +30,25 @@ export interface Transaction {
   category_name?: string;
   subcategory_name?: string;
   balance_after?: string;
+}
+
+export interface Account {
+  account_id: string;
+  institution_id?: string;
+  account_name?: string;
+  account_number?: string;
+  account_type?: string;
+  currency?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Institution {
+  institution_id: string;
+  name: string;
+  country?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Category {
