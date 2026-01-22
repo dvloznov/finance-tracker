@@ -14,27 +14,27 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/dvloznov/finance-tracker/internal/api/middleware"
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
+	"github.com/dvloznov/finance-tracker/internal/events"
 	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
-	"github.com/dvloznov/finance-tracker/internal/jobs"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
 // DocumentsHandler handles document-related endpoints.
 type DocumentsHandler struct {
-	repo      bigquery.DocumentRepository
-	publisher jobs.Publisher
-	bucket    string
-	log       zerolog.Logger
+	repo           bigquery.DocumentRepository
+	eventPublisher events.Publisher
+	bucket         string
+	log            zerolog.Logger
 }
 
 // NewDocumentsHandler creates a new documents handler.
-func NewDocumentsHandler(repo bigquery.DocumentRepository, publisher jobs.Publisher, bucket string, log zerolog.Logger) *DocumentsHandler {
+func NewDocumentsHandler(repo bigquery.DocumentRepository, publisher events.Publisher, bucket string, log zerolog.Logger) *DocumentsHandler {
 	return &DocumentsHandler{
-		repo:      repo,
-		publisher: publisher,
-		bucket:    bucket,
-		log:       log,
+		repo:           repo,
+		eventPublisher: publisher,
+		bucket:         bucket,
+		log:            log,
 	}
 }
 
@@ -184,10 +184,33 @@ func (h *DocumentsHandler) UploadDocument(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if h.eventPublisher == nil {
+		h.log.Error().Msg("Document event publisher is not configured")
+		middleware.WriteError(w, http.StatusServiceUnavailable, "Document event publisher is not configured")
+		return
+	}
+
+	event := events.DocumentUploadedEvent{
+		EventID:    uuid.NewString(),
+		Type:       events.DocumentUploadedEventType,
+		DocumentID: documentID,
+		GCSURI:     gcsURI,
+		Filename:   filename,
+		UploadedAt: time.Now().UTC(),
+		Source:     "api",
+	}
+
+	if err := h.eventPublisher.PublishDocumentUploaded(ctx, event); err != nil {
+		h.log.Error().Err(err).Str("document_id", documentID).Msg("Failed to publish document uploaded event")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to publish document event")
+		return
+	}
+
 	middleware.WriteJSON(w, http.StatusOK, map[string]string{
 		"document_id": documentID,
 		"gcs_uri":     gcsURI,
 		"status":      "uploaded",
+		"event_id":    event.EventID,
 	})
 }
 
@@ -210,25 +233,34 @@ func (h *DocumentsHandler) EnqueueParsing(w http.ResponseWriter, r *http.Request
 
 	ctx := r.Context()
 
-	// Create parse job
-	job := &jobs.ParseDocumentJob{
-		DocumentID: req.DocumentID,
-		GCSURI:     req.GCSURI,
-	}
-
-	// Publish job
-	if err := h.publisher.PublishParseDocument(ctx, job); err != nil {
-		h.log.Error().Err(err).Msg("Failed to enqueue parsing job")
-		middleware.WriteError(w, http.StatusInternalServerError, "Failed to enqueue parsing job")
+	if h.eventPublisher == nil {
+		h.log.Error().Msg("Document event publisher is not configured")
+		middleware.WriteError(w, http.StatusServiceUnavailable, "Document event publisher is not configured")
 		return
 	}
 
-	h.log.Info().Str("job_id", job.JobID).Str("document_id", req.DocumentID).Msg("Parsing job enqueued")
+	event := events.DocumentUploadedEvent{
+		EventID:    uuid.NewString(),
+		Type:       events.DocumentUploadedEventType,
+		DocumentID: req.DocumentID,
+		GCSURI:     req.GCSURI,
+		Filename:   "",
+		UploadedAt: time.Now().UTC(),
+		Source:     "api",
+	}
+
+	if err := h.eventPublisher.PublishDocumentUploaded(ctx, event); err != nil {
+		h.log.Error().Err(err).Str("document_id", req.DocumentID).Msg("Failed to enqueue parsing via Pub/Sub")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to enqueue parsing")
+		return
+	}
+
+	h.log.Info().Str("event_id", event.EventID).Str("document_id", req.DocumentID).Msg("Parsing event published")
 
 	middleware.WriteJSON(w, http.StatusAccepted, map[string]string{
-		"job_id":      job.JobID,
+		"event_id":    event.EventID,
 		"document_id": req.DocumentID,
-		"status":      string(job.Status),
+		"status":      "queued",
 	})
 }
 

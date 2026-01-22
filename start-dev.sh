@@ -1,9 +1,27 @@
 #!/bin/bash
 
+# Default environment configuration (override by exporting before running)
+export GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT:-studious-union-470122-v7}
+export GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-global}
+export GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-True}
+export PUBSUB_PROJECT=${PUBSUB_PROJECT:-${GOOGLE_CLOUD_PROJECT}}
+export PUBSUB_TOPIC=${PUBSUB_TOPIC:-projects/${GOOGLE_CLOUD_PROJECT}/topics/document_events}
+export PUBSUB_SUBSCRIPTION=${PUBSUB_SUBSCRIPTION:-projects/${GOOGLE_CLOUD_PROJECT}/subscriptions/document_events-sub}
+
 # Start API server in background
 echo "Starting API server on port 8080..."
-go run cmd/api/main.go -port 8080 -bucket personal-tracker-finance-pdfs &
+go run cmd/api/main.go -port 8080 -bucket ${GCS_BUCKET:-personal-tracker-finance-pdfs} &
 API_PID=$!
+
+# Start worker service (Pub/Sub subscriber)
+if [[ -z "${PUBSUB_PROJECT:-${GOOGLE_CLOUD_PROJECT}}" || -z "${PUBSUB_SUBSCRIPTION}" ]]; then
+        echo "Warning: PUBSUB_PROJECT/GOOGLE_CLOUD_PROJECT and PUBSUB_SUBSCRIPTION not set. Worker will fail to start."
+fi
+echo "Starting worker service..."
+go run cmd/worker/main.go \
+    -pubsub-project "${PUBSUB_PROJECT:-${GOOGLE_CLOUD_PROJECT}}" \
+    -pubsub-subscription "${PUBSUB_SUBSCRIPTION}" &
+WORKER_PID=$!
 
 # Start Next.js frontend
 echo "Starting frontend on port 3000..."
@@ -15,6 +33,7 @@ FRONTEND_PID=$!
 cleanup() {
     echo "\nStopping services..."
     kill $API_PID 2>/dev/null
+    kill $WORKER_PID 2>/dev/null
     kill $FRONTEND_PID 2>/dev/null
     exit
 }
@@ -24,6 +43,7 @@ trap cleanup INT
 
 echo "\n✓ Services started!"
 echo "  API: http://localhost:8080"
+echo "  Worker: running (Pub/Sub subscriber)"
 echo "  Frontend: http://localhost:3000"
 echo "\nPress Ctrl+C to stop both services"
 

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,18 +12,19 @@ import (
 
 	"github.com/dvloznov/finance-tracker/internal/api/handlers"
 	"github.com/dvloznov/finance-tracker/internal/api/middleware"
+	"github.com/dvloznov/finance-tracker/internal/events"
 	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
-	"github.com/dvloznov/finance-tracker/internal/jobs"
 	"github.com/dvloznov/finance-tracker/internal/jobs/inmemory"
 	"github.com/dvloznov/finance-tracker/internal/logger"
-	"github.com/dvloznov/finance-tracker/internal/pipeline"
 )
 
 func main() {
 	// Parse command-line flags
 	var (
-		port   = flag.String("port", "8080", "HTTP server port")
-		bucket = flag.String("bucket", os.Getenv("GCS_BUCKET"), "GCS bucket name for document uploads (or set GCS_BUCKET env)")
+		port          = flag.String("port", "8080", "HTTP server port")
+		bucket        = flag.String("bucket", os.Getenv("GCS_BUCKET"), "GCS bucket name for document uploads (or set GCS_BUCKET env)")
+		pubsubProject = flag.String("pubsub-project", os.Getenv("PUBSUB_PROJECT"), "Pub/Sub project ID (or PUBSUB_PROJECT env)")
+		pubsubTopic   = flag.String("pubsub-topic", os.Getenv("PUBSUB_TOPIC"), "Pub/Sub topic ID or full name for document events (or PUBSUB_TOPIC env)")
 	)
 	flag.Parse()
 
@@ -33,6 +33,9 @@ func main() {
 
 	if *bucket == "" {
 		log.Warn().Msg("No GCS bucket configured - document uploads will be disabled")
+	}
+	if *pubsubProject == "" {
+		*pubsubProject = os.Getenv("GOOGLE_CLOUD_PROJECT")
 	}
 
 	// Initialize repositories
@@ -44,62 +47,24 @@ func main() {
 	}
 	defer docRepo.Close()
 
-	// Initialize job infrastructure
+	// Initialize job infrastructure (used for /api/jobs endpoints)
 	jobStore := inmemory.NewStore()
-	jobQueue := inmemory.NewQueue(100, jobStore)
 
-	// Start worker in background to process jobs
-	workerCtx, cancelWorker := context.WithCancel(ctx)
-	defer cancelWorker()
-
-	// Create job handler for processing parse jobs
-	jobHandler := func(ctx context.Context, job jobs.Job) error {
-		parseJob, ok := job.(*jobs.ParseDocumentJob)
-		if !ok {
-			return fmt.Errorf("unexpected job type: %T", job)
-		}
-
-		log.Info().
-			Str("job_id", parseJob.JobID).
-			Str("document_id", parseJob.DocumentID).
-			Str("gcs_uri", parseJob.GCSURI).
-			Msg("Processing parse job")
-
-		// Execute the pipeline
-		err := pipeline.IngestStatementFromGCS(ctx, parseJob.GCSURI, parseJob.DocumentID)
+	// Initialize Pub/Sub publisher for document events
+	var eventPublisher events.Publisher
+	if *pubsubProject == "" || *pubsubTopic == "" {
+		log.Warn().Msg("Pub/Sub not configured (PUBSUB_PROJECT/PUBSUB_TOPIC) - document events will fail")
+	} else {
+		publisher, err := events.NewPubSubPublisher(ctx, *pubsubProject, *pubsubTopic)
 		if err != nil {
-			log.Error().
-				Err(err).
-				Str("job_id", parseJob.JobID).
-				Str("document_id", parseJob.DocumentID).
-				Msg("Pipeline execution failed")
-
-			// Update document status to FAILED
-			if updateErr := infraBQ.UpdateDocumentParsingStatus(ctx, parseJob.DocumentID, "FAILED"); updateErr != nil {
-				log.Error().Err(updateErr).Msg("Failed to update document status")
-			}
-
-			return err
+			log.Fatal().Err(err).Msg("Failed to create Pub/Sub publisher")
 		}
-
-		log.Info().
-			Str("job_id", parseJob.JobID).
-			Str("document_id", parseJob.DocumentID).
-			Msg("Pipeline execution completed successfully")
-
-		return nil
+		eventPublisher = publisher
+		defer eventPublisher.Close()
 	}
 
-	// Start job consumer in background
-	go func() {
-		log.Info().Msg("Starting job worker")
-		if err := jobQueue.Start(workerCtx, jobHandler); err != nil {
-			log.Error().Err(err).Msg("Job worker stopped with error")
-		}
-	}()
-
 	// Initialize handlers
-	documentsHandler := handlers.NewDocumentsHandler(docRepo, jobQueue, *bucket, log)
+	documentsHandler := handlers.NewDocumentsHandler(docRepo, eventPublisher, *bucket, log)
 	transactionsHandler := handlers.NewTransactionsHandler(docRepo, log)
 	categoriesHandler := handlers.NewCategoriesHandler(docRepo, log)
 	accountsHandler := handlers.NewAccountsHandler(docRepo, log)
@@ -271,25 +236,12 @@ func main() {
 
 	log.Info().Msg("Shutting down server...")
 
-	// Cancel worker context
-	cancelWorker()
-
 	// Graceful shutdown
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatal().Err(err).Msg("Server forced to shutdown")
-	}
-
-	// Stop job queue and wait for in-flight jobs
-	if err := jobQueue.Stop(shutdownCtx); err != nil {
-		log.Error().Err(err).Msg("Error stopping job queue")
-	}
-
-	// Close job queue
-	if err := jobQueue.Close(); err != nil {
-		log.Error().Err(err).Msg("Failed to close job queue")
 	}
 
 	log.Info().Msg("Server exited")

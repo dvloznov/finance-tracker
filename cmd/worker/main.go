@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	"github.com/dvloznov/finance-tracker/internal/jobs"
-	"github.com/dvloznov/finance-tracker/internal/jobs/inmemory"
+	"cloud.google.com/go/pubsub"
+	"github.com/dvloznov/finance-tracker/internal/events"
+	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/logger"
 	"github.com/dvloznov/finance-tracker/internal/pipeline"
 )
@@ -18,78 +19,106 @@ func main() {
 	// Initialize logger
 	log := logger.New()
 
-	// Initialize job store and queue
-	// In production, this would be replaced with Cloud Tasks or Pub/Sub
-	jobStore := inmemory.NewStore()
-	jobQueue := inmemory.NewQueue(100, jobStore)
+	// Parse CLI flags
+	pubsubProject := flag.String("pubsub-project", os.Getenv("PUBSUB_PROJECT"), "Pub/Sub project ID (or PUBSUB_PROJECT env)")
+	pubsubSubscription := flag.String("pubsub-subscription", os.Getenv("PUBSUB_SUBSCRIPTION"), "Pub/Sub subscription ID or full name (or PUBSUB_SUBSCRIPTION env)")
+	flag.Parse()
 
-	log.Info().Msg("Starting worker service")
+	if *pubsubProject == "" {
+		*pubsubProject = os.Getenv("GOOGLE_CLOUD_PROJECT")
+	}
+
+	if *pubsubProject == "" || *pubsubSubscription == "" {
+		log.Fatal().Msg("PUBSUB_PROJECT (or GOOGLE_CLOUD_PROJECT) and PUBSUB_SUBSCRIPTION are required")
+	}
+
+	subscriptionID := events.NormalizeResourceID(*pubsubSubscription)
+
+	log.Info().
+		Str("project", *pubsubProject).
+		Str("subscription", subscriptionID).
+		Msg("Starting worker service")
 
 	// Create context that cancels on interrupt
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Create job handler that processes parse jobs
-	handler := func(ctx context.Context, job jobs.Job) error {
-		parseJob, ok := job.(*jobs.ParseDocumentJob)
-		if !ok {
-			return fmt.Errorf("unexpected job type: %T", job)
-		}
-
-		log.Info().
-			Str("job_id", parseJob.JobID).
-			Str("document_id", parseJob.DocumentID).
-			Str("gcs_uri", parseJob.GCSURI).
-			Msg("Processing parse job")
-
-		// Execute the pipeline
-		err := pipeline.IngestStatementFromGCS(ctx, parseJob.GCSURI)
-		if err != nil {
-			log.Error().
-				Err(err).
-				Str("job_id", parseJob.JobID).
-				Str("document_id", parseJob.DocumentID).
-				Msg("Pipeline execution failed")
-			return err
-		}
-
-		log.Info().
-			Str("job_id", parseJob.JobID).
-			Str("document_id", parseJob.DocumentID).
-			Msg("Pipeline execution completed successfully")
-
-		return nil
+	client, err := pubsub.NewClient(ctx, *pubsubProject)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create Pub/Sub client")
 	}
+	defer client.Close()
 
-	// Start consuming jobs
-	if err := jobQueue.Start(ctx, handler); err != nil {
-		log.Fatal().Err(err).Msg("Failed to start job consumer")
-	}
+	sub := client.Subscription(subscriptionID)
+	sub.ReceiveSettings.MaxOutstandingMessages = 5
+	sub.ReceiveSettings.MaxOutstandingBytes = 10 << 20
 
-	log.Info().Msg("Worker service started, waiting for jobs...")
-
-	// Wait for interrupt signal
+	// Handle interrupts to stop subscriber
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	go func() {
+		<-quit
+		log.Info().Msg("Shutting down worker service...")
+		cancel()
+	}()
 
-	log.Info().Msg("Shutting down worker service...")
+	log.Info().Msg("Worker service started, waiting for document events...")
 
-	// Cancel context to stop workers
-	cancel()
+	err = sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
+		var event events.DocumentUploadedEvent
+		if err := json.Unmarshal(msg.Data, &event); err != nil {
+			log.Error().Err(err).Msg("Failed to decode document event")
+			msg.Nack()
+			return
+		}
 
-	// Create shutdown context with timeout
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer shutdownCancel()
+		if event.Type != events.DocumentUploadedEventType {
+			log.Warn().Str("event_type", event.Type).Msg("Ignoring unsupported event type")
+			msg.Ack()
+			return
+		}
 
-	// Stop the queue and wait for in-flight jobs
-	if err := jobQueue.Stop(shutdownCtx); err != nil {
-		log.Error().Err(err).Msg("Error during graceful shutdown")
-	}
+		if event.DocumentID == "" || event.GCSURI == "" {
+			log.Error().Msg("Invalid document event payload")
+			msg.Nack()
+			return
+		}
 
-	// Close the queue
-	if err := jobQueue.Close(); err != nil {
-		log.Error().Err(err).Msg("Failed to close job queue")
+		log.Info().
+			Str("event_id", event.EventID).
+			Str("document_id", event.DocumentID).
+			Str("gcs_uri", event.GCSURI).
+			Msg("Processing document upload event")
+
+		if err := infraBQ.UpdateDocumentParsingStatus(ctx, event.DocumentID, "PROCESSING"); err != nil {
+			log.Warn().Err(err).Str("document_id", event.DocumentID).Msg("Failed to update document status")
+		}
+
+		if err := pipeline.IngestStatementFromGCS(ctx, event.GCSURI, event.DocumentID); err != nil {
+			log.Error().
+				Err(err).
+				Str("event_id", event.EventID).
+				Str("document_id", event.DocumentID).
+				Msg("Pipeline execution failed")
+
+			if updateErr := infraBQ.UpdateDocumentParsingStatus(ctx, event.DocumentID, "FAILED"); updateErr != nil {
+				log.Error().Err(updateErr).Str("document_id", event.DocumentID).Msg("Failed to update document status to FAILED")
+			}
+
+			msg.Nack()
+			return
+		}
+
+		log.Info().
+			Str("event_id", event.EventID).
+			Str("document_id", event.DocumentID).
+			Msg("Pipeline execution completed successfully")
+
+		msg.Ack()
+	})
+
+	if err != nil && ctx.Err() == nil {
+		log.Fatal().Err(err).Msg("Pub/Sub receive loop ended with error")
 	}
 
 	log.Info().Msg("Worker service exited")
