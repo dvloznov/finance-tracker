@@ -86,22 +86,6 @@ func IngestStatementFromGCSWithDeps(
 // ──────────────────────────────────────────────────────────────
 //
 
-// storeModelOutput inserts raw model output into the model_outputs table.
-func storeModelOutput(
-	ctx context.Context,
-	parsingRunID string,
-	documentID string,
-	rawOutput map[string]interface{},
-) (string, error) {
-	repo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
-	if err != nil {
-		return "", fmt.Errorf("storeModelOutput: creating BigQuery repository: %w", err)
-	}
-	defer repo.Close()
-
-	return storeModelOutputWithRepo(ctx, parsingRunID, documentID, rawOutput, repo)
-}
-
 // storeModelOutputWithRepo inserts raw model output into the model_outputs table using the provided repository.
 func storeModelOutputWithRepo(
 	ctx context.Context,
@@ -150,22 +134,6 @@ func storeModelOutputWithRepo(
 	}
 
 	return outputID, nil
-}
-
-// insertTransactions writes a batch of transactions to the transactions table.
-func insertTransactions(
-	ctx context.Context,
-	documentID string,
-	parsingRunID string,
-	txs []*Transaction,
-) error {
-	repo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
-	if err != nil {
-		return fmt.Errorf("insertTransactions: creating BigQuery repository: %w", err)
-	}
-	defer repo.Close()
-
-	return insertTransactionsWithRepo(ctx, documentID, parsingRunID, "", "", txs, repo)
 }
 
 // insertTransactionsWithRepo writes a batch of transactions to the transactions table using the provided repository.

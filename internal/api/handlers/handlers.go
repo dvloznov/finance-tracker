@@ -317,29 +317,6 @@ func (h *DocumentsHandler) deleteFromGCS(ctx context.Context, gcsURI string) err
 	return nil
 }
 
-// generateSignedURL generates a signed URL for uploading to GCS.
-func (h *DocumentsHandler) generateSignedURL(ctx context.Context, bucket, object, contentType string) (string, error) {
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to create storage client: %w", err)
-	}
-	defer client.Close()
-
-	opts := &storage.SignedURLOptions{
-		Method:      "PUT",
-		Expires:     time.Now().Add(15 * time.Minute),
-		ContentType: contentType,
-		Scheme:      storage.SigningSchemeV4,
-	}
-
-	url, err := client.Bucket(bucket).SignedURL(object, opts)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate signed URL: %w", err)
-	}
-
-	return url, nil
-}
-
 // TransactionsHandler handles transaction-related endpoints.
 type TransactionsHandler struct {
 	repo bigquery.DocumentRepository

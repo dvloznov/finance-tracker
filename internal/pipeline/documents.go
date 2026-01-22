@@ -93,10 +93,3 @@ func createDocumentWithChecksumRepo(ctx context.Context, gcsURI string, checksum
 
 	return documentID, nil
 }
-
-// extractFilenameFromGCSURI extracts the filename from a GCS URI.
-// e.g., "gs://bucket/folder/file.pdf" → "file.pdf"
-// DEPRECATED: Use StorageService.ExtractFilenameFromGCSURI instead.
-func extractFilenameFromGCSURI(uri string) string {
-	return gcsuploader.ExtractFilenameFromGCSURI(uri)
-}
