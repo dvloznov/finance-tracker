@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
 	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/logger"
@@ -128,7 +129,7 @@ func runReparse(log zerolog.Logger) {
 		log.Fatal().Err(err).Msg("Failed to list documents")
 	}
 
-	var doc *infraBQ.DocumentRow
+	var doc *bq.DocumentRow
 	for _, d := range docs {
 		if d.DocumentID == *documentID {
 			doc = d
@@ -171,7 +172,7 @@ func runInspect(log zerolog.Logger) {
 		log.Fatal().Err(err).Msg("Failed to list documents")
 	}
 
-	var doc *infraBQ.DocumentRow
+	var doc *bq.DocumentRow
 	for _, d := range docs {
 		if d.DocumentID == *documentID {
 			doc = d
@@ -207,7 +208,7 @@ func runInspect(log zerolog.Logger) {
 	}
 
 	// Filter by document ID
-	var transactions []*infraBQ.TransactionRow
+	var transactions []*bq.TransactionRow
 	for _, txn := range allTxns {
 		if txn.DocumentID == *documentID {
 			transactions = append(transactions, txn)

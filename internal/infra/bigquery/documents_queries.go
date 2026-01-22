@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/bigquery"
+	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 	"google.golang.org/api/iterator"
 )
 
 // ListAllDocuments retrieves all documents from the database.
-func ListAllDocuments(ctx context.Context) ([]*DocumentRow, error) {
+func ListAllDocuments(ctx context.Context) ([]*bq.DocumentRow, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("ListAllDocuments: creating client: %w", err)
@@ -20,7 +21,7 @@ func ListAllDocuments(ctx context.Context) ([]*DocumentRow, error) {
 }
 
 // ListAllDocumentsWithClient retrieves all documents using the provided BigQuery client.
-func ListAllDocumentsWithClient(ctx context.Context, client *bigquery.Client) ([]*DocumentRow, error) {
+func ListAllDocumentsWithClient(ctx context.Context, client *bigquery.Client) ([]*bq.DocumentRow, error) {
 	query := fmt.Sprintf(`
 		SELECT
 			document_id,
@@ -50,9 +51,9 @@ func ListAllDocumentsWithClient(ctx context.Context, client *bigquery.Client) ([
 		return nil, fmt.Errorf("ListAllDocumentsWithClient: reading query: %w", err)
 	}
 
-	var documents []*DocumentRow
+	var documents []*bq.DocumentRow
 	for {
-		var row DocumentRow
+		var row bq.DocumentRow
 		err := it.Next(&row)
 		if err == iterator.Done {
 			break
@@ -68,7 +69,7 @@ func ListAllDocumentsWithClient(ctx context.Context, client *bigquery.Client) ([
 
 // FindDocumentByChecksum retrieves a document by its SHA-256 checksum.
 // Returns nil if no document with the given checksum exists.
-func FindDocumentByChecksum(ctx context.Context, checksum string) (*DocumentRow, error) {
+func FindDocumentByChecksum(ctx context.Context, checksum string) (*bq.DocumentRow, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("FindDocumentByChecksum: creating client: %w", err)
@@ -79,7 +80,7 @@ func FindDocumentByChecksum(ctx context.Context, checksum string) (*DocumentRow,
 }
 
 // FindDocumentByChecksumWithClient retrieves a document by checksum using the provided BigQuery client.
-func FindDocumentByChecksumWithClient(ctx context.Context, client *bigquery.Client, checksum string) (*DocumentRow, error) {
+func FindDocumentByChecksumWithClient(ctx context.Context, client *bigquery.Client, checksum string) (*bq.DocumentRow, error) {
 	query := fmt.Sprintf(`
 		SELECT
 			document_id,
@@ -114,7 +115,7 @@ func FindDocumentByChecksumWithClient(ctx context.Context, client *bigquery.Clie
 		return nil, fmt.Errorf("FindDocumentByChecksumWithClient: reading query: %w", err)
 	}
 
-	var row DocumentRow
+	var row bq.DocumentRow
 	err = it.Next(&row)
 	if err == iterator.Done {
 		// No document found with this checksum

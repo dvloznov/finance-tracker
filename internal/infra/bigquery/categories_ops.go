@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/bigquery"
+	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 	"google.golang.org/api/iterator"
 )
 
 // ListActiveCategories returns all active categories ordered by depth, parent, name.
-func ListActiveCategories(ctx context.Context) ([]CategoryRow, error) {
+func ListActiveCategories(ctx context.Context) ([]bq.CategoryRow, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("ListActiveCategories: bigquery client: %w", err)
@@ -21,7 +22,7 @@ func ListActiveCategories(ctx context.Context) ([]CategoryRow, error) {
 
 // ListActiveCategoriesWithClient returns all active categories ordered by depth, parent, name
 // using the provided BigQuery client.
-func ListActiveCategoriesWithClient(ctx context.Context, client *bigquery.Client) ([]CategoryRow, error) {
+func ListActiveCategoriesWithClient(ctx context.Context, client *bigquery.Client) ([]bq.CategoryRow, error) {
 	q := client.Query(`
 		SELECT
 		  category_id,
@@ -39,9 +40,9 @@ func ListActiveCategoriesWithClient(ctx context.Context, client *bigquery.Client
 		return nil, fmt.Errorf("ListActiveCategories: query read: %w", err)
 	}
 
-	var rows []CategoryRow
+	var rows []bq.CategoryRow
 	for {
-		var r CategoryRow
+		var r bq.CategoryRow
 		err := it.Next(&r)
 		if err == iterator.Done {
 			break

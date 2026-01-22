@@ -6,12 +6,13 @@ import (
 	"strings"
 
 	"cloud.google.com/go/bigquery"
+	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/google/uuid"
 	"google.golang.org/api/iterator"
 )
 
 // ListAllAccounts retrieves all accounts from the database.
-func ListAllAccounts(ctx context.Context) ([]*AccountRow, error) {
+func ListAllAccounts(ctx context.Context) ([]*bq.AccountRow, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("ListAllAccounts: creating client: %w", err)
@@ -22,7 +23,7 @@ func ListAllAccounts(ctx context.Context) ([]*AccountRow, error) {
 }
 
 // ListAllAccountsWithClient retrieves all accounts using the provided BigQuery client.
-func ListAllAccountsWithClient(ctx context.Context, client *bigquery.Client) ([]*AccountRow, error) {
+func ListAllAccountsWithClient(ctx context.Context, client *bigquery.Client) ([]*bq.AccountRow, error) {
 	query := fmt.Sprintf(`
 		SELECT
 			account_id,
@@ -50,9 +51,9 @@ func ListAllAccountsWithClient(ctx context.Context, client *bigquery.Client) ([]
 		return nil, fmt.Errorf("ListAllAccountsWithClient: reading query: %w", err)
 	}
 
-	var accounts []*AccountRow
+	var accounts []*bq.AccountRow
 	for {
-		var row AccountRow
+		var row bq.AccountRow
 		err := it.Next(&row)
 		if err == iterator.Done {
 			break
@@ -69,7 +70,7 @@ func ListAllAccountsWithClient(ctx context.Context, client *bigquery.Client) ([]
 // FindAccountByNumberAndCurrency finds an account by normalized account_number, currency, and institution_id.
 // Returns nil if no matching account is found.
 // Normalization: trims whitespace and converts to uppercase for comparison.
-func FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency, institutionID string) (*AccountRow, error) {
+func FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency, institutionID string) (*bq.AccountRow, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("FindAccountByNumberAndCurrency: creating client: %w", err)
@@ -80,7 +81,7 @@ func FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency
 }
 
 // FindAccountByNumberAndCurrencyWithClient finds an account using the provided BigQuery client.
-func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigquery.Client, accountNumber, currency, institutionID string) (*AccountRow, error) {
+func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigquery.Client, accountNumber, currency, institutionID string) (*bq.AccountRow, error) {
 	// Normalize inputs
 	normNumber := strings.ToUpper(strings.TrimSpace(accountNumber))
 	normCurrency := strings.ToUpper(strings.TrimSpace(currency))
@@ -133,7 +134,7 @@ func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigqu
 		return nil, fmt.Errorf("FindAccountByNumberAndCurrencyWithClient: reading query: %w", err)
 	}
 
-	var row AccountRow
+	var row bq.AccountRow
 	err = it.Next(&row)
 	if err == iterator.Done {
 		// No matching account found
@@ -149,7 +150,7 @@ func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigqu
 // UpsertAccount finds an existing account by (account_number, currency, institution_id) or creates a new one.
 // Returns the account_id of the found or created account.
 // If account_number is empty/null, always creates a new account (for document-scoped defaults).
-func UpsertAccount(ctx context.Context, row *AccountRow) (string, error) {
+func UpsertAccount(ctx context.Context, row *bq.AccountRow) (string, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return "", fmt.Errorf("UpsertAccount: creating client: %w", err)
@@ -160,7 +161,7 @@ func UpsertAccount(ctx context.Context, row *AccountRow) (string, error) {
 }
 
 // UpsertAccountWithClient finds or creates an account using the provided BigQuery client.
-func UpsertAccountWithClient(ctx context.Context, client *bigquery.Client, row *AccountRow) (string, error) {
+func UpsertAccountWithClient(ctx context.Context, client *bigquery.Client, row *bq.AccountRow) (string, error) {
 	// If account_number is provided, try to find existing account
 	if row.AccountNumber != "" && row.Currency != "" && row.InstitutionID != "" {
 		existing, err := FindAccountByNumberAndCurrencyWithClient(ctx, client, row.AccountNumber, row.Currency, row.InstitutionID)

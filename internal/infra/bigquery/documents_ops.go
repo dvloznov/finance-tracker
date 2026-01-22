@@ -5,12 +5,13 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/bigquery"
+	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
 const documentsTable = "documents"
 
 // InsertDocument inserts a single DocumentRow into finance.documents.
-func InsertDocument(ctx context.Context, row *DocumentRow) error {
+func InsertDocument(ctx context.Context, row *bq.DocumentRow) error {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return fmt.Errorf("InsertDocument: bigquery client: %w", err)
@@ -23,7 +24,7 @@ func InsertDocument(ctx context.Context, row *DocumentRow) error {
 // InsertDocumentWithClient inserts a single DocumentRow into finance.documents
 // using the provided BigQuery client.
 // Uses INSERT query instead of streaming API to allow immediate UPDATEs.
-func InsertDocumentWithClient(ctx context.Context, client *bigquery.Client, row *DocumentRow) error {
+func InsertDocumentWithClient(ctx context.Context, client *bigquery.Client, row *bq.DocumentRow) error {
 	q := client.Query(fmt.Sprintf(`
 		INSERT %s.%s (
 			document_id,

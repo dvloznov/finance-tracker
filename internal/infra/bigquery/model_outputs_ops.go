@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/bigquery"
+	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
 const (
@@ -14,7 +15,7 @@ const (
 )
 
 // InsertModelOutput inserts a single ModelOutputRow into finance.model_outputs.
-func InsertModelOutput(ctx context.Context, row *ModelOutputRow) error {
+func InsertModelOutput(ctx context.Context, row *bq.ModelOutputRow) error {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return fmt.Errorf("InsertModelOutput: bigquery client: %w", err)
@@ -26,7 +27,7 @@ func InsertModelOutput(ctx context.Context, row *ModelOutputRow) error {
 
 // InsertModelOutputWithClient inserts a single ModelOutputRow into finance.model_outputs
 // using the provided BigQuery client. Uses DML INSERT to avoid streaming buffer issues.
-func InsertModelOutputWithClient(ctx context.Context, client *bigquery.Client, row *ModelOutputRow) error {
+func InsertModelOutputWithClient(ctx context.Context, client *bigquery.Client, row *bq.ModelOutputRow) error {
 	q := client.Query(`
 		INSERT INTO ` + "`" + moProjectID + "." + moDatasetID + ".model_outputs" + "`" + ` (
 			output_id, parsing_run_id, document_id,

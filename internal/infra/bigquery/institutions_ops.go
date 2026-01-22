@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/google/uuid"
 	"google.golang.org/api/iterator"
 )
@@ -14,7 +15,7 @@ import (
 const institutionsTable = "institutions"
 
 // ListAllInstitutions retrieves all institutions from the database.
-func ListAllInstitutions(ctx context.Context) ([]*InstitutionRow, error) {
+func ListAllInstitutions(ctx context.Context) ([]*bq.InstitutionRow, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("ListAllInstitutions: creating client: %w", err)
@@ -25,7 +26,7 @@ func ListAllInstitutions(ctx context.Context) ([]*InstitutionRow, error) {
 }
 
 // ListAllInstitutionsWithClient retrieves all institutions using the provided BigQuery client.
-func ListAllInstitutionsWithClient(ctx context.Context, client *bigquery.Client) ([]*InstitutionRow, error) {
+func ListAllInstitutionsWithClient(ctx context.Context, client *bigquery.Client) ([]*bq.InstitutionRow, error) {
 	query := fmt.Sprintf(`
 		SELECT
 			institution_id,
@@ -45,9 +46,9 @@ func ListAllInstitutionsWithClient(ctx context.Context, client *bigquery.Client)
 		return nil, fmt.Errorf("ListAllInstitutionsWithClient: reading query: %w", err)
 	}
 
-	var institutions []*InstitutionRow
+	var institutions []*bq.InstitutionRow
 	for {
-		var row InstitutionRow
+		var row bq.InstitutionRow
 		err := it.Next(&row)
 		if err == iterator.Done {
 			break
@@ -62,7 +63,7 @@ func ListAllInstitutionsWithClient(ctx context.Context, client *bigquery.Client)
 }
 
 // FindInstitutionByName finds an institution by normalized name.
-func FindInstitutionByName(ctx context.Context, name string) (*InstitutionRow, error) {
+func FindInstitutionByName(ctx context.Context, name string) (*bq.InstitutionRow, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("FindInstitutionByName: creating client: %w", err)
@@ -73,7 +74,7 @@ func FindInstitutionByName(ctx context.Context, name string) (*InstitutionRow, e
 }
 
 // FindInstitutionByNameWithClient finds an institution using the provided BigQuery client.
-func FindInstitutionByNameWithClient(ctx context.Context, client *bigquery.Client, name string) (*InstitutionRow, error) {
+func FindInstitutionByNameWithClient(ctx context.Context, client *bigquery.Client, name string) (*bq.InstitutionRow, error) {
 	normName := strings.ToUpper(strings.TrimSpace(name))
 	if normName == "" {
 		return nil, fmt.Errorf("FindInstitutionByNameWithClient: name cannot be empty")
@@ -104,7 +105,7 @@ func FindInstitutionByNameWithClient(ctx context.Context, client *bigquery.Clien
 		return nil, fmt.Errorf("FindInstitutionByNameWithClient: reading query: %w", err)
 	}
 
-	var row InstitutionRow
+	var row bq.InstitutionRow
 	err = it.Next(&row)
 	if err == iterator.Done {
 		return nil, nil
@@ -117,7 +118,7 @@ func FindInstitutionByNameWithClient(ctx context.Context, client *bigquery.Clien
 }
 
 // UpsertInstitution finds an existing institution by name or creates a new one.
-func UpsertInstitution(ctx context.Context, row *InstitutionRow) (string, error) {
+func UpsertInstitution(ctx context.Context, row *bq.InstitutionRow) (string, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return "", fmt.Errorf("UpsertInstitution: creating client: %w", err)
@@ -128,7 +129,7 @@ func UpsertInstitution(ctx context.Context, row *InstitutionRow) (string, error)
 }
 
 // UpsertInstitutionWithClient finds or creates an institution using the provided BigQuery client.
-func UpsertInstitutionWithClient(ctx context.Context, client *bigquery.Client, row *InstitutionRow) (string, error) {
+func UpsertInstitutionWithClient(ctx context.Context, client *bigquery.Client, row *bq.InstitutionRow) (string, error) {
 	if row.Name != "" {
 		existing, err := FindInstitutionByNameWithClient(ctx, client, row.Name)
 		if err != nil {

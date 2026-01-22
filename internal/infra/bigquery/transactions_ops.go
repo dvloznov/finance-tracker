@@ -8,6 +8,7 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
+	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 	"google.golang.org/api/iterator"
 )
 
@@ -21,7 +22,7 @@ const (
 )
 
 // InsertTransactions inserts a batch of TransactionRow into finance.transactions.
-func InsertTransactions(ctx context.Context, rows []*TransactionRow) error {
+func InsertTransactions(ctx context.Context, rows []*bq.TransactionRow) error {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return fmt.Errorf("InsertTransactions: bigquery client: %w", err)
@@ -33,7 +34,7 @@ func InsertTransactions(ctx context.Context, rows []*TransactionRow) error {
 
 // InsertTransactionsWithClient inserts a batch of TransactionRow into finance.transactions
 // using the provided BigQuery client. Uses DML INSERT to avoid streaming buffer issues.
-func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, rows []*TransactionRow) error {
+func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, rows []*bq.TransactionRow) error {
 	if len(rows) == 0 {
 		return nil
 	}
@@ -136,7 +137,7 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 }
 
 // QueryTransactionsByDateRange queries transactions within the specified date range.
-func QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*TransactionRow, error) {
+func QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*bq.TransactionRow, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("QueryTransactionsByDateRange: bigquery client: %w", err)
@@ -149,7 +150,7 @@ func QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.T
 // QueryTransactionsByDateRangeWithClient queries transactions within the specified date range
 // using the provided BigQuery client. Only includes transactions from successful parsing runs,
 // excluding transactions from superseded runs.
-func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquery.Client, startDate, endDate time.Time) ([]*TransactionRow, error) {
+func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquery.Client, startDate, endDate time.Time) ([]*bq.TransactionRow, error) {
 	q := client.Query(`
 		SELECT
 			t.transaction_id,
@@ -200,9 +201,9 @@ func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquer
 		return nil, fmt.Errorf("QueryTransactionsByDateRange: query read: %w", err)
 	}
 
-	var rows []*TransactionRow
+	var rows []*bq.TransactionRow
 	for {
-		var r TransactionRow
+		var r bq.TransactionRow
 		err := it.Next(&r)
 		if err == iterator.Done {
 			break

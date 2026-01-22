@@ -9,11 +9,7 @@ import (
 	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
-// Re-export interfaces from shared package for backward compatibility
-type DocumentRepository = bq.DocumentRepository
-type AccountRepository = bq.AccountRepository
-type CategoryRepository = bq.CategoryRepository
-type InstitutionRepository = bq.InstitutionRepository
+// Removed re-exported interfaces for backward compatibility
 
 // BigQueryAccountRepository is the concrete implementation of AccountRepository
 // that interacts with BigQuery.
@@ -68,27 +64,27 @@ func (r *BigQueryInstitutionRepository) Close() error {
 }
 
 // UpsertAccount delegates to the existing UpsertAccount function with the shared client.
-func (r *BigQueryAccountRepository) UpsertAccount(ctx context.Context, row *AccountRow) (string, error) {
+func (r *BigQueryAccountRepository) UpsertAccount(ctx context.Context, row *bq.AccountRow) (string, error) {
 	return UpsertAccountWithClient(ctx, r.client, row)
 }
 
 // FindAccountByNumberAndCurrency delegates to the existing function with the shared client.
-func (r *BigQueryAccountRepository) FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency, institutionID string) (*AccountRow, error) {
+func (r *BigQueryAccountRepository) FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency, institutionID string) (*bq.AccountRow, error) {
 	return FindAccountByNumberAndCurrencyWithClient(ctx, r.client, accountNumber, currency, institutionID)
 }
 
 // ListAllAccounts delegates to the existing ListAllAccounts function with the shared client.
-func (r *BigQueryAccountRepository) ListAllAccounts(ctx context.Context) ([]*AccountRow, error) {
+func (r *BigQueryAccountRepository) ListAllAccounts(ctx context.Context) ([]*bq.AccountRow, error) {
 	return ListAllAccountsWithClient(ctx, r.client)
 }
 
 // UpsertInstitution delegates to the existing UpsertInstitution function with the shared client.
-func (r *BigQueryInstitutionRepository) UpsertInstitution(ctx context.Context, row *InstitutionRow) (string, error) {
+func (r *BigQueryInstitutionRepository) UpsertInstitution(ctx context.Context, row *bq.InstitutionRow) (string, error) {
 	return UpsertInstitutionWithClient(ctx, r.client, row)
 }
 
 // ListAllInstitutions delegates to the existing ListAllInstitutions function with the shared client.
-func (r *BigQueryInstitutionRepository) ListAllInstitutions(ctx context.Context) ([]*InstitutionRow, error) {
+func (r *BigQueryInstitutionRepository) ListAllInstitutions(ctx context.Context) ([]*bq.InstitutionRow, error) {
 	return ListAllInstitutionsWithClient(ctx, r.client)
 }
 
@@ -121,17 +117,17 @@ func (r *BigQueryDocumentRepository) Close() error {
 }
 
 // InsertDocument delegates to the existing InsertDocument function with the shared client.
-func (r *BigQueryDocumentRepository) InsertDocument(ctx context.Context, row *DocumentRow) error {
+func (r *BigQueryDocumentRepository) InsertDocument(ctx context.Context, row *bq.DocumentRow) error {
 	return InsertDocumentWithClient(ctx, r.client, row)
 }
 
 // InsertTransactions delegates to the existing InsertTransactions function with the shared client.
-func (r *BigQueryDocumentRepository) InsertTransactions(ctx context.Context, rows []*TransactionRow) error {
+func (r *BigQueryDocumentRepository) InsertTransactions(ctx context.Context, rows []*bq.TransactionRow) error {
 	return InsertTransactionsWithClient(ctx, r.client, rows)
 }
 
 // InsertModelOutput delegates to the existing InsertModelOutput function with the shared client.
-func (r *BigQueryDocumentRepository) InsertModelOutput(ctx context.Context, row *ModelOutputRow) error {
+func (r *BigQueryDocumentRepository) InsertModelOutput(ctx context.Context, row *bq.ModelOutputRow) error {
 	return InsertModelOutputWithClient(ctx, r.client, row)
 }
 
@@ -151,27 +147,27 @@ func (r *BigQueryDocumentRepository) MarkParsingRunSucceeded(ctx context.Context
 }
 
 // ListActiveCategories delegates to the existing ListActiveCategories function with the shared client.
-func (r *BigQueryDocumentRepository) ListActiveCategories(ctx context.Context) ([]CategoryRow, error) {
+func (r *BigQueryDocumentRepository) ListActiveCategories(ctx context.Context) ([]bq.CategoryRow, error) {
 	return ListActiveCategoriesWithClient(ctx, r.client)
 }
 
 // QueryTransactionsByDateRange delegates to the existing QueryTransactionsByDateRange function with the shared client.
-func (r *BigQueryDocumentRepository) QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*TransactionRow, error) {
+func (r *BigQueryDocumentRepository) QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*bq.TransactionRow, error) {
 	return QueryTransactionsByDateRangeWithClient(ctx, r.client, startDate, endDate)
 }
 
 // ListAllAccounts delegates to the existing ListAllAccounts function with the shared client.
-func (r *BigQueryDocumentRepository) ListAllAccounts(ctx context.Context) ([]*AccountRow, error) {
+func (r *BigQueryDocumentRepository) ListAllAccounts(ctx context.Context) ([]*bq.AccountRow, error) {
 	return ListAllAccountsWithClient(ctx, r.client)
 }
 
 // ListAllDocuments delegates to the existing ListAllDocuments function with the shared client.
-func (r *BigQueryDocumentRepository) ListAllDocuments(ctx context.Context) ([]*DocumentRow, error) {
+func (r *BigQueryDocumentRepository) ListAllDocuments(ctx context.Context) ([]*bq.DocumentRow, error) {
 	return ListAllDocumentsWithClient(ctx, r.client)
 }
 
 // FindDocumentByChecksum delegates to the existing FindDocumentByChecksum function with the shared client.
-func (r *BigQueryDocumentRepository) FindDocumentByChecksum(ctx context.Context, checksum string) (*DocumentRow, error) {
+func (r *BigQueryDocumentRepository) FindDocumentByChecksum(ctx context.Context, checksum string) (*bq.DocumentRow, error) {
 	return FindDocumentByChecksumWithClient(ctx, r.client, checksum)
 }
 
