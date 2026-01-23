@@ -107,10 +107,6 @@ func storeModelOutputWithRepo(
 		DocumentID:   documentID,
 
 		ModelName: DefaultModelName,
-		ModelVersion: bigquerylib.NullString{
-			Valid: false,
-		},
-
 		CreatedTS: bigquerylib.NullTimestamp{
 			Timestamp: time.Now(),
 			Valid:     true,
@@ -119,13 +115,6 @@ func storeModelOutputWithRepo(
 		RawJSON: bigquerylib.NullJSON{
 			JSONVal: string(jsonBytes), // <<<< correct
 			Valid:   true,
-		},
-
-		ExtractedText: bigquerylib.NullString{Valid: false},
-		Notes:         bigquerylib.NullString{Valid: false},
-
-		Metadata: bigquerylib.NullJSON{
-			Valid: false,
 		},
 	}
 

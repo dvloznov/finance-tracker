@@ -224,14 +224,7 @@ type ModelOutputRow struct {
 	ParsingRunID string `bigquery:"parsing_run_id"`
 	DocumentID   string `bigquery:"document_id"`
 
-	ModelName    string              `bigquery:"model_name"`
-	ModelVersion bigquery.NullString `bigquery:"model_version"`
-
-	RawJSON       bigquery.NullJSON   `bigquery:"raw_json"`
-	ExtractedText bigquery.NullString `bigquery:"extracted_text"`
-
+	ModelName string                 `bigquery:"model_name"`
+	RawJSON   bigquery.NullJSON      `bigquery:"raw_json"`
 	CreatedTS bigquery.NullTimestamp `bigquery:"created_ts"`
-	Notes     bigquery.NullString    `bigquery:"notes"`
-
-	Metadata bigquery.NullJSON `bigquery:"metadata"`
 }
