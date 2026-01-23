@@ -7,8 +7,5 @@ CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.parsing_runs` (
   parser_type    STRING,
   parser_version STRING,
   status         STRING,
-  error_message  STRING,
-  tokens_input   INT64,
-  tokens_output  INT64,
-  metadata       JSON
+  error_message  STRING
 );

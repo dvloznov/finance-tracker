@@ -211,11 +211,6 @@ type ParsingRunRow struct {
 
 	Status       string `bigquery:"status"`
 	ErrorMessage string `bigquery:"error_message"`
-
-	TokensInput  bigquery.NullInt64 `bigquery:"tokens_input"`
-	TokensOutput bigquery.NullInt64 `bigquery:"tokens_output"`
-
-	Metadata bigquery.NullJSON `bigquery:"metadata"`
 }
 
 // ModelOutputRow represents a model output record in BigQuery.
