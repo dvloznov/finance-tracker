@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	bigquerylib "cloud.google.com/go/bigquery"
-	"cloud.google.com/go/civil"
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
@@ -195,22 +193,6 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 	if err != nil {
 		return nil, nil, fmt.Errorf("transformAccountInfo: %w", err)
 	}
-	openedDateStr, err := getOptionalStringField(rawOutput, "opened_date")
-	if err != nil {
-		return nil, nil, fmt.Errorf("transformAccountInfo: %w", err)
-	}
-
-	// Parse opened_date if present
-	var openedDate civil.Date
-	var hasOpenedDate bool
-	if openedDateStr != nil {
-		parsed, err := time.Parse("2006-01-02", *openedDateStr)
-		if err != nil {
-			return nil, nil, fmt.Errorf("transformAccountInfo: invalid opened_date %q: %w", *openedDateStr, err)
-		}
-		openedDate = civil.DateOf(parsed)
-		hasOpenedDate = true
-	}
 
 	// Build account row
 	row := &bigquery.AccountRow{
@@ -234,9 +216,6 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 	}
 	if currency != nil {
 		row.Currency = strings.ToUpper(*currency)
-	}
-	if hasOpenedDate {
-		row.OpenedDate = bigquerylib.NullDate{Date: openedDate, Valid: true}
 	}
 
 	// If we got nothing useful, return nil to signal we should use default

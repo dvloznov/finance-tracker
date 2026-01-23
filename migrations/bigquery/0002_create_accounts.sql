@@ -19,11 +19,5 @@ CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.accounts` (
   sort_code       STRING,
   iban            STRING,
   currency        STRING,
-  account_type    STRING,
-  opened_date     DATE,
-  closed_date     DATE,
-  is_primary      BOOL,
-  metadata        JSON,
-  created_ts      TIMESTAMP,
-  updated_ts      TIMESTAMP
+  account_type    STRING
 );

@@ -206,13 +206,6 @@ type AccountRow struct {
 	IBAN          string `bigquery:"iban" json:"iban"`
 	Currency      string `bigquery:"currency" json:"currency"`
 	AccountType   string `bigquery:"account_type" json:"account_type"`
-
-	OpenedDate bigquery.NullDate      `bigquery:"opened_date" json:"opened_date,omitempty"`
-	ClosedDate bigquery.NullDate      `bigquery:"closed_date" json:"closed_date,omitempty"`
-	IsPrimary  bigquery.NullBool      `bigquery:"is_primary" json:"is_primary,omitempty"`
-	Metadata   bigquery.NullJSON      `bigquery:"metadata" json:"metadata,omitempty"`
-	CreatedTS  bigquery.NullTimestamp `bigquery:"created_ts" json:"created_ts,omitempty"`
-	UpdatedTS  bigquery.NullTimestamp `bigquery:"updated_ts" json:"updated_ts,omitempty"`
 }
 
 // CategoryRow represents a denormalized category-subcategory pair.

@@ -34,15 +34,9 @@ func ListAllAccountsWithClient(ctx context.Context, client *bigquery.Client) ([]
 			sort_code,
 			iban,
 			currency,
-			account_type,
-			opened_date,
-			closed_date,
-			is_primary,
-			metadata,
-			created_ts,
-			updated_ts
+			account_type
 	FROM `+"`%s.%s.accounts`"+`
-	ORDER BY created_ts DESC
+	ORDER BY account_id DESC
 	`, projectID, datasetID)
 
 	q := client.Query(query)
@@ -107,18 +101,12 @@ func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigqu
 			sort_code,
 			iban,
 			currency,
-			account_type,
-			opened_date,
-			closed_date,
-			is_primary,
-			metadata,
-			created_ts,
-			updated_ts
+			account_type
 		FROM `+"`%s.%s.accounts`"+`
 		WHERE UPPER(TRIM(account_number)) = @accountNumber
 		  AND UPPER(TRIM(currency)) = @currency
 		  AND UPPER(TRIM(institution_id)) = @institution_id
-		ORDER BY created_ts DESC
+		ORDER BY account_id DESC
 		LIMIT 1
 	`, projectID, datasetID)
 
@@ -183,16 +171,12 @@ func UpsertAccountWithClient(ctx context.Context, client *bigquery.Client, row *
 		INSERT INTO ` + "`" + projectID + "." + datasetID + ".accounts" + "`" + ` (
 			account_id, user_id, institution_id,
 			account_name, account_number, sort_code, iban,
-			currency, account_type,
-			opened_date, closed_date, is_primary,
-			metadata, created_ts, updated_ts
+			currency, account_type
 		)
 		VALUES (
 			@account_id, @user_id, @institution_id,
 			@account_name, @account_number, @sort_code, @iban,
-			@currency, @account_type,
-			@opened_date, @closed_date, @is_primary,
-			@metadata, @created_ts, @updated_ts
+			@currency, @account_type
 		)
 	`)
 
@@ -206,12 +190,6 @@ func UpsertAccountWithClient(ctx context.Context, client *bigquery.Client, row *
 		{Name: "iban", Value: row.IBAN},
 		{Name: "currency", Value: row.Currency},
 		{Name: "account_type", Value: row.AccountType},
-		{Name: "opened_date", Value: row.OpenedDate},
-		{Name: "closed_date", Value: row.ClosedDate},
-		{Name: "is_primary", Value: row.IsPrimary},
-		{Name: "metadata", Value: row.Metadata},
-		{Name: "created_ts", Value: row.CreatedTS},
-		{Name: "updated_ts", Value: row.UpdatedTS},
 	}
 
 	job, err := q.Run(ctx)
