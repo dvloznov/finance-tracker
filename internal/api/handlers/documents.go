@@ -171,6 +171,7 @@ func (h *DocumentsHandler) UploadDocument(w http.ResponseWriter, r *http.Request
 
 	doc := &bigquery.DocumentRow{
 		DocumentID:       documentID,
+		UserID:           "denis",
 		OriginalFilename: filename,
 		GCSURI:           gcsURI,
 		UploadTS:         time.Now(),

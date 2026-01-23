@@ -166,11 +166,6 @@ func (r *BigQueryDocumentRepository) ListAllDocuments(ctx context.Context) ([]*b
 	return ListAllDocumentsWithClient(ctx, r.client)
 }
 
-// FindDocumentByChecksum delegates to the existing FindDocumentByChecksum function with the shared client.
-func (r *BigQueryDocumentRepository) FindDocumentByChecksum(ctx context.Context, checksum string) (*bq.DocumentRow, error) {
-	return FindDocumentByChecksumWithClient(ctx, r.client, checksum)
-}
-
 // MarkParsingRunsAsSuperseded delegates to the existing MarkParsingRunsAsSuperseded function with the shared client.
 func (r *BigQueryDocumentRepository) MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error {
 	return MarkParsingRunsAsSupersededWithClient(ctx, r.client, documentID)

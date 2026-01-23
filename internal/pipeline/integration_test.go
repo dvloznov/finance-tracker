@@ -296,11 +296,6 @@ func (m *mockDocumentRepo) ListAllDocuments(ctx context.Context) ([]*bigquery.Do
 	return []*bigquery.DocumentRow{}, nil
 }
 
-func (m *mockDocumentRepo) FindDocumentByChecksum(ctx context.Context, checksum string) (*bigquery.DocumentRow, error) {
-	// For tests, return nil to indicate no duplicate found
-	return nil, nil
-}
-
 func (m *mockDocumentRepo) MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error {
 	// For tests, just return success
 	return nil

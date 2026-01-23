@@ -30,39 +30,23 @@ func InsertDocumentWithClient(ctx context.Context, client *bigquery.Client, row 
 			document_id,
 			user_id,
 			gcs_uri,
-			document_type,
-			source_system,
 			institution_id,
 			account_id,
-			statement_start_date,
-			statement_end_date,
 			upload_ts,
-			processed_ts,
 			parsing_status,
 			original_filename,
-			file_mime_type,
-			text_gcs_uri,
-			checksum_sha256,
-			metadata
+			file_mime_type
 		)
 		VALUES (
 			@document_id,
 			@user_id,
 			@gcs_uri,
-			@document_type,
-			@source_system,
 			@institution_id,
 			@account_id,
-			@statement_start_date,
-			@statement_end_date,
 			@upload_ts,
-			@processed_ts,
 			@parsing_status,
 			@original_filename,
-			@file_mime_type,
-			@text_gcs_uri,
-			@checksum_sha256,
-			@metadata
+			@file_mime_type
 		)
 	`, datasetID, documentsTable))
 
@@ -70,20 +54,12 @@ func InsertDocumentWithClient(ctx context.Context, client *bigquery.Client, row 
 		{Name: "document_id", Value: row.DocumentID},
 		{Name: "user_id", Value: row.UserID},
 		{Name: "gcs_uri", Value: row.GCSURI},
-		{Name: "document_type", Value: row.DocumentType},
-		{Name: "source_system", Value: row.SourceSystem},
 		{Name: "institution_id", Value: row.InstitutionID},
 		{Name: "account_id", Value: row.AccountID},
-		{Name: "statement_start_date", Value: row.StatementStartDate},
-		{Name: "statement_end_date", Value: row.StatementEndDate},
 		{Name: "upload_ts", Value: row.UploadTS},
-		{Name: "processed_ts", Value: row.ProcessedTS},
 		{Name: "parsing_status", Value: row.ParsingStatus},
 		{Name: "original_filename", Value: row.OriginalFilename},
 		{Name: "file_mime_type", Value: row.FileMimeType},
-		{Name: "text_gcs_uri", Value: row.TextGCSURI},
-		{Name: "checksum_sha256", Value: row.ChecksumSHA256},
-		{Name: "metadata", Value: row.Metadata},
 	}
 
 	job, err := q.Run(ctx)

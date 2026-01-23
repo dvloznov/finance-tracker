@@ -43,9 +43,6 @@ type DocumentRepository interface {
 	// ListAllDocuments retrieves all documents from the database.
 	ListAllDocuments(ctx context.Context) ([]*DocumentRow, error)
 
-	// FindDocumentByChecksum retrieves a document by its SHA-256 checksum.
-	FindDocumentByChecksum(ctx context.Context, checksum string) (*DocumentRow, error)
-
 	// MarkParsingRunsAsSuperseded marks all non-running parsing runs for a document as SUPERSEDED.
 	MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error
 
@@ -86,28 +83,15 @@ type DocumentRow struct {
 	UserID     string `bigquery:"user_id" json:"user_id"`
 	GCSURI     string `bigquery:"gcs_uri" json:"gcs_uri"`
 
-	DocumentType string `bigquery:"document_type" json:"document_type,omitempty"`
-	SourceSystem string `bigquery:"source_system" json:"source_system,omitempty"`
-
 	InstitutionID string `bigquery:"institution_id" json:"institution_id,omitempty"`
 	AccountID     string `bigquery:"account_id" json:"account_id,omitempty"`
 
-	StatementStartDate bigquery.NullDate `bigquery:"statement_start_date" json:"statement_start_date,omitempty"`
-	StatementEndDate   bigquery.NullDate `bigquery:"statement_end_date" json:"statement_end_date,omitempty"`
-
-	UploadTS    time.Time              `bigquery:"upload_ts" json:"upload_ts"`
-	ProcessedTS bigquery.NullTimestamp `bigquery:"processed_ts" json:"processed_ts,omitempty"`
+	UploadTS time.Time `bigquery:"upload_ts" json:"upload_ts"`
 
 	ParsingStatus string `bigquery:"parsing_status" json:"parsing_status"`
 
 	OriginalFilename string `bigquery:"original_filename" json:"original_filename"`
 	FileMimeType     string `bigquery:"file_mime_type" json:"file_mime_type,omitempty"`
-
-	TextGCSURI string `bigquery:"text_gcs_uri" json:"text_gcs_uri,omitempty"`
-
-	ChecksumSHA256 string `bigquery:"checksum_sha256" json:"checksum_sha256,omitempty"`
-
-	Metadata bigquery.NullJSON `bigquery:"metadata" json:"metadata,omitempty"`
 }
 
 // InstitutionRow represents an institution record in BigQuery.

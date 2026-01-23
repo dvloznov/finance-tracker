@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	bigquerylib "cloud.google.com/go/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
 	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
@@ -25,13 +24,7 @@ func createDocument(ctx context.Context, gcsURI string) (string, error) {
 }
 
 // createDocumentWithRepo inserts a row into the documents table using the provided repository.
-// If a document with the same checksum already exists, it returns the existing document ID
-// and sets state.IsReparse to true.
 func createDocumentWithRepo(ctx context.Context, gcsURI string, repo bigquery.DocumentRepository, storage StorageService) (string, error) {
-	// First, check if we have a checksum to search for duplicates
-	// Note: The checksum should be set by CalculateChecksumStep before this step
-	// For now, we'll skip checksum lookup if it's not available (backward compatibility)
-
 	// Extract filename from GCS URI
 	// e.g. "gs://bucket/folder/file.pdf" → "file.pdf"
 	filename := storage.ExtractFilenameFromGCSURI(gcsURI)
@@ -42,53 +35,18 @@ func createDocumentWithRepo(ctx context.Context, gcsURI string, repo bigquery.Do
 	// Prepare row to insert
 	row := &bigquery.DocumentRow{
 		DocumentID:       documentID,
-		UserID:           DefaultUserID,
+		UserID:           "denis",
 		GCSURI:           gcsURI,
-		DocumentType:     DefaultDocumentType,
-		SourceSystem:     DefaultSourceSystem,
 		InstitutionID:    "", // Can be filled later
 		AccountID:        "", // Can be filled later
 		ParsingStatus:    "PENDING",
 		UploadTS:         time.Now(),
 		OriginalFilename: filename,
-		FileMimeType:     "",                                 // Fill later if you detect MIME
-		Metadata:         bigquerylib.NullJSON{Valid: false}, // NULL for now
+		FileMimeType:     "", // Fill later if you detect MIME
 	}
 
 	if err := repo.InsertDocument(ctx, row); err != nil {
 		return "", fmt.Errorf("createDocument: inserting row: %w", err)
-	}
-
-	return documentID, nil
-}
-
-// createDocumentWithChecksumRepo inserts a row into the documents table with checksum.
-func createDocumentWithChecksumRepo(ctx context.Context, gcsURI string, checksum string, repo bigquery.DocumentRepository, storage StorageService) (string, error) {
-	// Generate a UUID for this document
-	documentID := uuid.NewString()
-
-	// Extract filename from GCS URI
-	filename := storage.ExtractFilenameFromGCSURI(gcsURI)
-
-	// Prepare row to insert with checksum
-	row := &bigquery.DocumentRow{
-		DocumentID:       documentID,
-		UserID:           DefaultUserID,
-		GCSURI:           gcsURI,
-		DocumentType:     DefaultDocumentType,
-		SourceSystem:     DefaultSourceSystem,
-		InstitutionID:    "",
-		AccountID:        "",
-		ParsingStatus:    "PENDING",
-		UploadTS:         time.Now(),
-		OriginalFilename: filename,
-		FileMimeType:     "",
-		ChecksumSHA256:   checksum, // Set the calculated checksum
-		Metadata:         bigquerylib.NullJSON{Valid: false},
-	}
-
-	if err := repo.InsertDocument(ctx, row); err != nil {
-		return "", fmt.Errorf("createDocumentWithChecksum: inserting row: %w", err)
 	}
 
 	return documentID, nil

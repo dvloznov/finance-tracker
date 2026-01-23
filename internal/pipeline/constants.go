@@ -9,9 +9,6 @@ const (
 	// DefaultSourceSystem is the default source system for documents.
 	DefaultSourceSystem = "BARCLAYS"
 
-	// DefaultDocumentType is the default document type for uploaded files.
-	DefaultDocumentType = "BANK_STATEMENT"
-
 	// DefaultModelName is the default Gemini model used for parsing.
 	DefaultModelName = "gemini-2.5-flash"
 )
