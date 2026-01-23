@@ -28,10 +28,8 @@ func ListActiveCategoriesWithClient(ctx context.Context, client *bigquery.Client
 		  category_id,
 		  category_name,
 		  subcategory_name,
-		  slug,
-		  is_active
+		  slug
 		FROM finance.categories
-		WHERE is_active = TRUE
 		ORDER BY category_name, subcategory_name
 	`)
 

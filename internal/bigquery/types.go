@@ -215,14 +215,6 @@ type CategoryRow struct {
 	SubcategoryName bigquery.NullString `bigquery:"subcategory_name"`
 
 	Slug string `bigquery:"slug"`
-
-	Description bigquery.NullString `bigquery:"description"`
-	IsActive    bigquery.NullBool   `bigquery:"is_active"`
-
-	CreatedTS bigquery.NullTimestamp `bigquery:"created_ts"`
-	RetiredTS bigquery.NullTimestamp `bigquery:"retired_ts"`
-
-	Metadata bigquery.NullJSON `bigquery:"metadata"`
 }
 
 // ParsingRunRow represents a parsing run record in BigQuery.
