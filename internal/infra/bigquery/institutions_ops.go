@@ -31,9 +31,6 @@ func ListAllInstitutionsWithClient(ctx context.Context, client *bigquery.Client)
 		SELECT
 			institution_id,
 			name,
-			country_code,
-			logo_url,
-			metadata,
 			created_ts,
 			updated_ts
 	FROM `+"`%s.%s.%s`"+`
@@ -84,9 +81,6 @@ func FindInstitutionByNameWithClient(ctx context.Context, client *bigquery.Clien
 		SELECT
 			institution_id,
 			name,
-			country_code,
-			logo_url,
-			metadata,
 			created_ts,
 			updated_ts
 		FROM `+"`%s.%s.%s`"+`
@@ -150,19 +144,16 @@ func UpsertInstitutionWithClient(ctx context.Context, client *bigquery.Client, r
 
 	q := client.Query(`
 		INSERT INTO ` + "`" + projectID + "." + datasetID + "." + institutionsTable + "`" + ` (
-			institution_id, name, country_code, logo_url, metadata, created_ts, updated_ts
+			institution_id, name, created_ts, updated_ts
 		)
 		VALUES (
-			@institution_id, @name, @country_code, @logo_url, @metadata, @created_ts, @updated_ts
+			@institution_id, @name, @created_ts, @updated_ts
 		)
 	`)
 
 	q.Parameters = []bigquery.QueryParameter{
 		{Name: "institution_id", Value: row.InstitutionID},
 		{Name: "name", Value: row.Name},
-		{Name: "country_code", Value: row.CountryCode},
-		{Name: "logo_url", Value: row.LogoURL},
-		{Name: "metadata", Value: row.Metadata},
 		{Name: "created_ts", Value: row.CreatedTS},
 		{Name: "updated_ts", Value: row.UpdatedTS},
 	}

@@ -98,9 +98,6 @@ type DocumentRow struct {
 type InstitutionRow struct {
 	InstitutionID string                 `bigquery:"institution_id" json:"institution_id"`
 	Name          string                 `bigquery:"name" json:"name"`
-	CountryCode   string                 `bigquery:"country_code" json:"country_code,omitempty"`
-	LogoURL       string                 `bigquery:"logo_url" json:"logo_url,omitempty"`
-	Metadata      bigquery.NullJSON      `bigquery:"metadata" json:"metadata,omitempty"`
 	CreatedTS     time.Time              `bigquery:"created_ts" json:"created_ts,omitempty"`
 	UpdatedTS     bigquery.NullTimestamp `bigquery:"updated_ts" json:"updated_ts,omitempty"`
 }
