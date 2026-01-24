@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/pubsub/v2"
 )
 
 // Publisher publishes document events.
@@ -17,8 +17,8 @@ type Publisher interface {
 
 // PubSubPublisher publishes document events to Google Pub/Sub.
 type PubSubPublisher struct {
-	client *pubsub.Client
-	topic  *pubsub.Topic
+	client    *pubsub.Client
+	publisher *pubsub.Publisher
 }
 
 // NewPubSubPublisher creates a new Pub/Sub publisher.
@@ -37,14 +37,14 @@ func NewPubSubPublisher(ctx context.Context, projectID, topicName string) (*PubS
 	}
 
 	return &PubSubPublisher{
-		client: client,
-		topic:  client.Topic(topicID),
+		client:    client,
+		publisher: client.Publisher(topicID),
 	}, nil
 }
 
 // PublishDocumentUploaded publishes a document uploaded event.
 func (p *PubSubPublisher) PublishDocumentUploaded(ctx context.Context, event DocumentUploadedEvent) error {
-	if p == nil || p.topic == nil {
+	if p == nil || p.publisher == nil {
 		return fmt.Errorf("pubsub publisher not configured")
 	}
 
@@ -53,7 +53,7 @@ func (p *PubSubPublisher) PublishDocumentUploaded(ctx context.Context, event Doc
 		return fmt.Errorf("marshal event: %w", err)
 	}
 
-	res := p.topic.Publish(ctx, &pubsub.Message{
+	res := p.publisher.Publish(ctx, &pubsub.Message{
 		Data: data,
 		Attributes: map[string]string{
 			"type": event.Type,
@@ -72,8 +72,8 @@ func (p *PubSubPublisher) Close() error {
 	if p == nil {
 		return nil
 	}
-	if p.topic != nil {
-		p.topic.Stop()
+	if p.publisher != nil {
+		p.publisher.Stop()
 	}
 	if p.client != nil {
 		return p.client.Close()

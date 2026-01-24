@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/pubsub/v2"
 	"github.com/dvloznov/finance-tracker/internal/events"
 	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/logger"
@@ -49,7 +49,7 @@ func main() {
 	}
 	defer client.Close()
 
-	sub := client.Subscription(subscriptionID)
+	sub := client.Subscriber(subscriptionID)
 	sub.ReceiveSettings.MaxOutstandingMessages = 5
 	sub.ReceiveSettings.MaxOutstandingBytes = 10 << 20
 
