@@ -220,9 +220,6 @@ func runInspect(log zerolog.Logger) {
 		fmt.Printf("\n%d. %s\n", i+1, txn.RawDescription)
 		fmt.Printf("   Date:     %s\n", txn.TransactionDate)
 		fmt.Printf("   Amount:   %s %s\n", txn.Amount.FloatString(2), txn.Currency)
-		if txn.CategoryName.Valid {
-			fmt.Printf("   Category: %s\n", txn.CategoryName.StringVal)
-		}
 		if txn.BalanceAfter != nil {
 			fmt.Printf("   Balance:  %s\n", txn.BalanceAfter.FloatString(2))
 		}
