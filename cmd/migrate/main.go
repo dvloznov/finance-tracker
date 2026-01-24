@@ -122,17 +122,17 @@ func main() {
 
 // ensureSchemaMigrationsTable creates the schema_migrations table if it doesn't exist
 func ensureSchemaMigrationsTable(ctx context.Context, client *bigquery.Client) error {
-	sql := fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS `+"`%s.schema_migrations`"+` (
+	sql := `
+		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version       INT64 NOT NULL,
 			name          STRING NOT NULL,
 			applied_at    TIMESTAMP NOT NULL,
 			checksum      STRING,
 			applied_by    STRING
-		)
-	`, *datasetID)
+		)`
 
 	query := client.Query(sql)
+	query.DefaultDatasetID = *datasetID
 	job, err := query.Run(ctx)
 	if err != nil {
 		return fmt.Errorf("running query: %w", err)
@@ -198,14 +198,6 @@ func readMigrations() ([]Migration, error) {
 		}
 
 		sql := string(content)
-
-		// Replace placeholders with actual dataset
-		sql = strings.ReplaceAll(sql, "{{DATASET_ID}}", *datasetID)
-
-		// Calculate checksum from original content (before replacements)
-		// Note: This means changing placeholders won't be detected as a change.
-		// This is intentional: we want to track the logical migration structure,
-		// not the specific project/dataset it's applied to.
 		checksum := fmt.Sprintf("%x", sha256.Sum256(content))
 
 		migrations = append(migrations, Migration{
@@ -227,13 +219,13 @@ func readMigrations() ([]Migration, error) {
 
 // getAppliedMigrations retrieves the list of already applied migrations
 func getAppliedMigrations(ctx context.Context, client *bigquery.Client) ([]AppliedMigration, error) {
-	sql := fmt.Sprintf(`
+	sql := `
 		SELECT version, name, applied_at, checksum, applied_by
-		FROM `+"`%s.schema_migrations`"+`
-		ORDER BY version ASC
-	`, *datasetID)
+		FROM schema_migrations
+		ORDER BY version ASC`
 
 	query := client.Query(sql)
+	query.DefaultDatasetID = *datasetID
 	it, err := query.Read(ctx)
 	if err != nil {
 		// If table doesn't exist yet, return empty list
@@ -303,13 +295,12 @@ func executeMigration(ctx context.Context, client *bigquery.Client, migration Mi
 
 // recordMigration records a successfully applied migration in schema_migrations
 func recordMigration(ctx context.Context, client *bigquery.Client, migration Migration) error {
-	sql := fmt.Sprintf(`
-		INSERT INTO `+"`%s.schema_migrations`"+`
+	sql := `INSERT INTO schema_migrations
 		(version, name, applied_at, checksum, applied_by)
-		VALUES (@version, @name, CURRENT_TIMESTAMP(), @checksum, @applied_by)
-	`, *datasetID)
+		VALUES (@version, @name, CURRENT_TIMESTAMP(), @checksum, @applied_by)`
 
 	query := client.Query(sql)
+	query.DefaultDatasetID = *datasetID
 	query.Parameters = []bigquery.QueryParameter{
 		{Name: "version", Value: migration.Version},
 		{Name: "name", Value: migration.Name},
