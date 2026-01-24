@@ -16,6 +16,21 @@ type TransactionsHandler struct {
 	log  zerolog.Logger
 }
 
+type transactionResponse struct {
+	TransactionID   string  `json:"transaction_id"`
+	DocumentID      string  `json:"document_id"`
+	AccountID       string  `json:"account_id,omitempty"`
+	InstitutionID   string  `json:"institution_id,omitempty"`
+	TransactionDate string  `json:"transaction_date"`
+	Amount          string  `json:"amount"`
+	Currency        string  `json:"currency"`
+	RawDescription  string  `json:"raw_description"`
+	CategoryID      string  `json:"category_id,omitempty"`
+	CategoryName    string  `json:"category_name,omitempty"`
+	SubcategoryName string  `json:"subcategory_name,omitempty"`
+	BalanceAfter    *string `json:"balance_after,omitempty"`
+}
+
 // NewTransactionsHandler creates a new transactions handler.
 func NewTransactionsHandler(repo bigquery.DocumentRepository, log zerolog.Logger) *TransactionsHandler {
 	return &TransactionsHandler{
@@ -79,9 +94,63 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 		transactions = filtered
 	}
 
-	// Return array directly for frontend compatibility
-	if transactions == nil {
-		transactions = []*bigquery.TransactionRow{}
+	categories, err := h.repo.ListActiveCategories(ctx)
+	if err != nil {
+		h.log.Error().Err(err).Msg("Failed to list categories")
+		categories = []bigquery.CategoryRow{}
 	}
-	middleware.WriteJSON(w, http.StatusOK, transactions)
+	categoryLookup := make(map[string]bigquery.CategoryRow, len(categories))
+	for _, category := range categories {
+		categoryLookup[category.CategoryID] = category
+	}
+
+	responses := make([]transactionResponse, 0, len(transactions))
+	for _, txn := range transactions {
+		amount := "0"
+		if txn.Amount != nil {
+			amount = txn.Amount.FloatString(2)
+		}
+
+		var balanceAfter *string
+		if txn.BalanceAfter != nil {
+			b := txn.BalanceAfter.FloatString(2)
+			balanceAfter = &b
+		}
+
+		categoryID := ""
+		if txn.CategoryID.Valid {
+			categoryID = txn.CategoryID.StringVal
+		}
+
+		categoryName := ""
+		subcategoryName := ""
+		if categoryID != "" {
+			if category, ok := categoryLookup[categoryID]; ok {
+				categoryName = category.CategoryName
+				if category.SubcategoryName.Valid {
+					subcategoryName = category.SubcategoryName.StringVal
+				}
+			}
+		}
+
+		responses = append(responses, transactionResponse{
+			TransactionID:   txn.TransactionID,
+			DocumentID:      txn.DocumentID,
+			AccountID:       txn.AccountID,
+			InstitutionID:   txn.InstitutionID,
+			TransactionDate: txn.TransactionDate.String(),
+			Amount:          amount,
+			Currency:        txn.Currency,
+			RawDescription:  txn.RawDescription,
+			CategoryID:      categoryID,
+			CategoryName:    categoryName,
+			SubcategoryName: subcategoryName,
+			BalanceAfter:    balanceAfter,
+		})
+	}
+
+	if responses == nil {
+		responses = []transactionResponse{}
+	}
+	middleware.WriteJSON(w, http.StatusOK, responses)
 }

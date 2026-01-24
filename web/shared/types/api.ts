@@ -27,6 +27,7 @@ export interface Transaction {
   amount: string;
   currency: string;
   raw_description: string;
+  category_id?: string;
   category_name?: string;
   subcategory_name?: string;
   balance_after?: string;

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { toTransactionVM } from '@/features/transactions/adapters/transactionVm';
 import { listTransactions } from '@/features/transactions/services/transactionsApi';
+import { listCategories } from '@/features/categories/services/categoriesApi';
 import type { AccountScope } from '@/shared/account-scope/types';
 
 type UseTransactionsParams = {
@@ -24,8 +25,12 @@ export function useTransactions({ scope }: UseTransactionsParams = {}) {
   return useQuery({
     queryKey: ['transactions', scope?.mode ?? 'all', scope?.institutionId ?? null, scope?.accountId ?? null],
     queryFn: async () => {
-      const transactions = await listTransactions(scopeParams);
-      return transactions.map(toTransactionVM);
+      const [transactions, categories] = await Promise.all([
+        listTransactions(scopeParams),
+        listCategories(),
+      ]);
+      const categoryLookup = new Map(categories.map((category) => [category.category_id, category]));
+      return transactions.map((transaction) => toTransactionVM(transaction, categoryLookup));
     },
   });
 }

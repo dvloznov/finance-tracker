@@ -130,28 +130,63 @@ type TransactionRow struct {
 
 // MarshalJSON customizes JSON serialization for TransactionRow.
 func (t TransactionRow) MarshalJSON() ([]byte, error) {
-	type Alias TransactionRow
-	return json.Marshal(&struct {
-		Amount       string  `json:"amount"`
-		BalanceAfter *string `json:"balance_after,omitempty"`
-		*Alias
-	}{
-		Amount: func() string {
-			if t.Amount == nil {
-				return "0"
-			}
-			f, _ := t.Amount.Float64()
-			return fmt.Sprintf("%.2f", f)
-		}(),
-		BalanceAfter: func() *string {
-			if t.BalanceAfter == nil {
-				return nil
-			}
-			f, _ := t.BalanceAfter.Float64()
+	amount := "0"
+	if t.Amount != nil {
+		if f, ok := t.Amount.Float64(); ok {
+			amount = fmt.Sprintf("%.2f", f)
+		}
+	}
+
+	var balanceAfter *string
+	if t.BalanceAfter != nil {
+		if f, ok := t.BalanceAfter.Float64(); ok {
 			s := fmt.Sprintf("%.2f", f)
-			return &s
-		}(),
-		Alias: (*Alias)(&t),
+			balanceAfter = &s
+		}
+	}
+
+	var direction *string
+	if t.Direction.Valid {
+		d := t.Direction.StringVal
+		direction = &d
+	}
+
+	var categoryID *string
+	if t.CategoryID.Valid {
+		c := t.CategoryID.StringVal
+		categoryID = &c
+	}
+
+	return json.Marshal(&struct {
+		TransactionID   string    `json:"transaction_id"`
+		UserID          string    `json:"user_id"`
+		AccountID       string    `json:"account_id"`
+		InstitutionID   string    `json:"institution_id"`
+		DocumentID      string    `json:"document_id"`
+		ParsingRunID    string    `json:"parsing_run_id"`
+		TransactionDate string    `json:"transaction_date"`
+		Amount          string    `json:"amount"`
+		Currency        string    `json:"currency"`
+		BalanceAfter    *string   `json:"balance_after,omitempty"`
+		Direction       *string   `json:"direction,omitempty"`
+		RawDescription  string    `json:"raw_description"`
+		CategoryID      *string   `json:"category_id,omitempty"`
+		CreatedTS       time.Time `json:"created_ts"`
+	}{
+		TransactionID:   t.TransactionID,
+		UserID:          t.UserID,
+		AccountID:       t.AccountID,
+		InstitutionID:   t.InstitutionID,
+		DocumentID:      t.DocumentID,
+		ParsingRunID:    t.ParsingRunID,
+		TransactionDate: t.TransactionDate.String(),
+		Amount:          amount,
+		Currency:        t.Currency,
+		BalanceAfter:    balanceAfter,
+		Direction:       direction,
+		RawDescription:  t.RawDescription,
+		CategoryID:      categoryID,
+		CreatedTS:       t.CreatedTS,
 	})
 }
 

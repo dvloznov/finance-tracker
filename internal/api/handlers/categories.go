@@ -32,9 +32,9 @@ func (h *CategoriesHandler) ListCategories(w http.ResponseWriter, r *http.Reques
 		middleware.WriteError(w, http.StatusInternalServerError, "Failed to list categories")
 		return
 	}
+	if categories == nil {
+		categories = []bigquery.CategoryRow{}
+	}
 
-	middleware.WriteJSON(w, http.StatusOK, map[string]interface{}{
-		"categories": categories,
-		"count":      len(categories),
-	})
+	middleware.WriteJSON(w, http.StatusOK, categories)
 }
