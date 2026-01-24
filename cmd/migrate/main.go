@@ -131,23 +131,12 @@ func ensureSchemaMigrationsTable(ctx context.Context, client *bigquery.Client) e
 			applied_by    STRING
 		)`
 
-	query := client.Query(sql)
-	query.DefaultDatasetID = *datasetID
-	job, err := query.Run(ctx)
-	if err != nil {
-		return fmt.Errorf("running query: %w", err)
-	}
-
-	status, err := job.Wait(ctx)
-	if err != nil {
-		return fmt.Errorf("waiting for job: %w", err)
-	}
-
-	if err := status.Err(); err != nil {
-		return fmt.Errorf("job error: %w", err)
-	}
-
-	return nil
+	return executeSQL(
+		ctx,
+		client,
+		sql,
+		[]bigquery.QueryParameter{},
+	)
 }
 
 // readMigrations reads all migration files from the migrations directory
@@ -275,22 +264,12 @@ func getAppliedMigrations(ctx context.Context, client *bigquery.Client) ([]Appli
 
 // executeMigration executes a single migration SQL
 func executeMigration(ctx context.Context, client *bigquery.Client, migration Migration) error {
-	query := client.Query(migration.SQL)
-	job, err := query.Run(ctx)
-	if err != nil {
-		return fmt.Errorf("running query: %w", err)
-	}
-
-	status, err := job.Wait(ctx)
-	if err != nil {
-		return fmt.Errorf("waiting for job: %w", err)
-	}
-
-	if err := status.Err(); err != nil {
-		return fmt.Errorf("job error: %w", err)
-	}
-
-	return nil
+	return executeSQL(
+		ctx,
+		client,
+		migration.SQL,
+		[]bigquery.QueryParameter{},
+	)
 }
 
 // recordMigration records a successfully applied migration in schema_migrations
@@ -299,14 +278,23 @@ func recordMigration(ctx context.Context, client *bigquery.Client, migration Mig
 		(version, name, applied_at, checksum, applied_by)
 		VALUES (@version, @name, CURRENT_TIMESTAMP(), @checksum, @applied_by)`
 
+	return executeSQL(
+		ctx,
+		client,
+		sql,
+		[]bigquery.QueryParameter{
+			{Name: "version", Value: migration.Version},
+			{Name: "name", Value: migration.Name},
+			{Name: "checksum", Value: migration.Checksum},
+			{Name: "applied_by", Value: *appliedBy},
+		},
+	)
+}
+
+func executeSQL(ctx context.Context, client *bigquery.Client, sql string, parameters []bigquery.QueryParameter) error {
 	query := client.Query(sql)
 	query.DefaultDatasetID = *datasetID
-	query.Parameters = []bigquery.QueryParameter{
-		{Name: "version", Value: migration.Version},
-		{Name: "name", Value: migration.Name},
-		{Name: "checksum", Value: migration.Checksum},
-		{Name: "applied_by", Value: *appliedBy},
-	}
+	query.Parameters = parameters
 
 	job, err := query.Run(ctx)
 	if err != nil {
