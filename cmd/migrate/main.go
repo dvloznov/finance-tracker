@@ -103,17 +103,21 @@ func main() {
 	log.Printf("Found %d already applied migrations", len(appliedMigrations))
 
 	// Build map of applied versions
-	appliedVersions := make(map[int]bool)
+	appliedVersions := make(map[int]string)
 	for _, am := range appliedMigrations {
-		appliedVersions[am.Version] = true
+		appliedVersions[am.Version] = am.Checksum
 	}
 
 	// Apply pending migrations
 	appliedCount := 0
 	for _, migration := range migrations {
-		if appliedVersions[migration.Version] {
-			log.Printf("  [SKIP] %04d_%s (already applied)", migration.Version, migration.Name)
-			continue
+		if v, ok := appliedVersions[migration.Version]; ok {
+			if v == migration.Checksum {
+				log.Printf("  [SKIP] %04d_%s (already applied)", migration.Version, migration.Name)
+				continue
+			} else {
+				log.Fatalf("  [ERROR] Migration %04d_%s was already applied with a different checksum", migration.Version, migration.Name)
+			}
 		}
 
 		log.Printf("  [RUN]  %04d_%s", migration.Version, migration.Name)
