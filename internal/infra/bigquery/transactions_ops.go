@@ -46,24 +46,14 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 		return bigquery.NullString{StringVal: bigquery.NumericString(v), Valid: true}
 	}
 
-	paramTags := func(v []string) interface{} {
-		if v == nil {
-			return []string{}
-		}
-		return v
-	}
-
 	// Build INSERT statement with multiple rows
 	queryStr := `
 		INSERT INTO ` + "`" + txProjectID + "." + txDatasetID + ".transactions" + "`" + ` (
 			transaction_id, user_id, account_id, institution_id, document_id, parsing_run_id,
-			transaction_date, posting_date, booking_datetime,
+			transaction_date,
 			amount, currency, balance_after, direction,
-			raw_description, normalized_description,
-			category_id, category_name, subcategory_name,
-			statement_line_no, statement_page_no,
-			is_pending, is_refund, is_internal_transfer, is_split_parent, is_split_child,
-			external_reference, tags, created_ts, updated_ts
+			raw_description,
+			category_id, created_ts
 		)
 		VALUES
 	`
@@ -76,13 +66,10 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 		}
 		queryStr += fmt.Sprintf(`
 			(@transaction_id_%d, @user_id_%d, @account_id_%d, @institution_id_%d, @document_id_%d, @parsing_run_id_%d,
-			 @transaction_date_%d, @posting_date_%d, @booking_datetime_%d,
+			 @transaction_date_%d,
 			 CAST(@amount_%d AS NUMERIC), @currency_%d, CAST(@balance_after_%d AS NUMERIC), @direction_%d,
-			 @raw_description_%d, @normalized_description_%d,
-			 @category_id_%d, @category_name_%d, @subcategory_name_%d,
-			 @statement_line_no_%d, @statement_page_no_%d,
-			 @is_pending_%d, @is_refund_%d, @is_internal_transfer_%d, @is_split_parent_%d, @is_split_child_%d,
-			 @external_reference_%d, @tags_%d, @created_ts_%d, @updated_ts_%d)`, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
+			 @raw_description_%d,
+			 @category_id_%d, @created_ts_%d)`, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
 
 		params = append(params,
 			bigquery.QueryParameter{Name: fmt.Sprintf("transaction_id_%d", i), Value: row.TransactionID},
@@ -92,28 +79,13 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 			bigquery.QueryParameter{Name: fmt.Sprintf("document_id_%d", i), Value: row.DocumentID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("parsing_run_id_%d", i), Value: row.ParsingRunID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("transaction_date_%d", i), Value: row.TransactionDate},
-			bigquery.QueryParameter{Name: fmt.Sprintf("posting_date_%d", i), Value: row.PostingDate},
-			bigquery.QueryParameter{Name: fmt.Sprintf("booking_datetime_%d", i), Value: row.BookingDatetime},
 			bigquery.QueryParameter{Name: fmt.Sprintf("amount_%d", i), Value: paramNumericString(row.Amount)},
 			bigquery.QueryParameter{Name: fmt.Sprintf("currency_%d", i), Value: row.Currency},
 			bigquery.QueryParameter{Name: fmt.Sprintf("balance_after_%d", i), Value: paramNumericString(row.BalanceAfter)},
 			bigquery.QueryParameter{Name: fmt.Sprintf("direction_%d", i), Value: row.Direction},
 			bigquery.QueryParameter{Name: fmt.Sprintf("raw_description_%d", i), Value: row.RawDescription},
-			bigquery.QueryParameter{Name: fmt.Sprintf("normalized_description_%d", i), Value: row.NormalizedDescription},
 			bigquery.QueryParameter{Name: fmt.Sprintf("category_id_%d", i), Value: row.CategoryID},
-			bigquery.QueryParameter{Name: fmt.Sprintf("category_name_%d", i), Value: row.CategoryName},
-			bigquery.QueryParameter{Name: fmt.Sprintf("subcategory_name_%d", i), Value: row.SubcategoryName},
-			bigquery.QueryParameter{Name: fmt.Sprintf("statement_line_no_%d", i), Value: row.StatementLineNo},
-			bigquery.QueryParameter{Name: fmt.Sprintf("statement_page_no_%d", i), Value: row.StatementPageNo},
-			bigquery.QueryParameter{Name: fmt.Sprintf("is_pending_%d", i), Value: row.IsPending},
-			bigquery.QueryParameter{Name: fmt.Sprintf("is_refund_%d", i), Value: row.IsRefund},
-			bigquery.QueryParameter{Name: fmt.Sprintf("is_internal_transfer_%d", i), Value: row.IsInternalTransfer},
-			bigquery.QueryParameter{Name: fmt.Sprintf("is_split_parent_%d", i), Value: row.IsSplitParent},
-			bigquery.QueryParameter{Name: fmt.Sprintf("is_split_child_%d", i), Value: row.IsSplitChild},
-			bigquery.QueryParameter{Name: fmt.Sprintf("external_reference_%d", i), Value: row.ExternalReference},
-			bigquery.QueryParameter{Name: fmt.Sprintf("tags_%d", i), Value: paramTags(row.Tags)},
 			bigquery.QueryParameter{Name: fmt.Sprintf("created_ts_%d", i), Value: row.CreatedTS},
-			bigquery.QueryParameter{Name: fmt.Sprintf("updated_ts_%d", i), Value: row.UpdatedTS},
 		)
 	}
 
@@ -160,29 +132,13 @@ func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquer
 			t.document_id,
 			t.parsing_run_id,
 			t.transaction_date,
-			t.posting_date,
-			t.booking_datetime,
 			t.amount,
 			t.currency,
 			t.balance_after,
 			t.direction,
 			t.raw_description,
-			t.normalized_description,
 			t.category_id,
-			t.category_name,
-			t.subcategory_name,
-			t.statement_line_no,
-			t.statement_page_no,
-			t.is_pending,
-			t.is_refund,
-			t.is_internal_transfer,
-			t.is_split_parent,
-			t.is_split_child,
-			t.external_reference,
-			t.tags,
-			t.created_ts,
-			t.updated_ts,
-			t.extra
+			t.created_ts
 		FROM finance.transactions t
 		INNER JOIN finance.parsing_runs pr
 		  ON t.parsing_run_id = pr.parsing_run_id

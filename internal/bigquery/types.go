@@ -113,9 +113,7 @@ type TransactionRow struct {
 	DocumentID   string `bigquery:"document_id" json:"document_id"`
 	ParsingRunID string `bigquery:"parsing_run_id" json:"parsing_run_id"`
 
-	TransactionDate civil.Date            `bigquery:"transaction_date" json:"transaction_date"`
-	PostingDate     bigquery.NullDate     `bigquery:"posting_date" json:"posting_date,omitempty"`
-	BookingDatetime bigquery.NullDateTime `bigquery:"booking_datetime" json:"booking_datetime,omitempty"`
+	TransactionDate civil.Date `bigquery:"transaction_date" json:"transaction_date"`
 
 	Amount   *big.Rat `bigquery:"amount" json:"amount"`
 	Currency string   `bigquery:"currency" json:"currency"`
@@ -124,28 +122,10 @@ type TransactionRow struct {
 
 	Direction bigquery.NullString `bigquery:"direction" json:"direction,omitempty"`
 
-	RawDescription        string              `bigquery:"raw_description" json:"raw_description"`
-	NormalizedDescription bigquery.NullString `bigquery:"normalized_description" json:"normalized_description,omitempty"`
+	RawDescription string              `bigquery:"raw_description" json:"raw_description"`
+	CategoryID     bigquery.NullString `bigquery:"category_id" json:"category_id,omitempty"`
 
-	CategoryID      bigquery.NullString `bigquery:"category_id" json:"category_id,omitempty"`
-	CategoryName    bigquery.NullString `bigquery:"category_name" json:"category_name,omitempty"`
-	SubcategoryName bigquery.NullString `bigquery:"subcategory_name" json:"subcategory_name,omitempty"`
-
-	StatementLineNo bigquery.NullInt64 `bigquery:"statement_line_no" json:"statement_line_no,omitempty"`
-	StatementPageNo bigquery.NullInt64 `bigquery:"statement_page_no" json:"statement_page_no,omitempty"`
-
-	IsPending          bigquery.NullBool `bigquery:"is_pending" json:"is_pending,omitempty"`
-	IsRefund           bigquery.NullBool `bigquery:"is_refund" json:"is_refund,omitempty"`
-	IsInternalTransfer bigquery.NullBool `bigquery:"is_internal_transfer" json:"is_internal_transfer,omitempty"`
-	IsSplitParent      bigquery.NullBool `bigquery:"is_split_parent" json:"is_split_parent,omitempty"`
-	IsSplitChild       bigquery.NullBool `bigquery:"is_split_child" json:"is_split_child,omitempty"`
-
-	ExternalReference bigquery.NullString `bigquery:"external_reference" json:"external_reference,omitempty"`
-
-	Tags []string `bigquery:"tags" json:"tags,omitempty"`
-
-	CreatedTS time.Time              `bigquery:"created_ts" json:"created_ts"`
-	UpdatedTS bigquery.NullTimestamp `bigquery:"updated_ts" json:"updated_ts,omitempty"`
+	CreatedTS time.Time `bigquery:"created_ts" json:"created_ts"`
 }
 
 // MarshalJSON customizes JSON serialization for TransactionRow.

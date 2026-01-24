@@ -157,30 +157,6 @@ func insertTransactionsWithRepo(
 			balanceAfter = new(big.Rat).SetFloat64(*t.BalanceAfter)
 		}
 
-		var normalizedDescription bigquerylib.NullString
-		if t.Description != "" {
-			normalizedDescription = bigquerylib.NullString{
-				StringVal: t.Description,
-				Valid:     true,
-			}
-		}
-
-		var categoryName bigquerylib.NullString
-		if strings.TrimSpace(t.Category) != "" {
-			categoryName = bigquerylib.NullString{
-				StringVal: t.Category,
-				Valid:     true,
-			}
-		}
-
-		var subcategoryName bigquerylib.NullString
-		if strings.TrimSpace(t.Subcategory) != "" {
-			subcategoryName = bigquerylib.NullString{
-				StringVal: t.Subcategory,
-				Valid:     true,
-			}
-		}
-
 		var categoryID bigquerylib.NullString
 		if strings.TrimSpace(t.CategoryID) != "" {
 			categoryID = bigquerylib.NullString{
@@ -206,12 +182,9 @@ func insertTransactionsWithRepo(
 
 			Direction: dir,
 
-			RawDescription:        t.Description,
-			NormalizedDescription: normalizedDescription,
+			RawDescription: t.Description,
 
-			CategoryID:      categoryID,
-			CategoryName:    categoryName,
-			SubcategoryName: subcategoryName,
+			CategoryID: categoryID,
 
 			CreatedTS: time.Now(),
 		}
