@@ -29,25 +29,25 @@ type Migration struct {
 
 // AppliedMigration represents a migration that has already been applied
 type AppliedMigration struct {
-	Version    int
-	Name       string
-	AppliedAt  time.Time
-	Checksum   string
-	AppliedBy  string
+	Version   int
+	Name      string
+	AppliedAt time.Time
+	Checksum  string
+	AppliedBy string
 }
 
 var (
-	projectID       = flag.String("project", "", "GCP project ID (required)")
-	datasetID       = flag.String("dataset", "finance", "BigQuery dataset ID")
-	appliedBy       = flag.String("applied-by", "migrate-cli", "Name of the tool applying migrations")
-	migrationsDir   = flag.String("migrations", "migrations/bigquery", "Path to migrations directory")
+	projectID     = flag.String("project", "studious-union-470122-v7", "GCP project ID (required)")
+	datasetID     = flag.String("dataset", "finance", "BigQuery dataset ID")
+	appliedBy     = flag.String("applied-by", "migrate-cli", "Name of the tool applying migrations")
+	migrationsDir = flag.String("migrations", "migrations/bigquery", "Path to migrations directory")
 )
 
 func main() {
 	flag.Parse()
 
 	ctx := context.Background()
-	
+
 	// Validate required flags
 	if *projectID == "" {
 		log.Fatal("Error: -project flag is required. Please specify your GCP project ID.")
@@ -198,7 +198,7 @@ func readMigrations() ([]Migration, error) {
 		}
 
 		sql := string(content)
-		
+
 		// Replace placeholders with actual project and dataset
 		sql = strings.ReplaceAll(sql, "{{PROJECT_ID}}", *projectID)
 		sql = strings.ReplaceAll(sql, "{{DATASET_ID}}", *datasetID)
