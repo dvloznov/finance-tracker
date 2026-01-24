@@ -1,5 +1,5 @@
 -- Create institutions table
-CREATE TABLE IF NOT EXISTS `institutions` (
+CREATE TABLE IF NOT EXISTS `finance.institutions` (
   institution_id  STRING NOT NULL,
   name            STRING NOT NULL,
   created_ts      TIMESTAMP,
@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `institutions` (
 );
 
 -- Create accounts table
-CREATE TABLE IF NOT EXISTS `accounts` (
+CREATE TABLE IF NOT EXISTS `finance.accounts` (
   account_id      STRING NOT NULL,
   user_id         STRING,
   institution_id  STRING,

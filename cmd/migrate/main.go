@@ -40,7 +40,7 @@ type AppliedMigration struct {
 
 const (
 	ensureSchemaMigrationsTableQuery = `
-		CREATE TABLE IF NOT EXISTS schema_migrations (
+		CREATE TABLE IF NOT EXISTS finance.schema_migrations (
 			version       INT64 NOT NULL,
 			name          STRING NOT NULL,
 			applied_at    TIMESTAMP NOT NULL,
@@ -50,18 +50,17 @@ const (
 
 	appliedMigrationsQuery = `
 		SELECT version, name, applied_at, checksum, applied_by
-		FROM schema_migrations
+		FROM finance.schema_migrations
 		ORDER BY version ASC`
 
 	recordMigrationQuery = `
-		INSERT INTO schema_migrations
+		INSERT INTO finance.schema_migrations
 		(version, name, applied_at, checksum, applied_by)
 		VALUES (@version, @name, CURRENT_TIMESTAMP(), @checksum, @applied_by)`
 )
 
 var (
 	projectID = flag.String("project", "studious-union-470122-v7", "GCP project ID (required)")
-	datasetID = flag.String("dataset", "finance", "BigQuery dataset ID")
 	appliedBy = flag.String("applied-by", "migrate-cli", "Name of the tool applying migrations")
 )
 
@@ -81,8 +80,6 @@ func main() {
 		log.Fatalf("Failed to create BigQuery client: %v", err)
 	}
 	defer client.Close()
-
-	log.Printf("Connected to BigQuery project: %s, dataset: %s", *projectID, *datasetID)
 
 	// Ensure schema_migrations table exists
 	if err := ensureSchemaMigrationsTable(ctx, client); err != nil {
@@ -211,7 +208,6 @@ func readMigrations() ([]Migration, error) {
 // getAppliedMigrations retrieves the list of already applied migrations
 func getAppliedMigrations(ctx context.Context, client *bigquery.Client) ([]AppliedMigration, error) {
 	query := client.Query(appliedMigrationsQuery)
-	query.DefaultDatasetID = *datasetID
 	it, err := query.Read(ctx)
 	if err != nil {
 		// If table doesn't exist yet, return empty list
@@ -286,7 +282,6 @@ func recordMigration(ctx context.Context, client *bigquery.Client, migration Mig
 
 func executeSQL(ctx context.Context, client *bigquery.Client, sql string, parameters []bigquery.QueryParameter) error {
 	query := client.Query(sql)
-	query.DefaultDatasetID = *datasetID
 	query.Parameters = parameters
 
 	job, err := query.Run(ctx)

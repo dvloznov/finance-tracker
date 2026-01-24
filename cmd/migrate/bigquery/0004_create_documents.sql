@@ -1,5 +1,5 @@
 -- Create documents table
-CREATE TABLE IF NOT EXISTS `documents` (
+CREATE TABLE IF NOT EXISTS `finance.documents` (
   document_id           STRING NOT NULL,
   user_id               STRING,
   gcs_uri               STRING NOT NULL,

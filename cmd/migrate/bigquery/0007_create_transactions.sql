@@ -1,5 +1,5 @@
 -- Create transactions table
-CREATE TABLE IF NOT EXISTS `transactions` (
+CREATE TABLE IF NOT EXISTS `finance.transactions` (
   transaction_id         STRING NOT NULL,
   user_id                STRING,
   account_id             STRING,

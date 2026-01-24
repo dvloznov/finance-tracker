@@ -1,5 +1,5 @@
 -- Seed initial categories (denormalized: one row per category-subcategory combination)
-INSERT INTO `categories`
+INSERT INTO `finance.categories`
   (category_id, category_name, subcategory_name, slug)
 VALUES
   -- Income categories
