@@ -123,14 +123,14 @@ func main() {
 // ensureSchemaMigrationsTable creates the schema_migrations table if it doesn't exist
 func ensureSchemaMigrationsTable(ctx context.Context, client *bigquery.Client) error {
 	sql := fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS `+"`%s.%s.schema_migrations`"+` (
+		CREATE TABLE IF NOT EXISTS `+"`%s.schema_migrations`"+` (
 			version       INT64 NOT NULL,
 			name          STRING NOT NULL,
 			applied_at    TIMESTAMP NOT NULL,
 			checksum      STRING,
 			applied_by    STRING
 		)
-	`, *projectID, *datasetID)
+	`, *datasetID)
 
 	query := client.Query(sql)
 	job, err := query.Run(ctx)
@@ -199,8 +199,7 @@ func readMigrations() ([]Migration, error) {
 
 		sql := string(content)
 
-		// Replace placeholders with actual project and dataset
-		sql = strings.ReplaceAll(sql, "{{PROJECT_ID}}", *projectID)
+		// Replace placeholders with actual dataset
 		sql = strings.ReplaceAll(sql, "{{DATASET_ID}}", *datasetID)
 
 		// Calculate checksum from original content (before replacements)
@@ -230,9 +229,9 @@ func readMigrations() ([]Migration, error) {
 func getAppliedMigrations(ctx context.Context, client *bigquery.Client) ([]AppliedMigration, error) {
 	sql := fmt.Sprintf(`
 		SELECT version, name, applied_at, checksum, applied_by
-		FROM `+"`%s.%s.schema_migrations`"+`
+		FROM `+"`%s.schema_migrations`"+`
 		ORDER BY version ASC
-	`, *projectID, *datasetID)
+	`, *datasetID)
 
 	query := client.Query(sql)
 	it, err := query.Read(ctx)
@@ -305,10 +304,10 @@ func executeMigration(ctx context.Context, client *bigquery.Client, migration Mi
 // recordMigration records a successfully applied migration in schema_migrations
 func recordMigration(ctx context.Context, client *bigquery.Client, migration Migration) error {
 	sql := fmt.Sprintf(`
-		INSERT INTO `+"`%s.%s.schema_migrations`"+`
+		INSERT INTO `+"`%s.schema_migrations`"+`
 		(version, name, applied_at, checksum, applied_by)
 		VALUES (@version, @name, CURRENT_TIMESTAMP(), @checksum, @applied_by)
-	`, *projectID, *datasetID)
+	`, *datasetID)
 
 	query := client.Query(sql)
 	query.Parameters = []bigquery.QueryParameter{

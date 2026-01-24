@@ -1,5 +1,5 @@
 -- Create documents table
-CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.documents` (
+CREATE TABLE IF NOT EXISTS `{{DATASET_ID}}.documents` (
   document_id           STRING NOT NULL,
   user_id               STRING,
   gcs_uri               STRING NOT NULL,

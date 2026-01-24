@@ -1,5 +1,5 @@
 -- Create institutions table
-CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.institutions` (
+CREATE TABLE IF NOT EXISTS `{{DATASET_ID}}.institutions` (
   institution_id  STRING NOT NULL,
   name            STRING NOT NULL,
   created_ts      TIMESTAMP,
@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.institutions` (
 );
 
 -- Create accounts table
-CREATE TABLE IF NOT EXISTS `{{PROJECT_ID}}.{{DATASET_ID}}.accounts` (
+CREATE TABLE IF NOT EXISTS `{{DATASET_ID}}.accounts` (
   account_id      STRING NOT NULL,
   user_id         STRING,
   institution_id  STRING,
