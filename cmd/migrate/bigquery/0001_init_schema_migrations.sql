@@ -1,5 +1,5 @@
 -- Create schema_migrations table to track applied migrations
-CREATE TABLE IF NOT EXISTS `{{DATASET_ID}}.schema_migrations` (
+CREATE TABLE IF NOT EXISTS `schema_migrations` (
   version       INT64 NOT NULL,
   name          STRING NOT NULL,
   applied_at    TIMESTAMP NOT NULL,

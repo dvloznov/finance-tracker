@@ -3,11 +3,10 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"embed"
 	"flag"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -17,6 +16,9 @@ import (
 	"cloud.google.com/go/bigquery"
 	"google.golang.org/api/iterator"
 )
+
+//go:embed bigquery/*.sql
+var migrationFS embed.FS
 
 // Migration represents a single migration file
 type Migration struct {
@@ -58,10 +60,9 @@ const (
 )
 
 var (
-	projectID     = flag.String("project", "studious-union-470122-v7", "GCP project ID (required)")
-	datasetID     = flag.String("dataset", "finance", "BigQuery dataset ID")
-	appliedBy     = flag.String("applied-by", "migrate-cli", "Name of the tool applying migrations")
-	migrationsDir = flag.String("migrations", "migrations/bigquery", "Path to migrations directory")
+	projectID = flag.String("project", "studious-union-470122-v7", "GCP project ID (required)")
+	datasetID = flag.String("dataset", "finance", "BigQuery dataset ID")
+	appliedBy = flag.String("applied-by", "migrate-cli", "Name of the tool applying migrations")
 )
 
 func main() {
@@ -153,17 +154,7 @@ func ensureSchemaMigrationsTable(ctx context.Context, client *bigquery.Client) e
 
 // readMigrations reads all migration files from the migrations directory
 func readMigrations() ([]Migration, error) {
-	// Check if directory exists relative to current directory
-	dir := *migrationsDir
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		// Try from parent directory (in case we're in cmd/migrate)
-		dir = "../../" + *migrationsDir
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			return nil, fmt.Errorf("migrations directory not found: %s", *migrationsDir)
-		}
-	}
-
-	files, err := os.ReadDir(dir)
+	files, err := migrationFS.ReadDir("bigquery")
 	if err != nil {
 		return nil, fmt.Errorf("reading migrations directory: %w", err)
 	}
@@ -192,8 +183,7 @@ func readMigrations() ([]Migration, error) {
 		name := matches[2]
 
 		// Read SQL content
-		filePath := filepath.Join(dir, file.Name())
-		content, err := os.ReadFile(filePath)
+		content, err := migrationFS.ReadFile("bigquery/" + file.Name())
 		if err != nil {
 			return nil, fmt.Errorf("reading file %s: %w", file.Name(), err)
 		}

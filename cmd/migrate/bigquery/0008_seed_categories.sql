@@ -1,5 +1,5 @@
 -- Seed initial categories (denormalized: one row per category-subcategory combination)
-INSERT INTO `{{DATASET_ID}}.categories`
+INSERT INTO `categories`
   (category_id, category_name, subcategory_name, slug)
 VALUES
   -- Income categories

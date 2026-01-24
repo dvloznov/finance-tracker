@@ -1,5 +1,5 @@
 -- Create parsing_runs table
-CREATE TABLE IF NOT EXISTS `{{DATASET_ID}}.parsing_runs` (
+CREATE TABLE IF NOT EXISTS `parsing_runs` (
   parsing_run_id STRING NOT NULL,
   document_id    STRING NOT NULL,
   started_ts     TIMESTAMP NOT NULL,
