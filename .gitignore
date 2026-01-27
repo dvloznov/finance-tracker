@@ -1,5 +1,7 @@
 # Go build outputs
 bin/
+.env.dev
+.vscode/*
 *.exe
 *.exe~
 *.dll
