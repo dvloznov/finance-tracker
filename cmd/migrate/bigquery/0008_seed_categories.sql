@@ -5,6 +5,7 @@ VALUES
   -- Uncategorized
   ('cat_uncategorized_cash_atm', 'Uncategorized', 'Cash & ATM', 'uncategorized-cash-atm'),
   ('cat_uncategorized_check', 'Uncategorized', 'Check', 'uncategorized-check'),
+  ('cat_uncategorized_other', 'Uncategorized', 'Other', 'uncategorized-other'),
 
   -- Entertainment
   ('cat_entertainment_arts', 'Entertainment', 'Arts', 'entertainment-arts'),
