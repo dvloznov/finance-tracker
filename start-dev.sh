@@ -8,19 +8,25 @@ export PUBSUB_PROJECT=${PUBSUB_PROJECT:-${GOOGLE_CLOUD_PROJECT}}
 export PUBSUB_TOPIC=${PUBSUB_TOPIC:-projects/${GOOGLE_CLOUD_PROJECT}/topics/document_events}
 export PUBSUB_SUBSCRIPTION=${PUBSUB_SUBSCRIPTION:-projects/${GOOGLE_CLOUD_PROJECT}/subscriptions/document_events-sub}
 
-# Start API server in background
+# Build debug binaries (no optimizations, no inlining)
+echo "Building debug binaries..."
+go build -gcflags="all=-N -l" -o /tmp/finance-api ./cmd/api
+go build -gcflags="all=-N -l" -o /tmp/finance-worker ./cmd/worker
+
+# Start API server
 echo "Starting API server on port 8080..."
-go run cmd/api/main.go -port 8080 -bucket ${GCS_BUCKET:-personal-tracker-finance-pdfs} &
+/tmp/finance-api -port 8080 -bucket ${GCS_BUCKET:-personal-tracker-finance-pdfs} &
 API_PID=$!
 
 # Start worker service (Pub/Sub subscriber)
 if [[ -z "${PUBSUB_PROJECT:-${GOOGLE_CLOUD_PROJECT}}" || -z "${PUBSUB_SUBSCRIPTION}" ]]; then
         echo "Warning: PUBSUB_PROJECT/GOOGLE_CLOUD_PROJECT and PUBSUB_SUBSCRIPTION not set. Worker will fail to start."
 fi
+# Start worker service
 echo "Starting worker service..."
-go run cmd/worker/main.go \
-    -pubsub-project "${PUBSUB_PROJECT:-${GOOGLE_CLOUD_PROJECT}}" \
-    -pubsub-subscription "${PUBSUB_SUBSCRIPTION}" &
+/tmp/finance-worker \
+  -pubsub-project "${PUBSUB_PROJECT:-${GOOGLE_CLOUD_PROJECT}}" \
+  -pubsub-subscription "${PUBSUB_SUBSCRIPTION}" &
 WORKER_PID=$!
 
 # Start Next.js frontend
