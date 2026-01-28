@@ -62,7 +62,7 @@ func buildCategoriesPromptWithRepo(ctx context.Context, repo CategoryRepository)
 // buildAccountHeaderPrompt constructs a prompt for extracting account metadata
 // from the bank statement header (not individual transactions).
 func buildAccountHeaderPrompt() string {
-	return "You are a financial statement parser for Barclays UK PDF bank statements.\n\n" +
+	return "You are a financial statement parser for bank statements.\n\n" +
 		"Task:\n" +
 		"- Extract ONLY the account metadata from the statement header/top section.\n" +
 		"- DO NOT parse transactions - only account information.\n" +
@@ -101,5 +101,5 @@ func buildTransactionSchema() string {
 		"- \"currency\": string (e.g. \"GBP\")\n" +
 		"- \"balance_after\": number or null\n" +
 		"- \"category\": string (MUST be one of the predefined categories below)\n" +
-		"- \"subcategory\": string (MUST be one of the valid subcategories for that category, or empty string if category has no subcategories)\n\n"
+		"- \"subcategory\": string (MUST be one of the valid subcategories for that category)\n\n"
 }
