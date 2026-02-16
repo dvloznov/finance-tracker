@@ -157,12 +157,13 @@ func insertTransactionsWithRepo(
 			balanceAfter = new(big.Rat).SetFloat64(*t.BalanceAfter)
 		}
 
-		var categoryID bigquerylib.NullString
-		if strings.TrimSpace(t.CategoryID) != "" {
-			categoryID = bigquerylib.NullString{
-				StringVal: t.CategoryID,
-				Valid:     true,
-			}
+		categoryValue := strings.TrimSpace(t.CategoryID)
+		if categoryValue == "" {
+			categoryValue = DefaultCategoryID
+		}
+		categoryID := bigquerylib.NullString{
+			StringVal: categoryValue,
+			Valid:     true,
 		}
 
 		row := &bigquery.TransactionRow{

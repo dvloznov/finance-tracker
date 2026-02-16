@@ -11,4 +11,11 @@ const (
 
 	// DefaultModelName is the default Gemini model used for parsing.
 	DefaultModelName = "gemini-2.5-flash"
+
+	// DefaultCategoryID is used when categorization is deferred.
+	DefaultCategoryID = "cat_uncategorized_other"
+
+	// DefaultCategoryName and DefaultSubcategoryName align with the default category ID.
+	DefaultCategoryName    = "Uncategorized"
+	DefaultSubcategoryName = "Other"
 )

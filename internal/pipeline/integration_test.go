@@ -11,13 +11,13 @@ import (
 	"github.com/dvloznov/finance-tracker/internal/pipeline"
 )
 
-// TestPipelineWithCategoryValidation tests the full pipeline with category validation
-func TestPipelineWithCategoryValidation(t *testing.T) {
-	// Setup mock categories
+// TestPipelineWithoutCategoryInference tests the full pipeline without category inference/validation
+func TestPipelineWithoutCategoryInference(t *testing.T) {
+	// Setup mock categories (still available for API lookups and future categorization)
 	mockCategories := []bigquery.CategoryRow{
 		{CategoryID: "cat1-sub1", CategoryName: "Food & Dining", SubcategoryName: bigquerylib.NullString{StringVal: "Groceries", Valid: true}},
 		{CategoryID: "cat2-sub1", CategoryName: "Transportation", SubcategoryName: bigquerylib.NullString{StringVal: "Fuel", Valid: true}},
-		{CategoryID: "cat_healthcare", CategoryName: "Healthcare", SubcategoryName: bigquerylib.NullString{Valid: false}},
+		{CategoryID: "cat_uncategorized_other", CategoryName: "Uncategorized", SubcategoryName: bigquerylib.NullString{StringVal: "Other", Valid: true}},
 	}
 
 	// Setup mock document repository
@@ -55,8 +55,8 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 		},
 	}
 
-	// Test case 1: Valid categories
-	t.Run("ValidCategories", func(t *testing.T) {
+	// Test case: Transactions parsed without categories
+	t.Run("NoCategoriesProvided", func(t *testing.T) {
 		mockAIParser := &MockAIParser{
 			ParseStatementFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
 				return map[string]interface{}{
@@ -66,8 +66,6 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 							"description":   "Test transaction",
 							"amount":        -10.50,
 							"currency":      "GBP",
-							"category":      "Food & Dining",
-							"subcategory":   "Groceries",
 							"balance_after": 100.0,
 						},
 					},
@@ -106,117 +104,7 @@ func TestPipelineWithCategoryValidation(t *testing.T) {
 		)
 
 		if err != nil {
-			t.Errorf("Expected no error with valid categories, got: %v", err)
-		}
-	})
-
-	// Test case 2: Invalid category
-	t.Run("InvalidCategory", func(t *testing.T) {
-		mockAIParser := &MockAIParser{
-			ParseStatementFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
-				return map[string]interface{}{
-					"transactions": []interface{}{
-						map[string]interface{}{
-							"date":          "2024-01-01",
-							"description":   "Test transaction",
-							"amount":        -10.50,
-							"currency":      "GBP",
-							"category":      "INVALID_CATEGORY",
-							"subcategory":   "Groceries",
-							"balance_after": 100.0,
-						},
-					},
-				}, nil
-			},
-			ExtractAccountHeaderFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
-				return map[string]interface{}{
-					"account_number": "12345678",
-					"currency":       "GBP",
-				}, nil
-			},
-		}
-
-		mockAccountRepo := &MockAccountRepository{
-			UpsertAccountFunc: func(ctx context.Context, row *bigquery.AccountRow) (string, error) {
-				return "test-account-id", nil
-			},
-		}
-
-		mockInstitutionRepo := &MockInstitutionRepository{
-			UpsertInstitutionFunc: func(ctx context.Context, row *bigquery.InstitutionRow) (string, error) {
-				return "test-institution-id", nil
-			},
-		}
-
-		repo := &mockDocumentRepo{MockDocumentRepository: mockRepo}
-		err := pipeline.IngestStatementFromGCSWithDeps(
-			context.Background(),
-			"gs://test-bucket/test.pdf",
-			"", // empty documentID - let pipeline create it
-			repo,
-			mockAccountRepo,
-			mockInstitutionRepo,
-			mockStorage,
-			mockAIParser,
-		)
-
-		if err == nil {
-			t.Error("Expected error with invalid category, got nil")
-		}
-	})
-
-	// Test case 3: Invalid subcategory
-	t.Run("InvalidSubcategory", func(t *testing.T) {
-		mockAIParser := &MockAIParser{
-			ParseStatementFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
-				return map[string]interface{}{
-					"transactions": []interface{}{
-						map[string]interface{}{
-							"date":          "2024-01-01",
-							"description":   "Test transaction",
-							"amount":        -10.50,
-							"currency":      "GBP",
-							"category":      "Food & Dining",
-							"subcategory":   "Fuel", // Wrong subcategory for Food & Dining
-							"balance_after": 100.0,
-						},
-					},
-				}, nil
-			},
-			ExtractAccountHeaderFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
-				return map[string]interface{}{
-					"account_number": "12345678",
-					"currency":       "GBP",
-				}, nil
-			},
-		}
-
-		mockAccountRepo := &MockAccountRepository{
-			UpsertAccountFunc: func(ctx context.Context, row *bigquery.AccountRow) (string, error) {
-				return "test-account-id", nil
-			},
-		}
-
-		mockInstitutionRepo := &MockInstitutionRepository{
-			UpsertInstitutionFunc: func(ctx context.Context, row *bigquery.InstitutionRow) (string, error) {
-				return "test-institution-id", nil
-			},
-		}
-
-		repo := &mockDocumentRepo{MockDocumentRepository: mockRepo}
-		err := pipeline.IngestStatementFromGCSWithDeps(
-			context.Background(),
-			"gs://test-bucket/test.pdf",
-			"", // empty documentID - let pipeline create it
-			repo,
-			mockAccountRepo,
-			mockInstitutionRepo,
-			mockStorage,
-			mockAIParser,
-		)
-
-		if err == nil {
-			t.Error("Expected error with invalid subcategory, got nil")
+			t.Errorf("Expected no error without categories, got: %v", err)
 		}
 	})
 }

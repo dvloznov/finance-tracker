@@ -12,17 +12,12 @@ import (
 // parseStatementWithModel sends the PDF to Gemini and returns the parsed JSON output.
 // It expects the model to return a STRICT JSON array of transactions.
 func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo CategoryRepository) (map[string]interface{}, error) {
-	// 1) Build category prompt from BigQuery taxonomy.
-	catPrompt, err := buildCategoriesPromptWithRepo(ctx, repo)
-	if err != nil {
-		return nil, fmt.Errorf("parseStatementWithModel: loading categories: %w", err)
-	}
-
-	// 2) Base instructions.
+	// 1) Base instructions.
 	basePrompt :=
 		"You are a financial statement parser for Barclays UK PDF bank statements.\n\n" +
 			"Task:\n" +
 			"- Parse ALL transactions in the attached Barclays statement.\n" +
+			"- Extract structured fields only;\n" +
 			"- Output STRICT JSON only (no comments, no trailing commas, no extra text).\n" +
 			"- Output a JSON array of objects.\n\n"
 
@@ -31,9 +26,7 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo Category
 
 	rulesPrompt :=
 		"Rules:\n" +
-			"- Classify each transaction into the most appropriate category/subcategory.\n" +
-			"- IMPORTANT: If a category has subcategories, you MUST select one - never leave it empty.\n" +
-			"- For ride-sharing services (Uber, Lyft, etc.), always use \"Transportation\" / \"Public Transit\".\n" +
+			"- Use the description exactly as written in the statement.\n" +
 			"- If the statement has separate \"paid out\" / \"paid in\" columns, convert to a single signed \"amount\".\n" +
 			"- If the running balance is missing, set \"balance_after\" to null.\n\n" +
 			"CRITICAL OUTPUT REQUIREMENTS:\n" +
@@ -45,7 +38,7 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo Category
 			"- Output must begin with \"[\" and end with \"]\".\n" +
 			"- Example format: [{...}, {...}, {...}]\n"
 
-	fullPrompt := basePrompt + txSchema + "\n" + catPrompt + "\n\n" + rulesPrompt
+	fullPrompt := basePrompt + txSchema + "\n" + rulesPrompt
 
 	// 3) Create GenAI client (same style as your test program).
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{

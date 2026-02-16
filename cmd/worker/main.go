@@ -105,7 +105,7 @@ func main() {
 				log.Error().Err(updateErr).Str("document_id", event.DocumentID).Msg("Failed to update document status to FAILED")
 			}
 
-			msg.Nack()
+			msg.Ack()
 			return
 		}
 

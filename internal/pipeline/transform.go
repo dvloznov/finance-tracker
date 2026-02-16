@@ -40,17 +40,28 @@ func transformModelOutputToTransactions(
 		if err != nil {
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
 		}
+		if strings.TrimSpace(desc) == "" {
+			merchant, err := getStringField(obj, "merchant", false)
+			if err != nil {
+				return nil, fmt.Errorf("transaction %d: %w", i, err)
+			}
+			desc = merchant
+		}
 		currency, err := getStringField(obj, "currency", true)
 		if err != nil {
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
 		}
-		category, err := getStringField(obj, "category", true)
+		categoryPtr, err := getOptionalStringField(obj, "category")
 		if err != nil {
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
 		}
 		subcategoryPtr, err := getOptionalStringField(obj, "subcategory")
 		if err != nil {
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
+		}
+		category := ""
+		if categoryPtr != nil {
+			category = *categoryPtr
 		}
 		subcategory := ""
 		if subcategoryPtr != nil {
@@ -74,6 +85,13 @@ func transformModelOutputToTransactions(
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
 		}
 
+		if strings.TrimSpace(category) == "" {
+			category = DefaultCategoryName
+		}
+		if strings.TrimSpace(subcategory) == "" {
+			subcategory = DefaultSubcategoryName
+		}
+
 		t := &Transaction{
 			Date:         date,
 			Description:  desc,
@@ -82,6 +100,7 @@ func transformModelOutputToTransactions(
 			BalanceAfter: balanceAfter,
 			Category:     category,
 			Subcategory:  subcategory,
+			CategoryID:   DefaultCategoryID,
 		}
 
 		result = append(result, t)

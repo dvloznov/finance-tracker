@@ -32,12 +32,11 @@ type PipelineState struct {
 	InstitutionID        string                 // Resolved/created institution ID
 
 	// Injected dependencies
-	DocumentRepo      bigquery.DocumentRepository
-	AccountRepo       bigquery.AccountRepository
-	InstitutionRepo   bigquery.InstitutionRepository
-	StorageService    StorageService
-	AIParser          AIParser
-	CategoryValidator *CategoryValidator
+	DocumentRepo    bigquery.DocumentRepository
+	AccountRepo     bigquery.AccountRepository
+	InstitutionRepo bigquery.InstitutionRepository
+	StorageService  StorageService
+	AIParser        AIParser
 }
 
 // Step 1: CreateDocumentStep creates a document record for the file.
@@ -243,57 +242,6 @@ func (s *TransformTransactionsStep) Execute(ctx context.Context, state *Pipeline
 	return nil
 }
 
-// Step 6a: CreateCategoryValidatorStep creates a category validator from the taxonomy.
-type CreateCategoryValidatorStep struct{}
-
-func (s *CreateCategoryValidatorStep) Name() string {
-	return "CreateCategoryValidator"
-}
-
-func (s *CreateCategoryValidatorStep) Execute(ctx context.Context, state *PipelineState) error {
-	validator, err := NewCategoryValidator(ctx, state.DocumentRepo)
-	if err != nil {
-		return fmt.Errorf("CreateCategoryValidator: %w", err)
-	}
-	state.CategoryValidator = validator
-	return nil
-}
-
-// Step 6b: ValidateCategoriesStep validates all transaction categories against the taxonomy.
-type ValidateCategoriesStep struct{}
-
-func (s *ValidateCategoriesStep) Name() string {
-	return "ValidateCategories"
-}
-
-func (s *ValidateCategoriesStep) Execute(ctx context.Context, state *PipelineState) error {
-	if state.CategoryValidator == nil {
-		return fmt.Errorf("ValidateCategories: category validator not initialized")
-	}
-
-	var validationErrors []string
-	for i, tx := range state.Transactions {
-		categoryID, err := state.CategoryValidator.ValidateCategory(tx.Category, tx.Subcategory)
-		if err != nil {
-			validationErrors = append(validationErrors,
-				fmt.Sprintf("transaction %d (date: %s, desc: %s): %v",
-					i, tx.Date.Format("2006-01-02"), tx.Description, err))
-		} else {
-			// Store the validated category_id back in the transaction
-			tx.CategoryID = categoryID
-		}
-	}
-
-	if len(validationErrors) > 0 {
-		err := fmt.Errorf("category validation failed:\n  - %s",
-			fmt.Sprintf("%v", validationErrors))
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
-		return err
-	}
-
-	return nil
-}
-
 // Step 7: InsertTransactionsStep inserts transactions into the transactions table.
 type InsertTransactionsStep struct{}
 
@@ -361,8 +309,6 @@ func NewStatementIngestionPipeline() *Pipeline {
 		&ParseStatementStep{},
 		&StoreModelOutputStep{},
 		&TransformTransactionsStep{},
-		&CreateCategoryValidatorStep{},
-		&ValidateCategoriesStep{},
 		&InsertTransactionsStep{},
 		&MarkSuccessStep{},
 	)
