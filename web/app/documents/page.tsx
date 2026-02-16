@@ -57,7 +57,7 @@ export default function DocumentsPage() {
       setUploading(true);
       setUploadStatus('Creating upload URL...');
       
-      const { upload_url, document_id, gcs_uri } = await apiClient.createUploadUrl(file.name);
+      const { upload_url, document_id } = await apiClient.createUploadUrl(file.name);
       
       setUploadStatus('Uploading file to cloud storage...');
       
@@ -67,10 +67,7 @@ export default function DocumentsPage() {
         ? upload_url 
         : `${apiBaseUrl}${upload_url}`;
       
-      // Append filename as query parameter for the API
-      const uploadUrlWithFilename = `${fullUploadUrl}?filename=${encodeURIComponent(file.name)}`;
-      
-      const uploadResponse = await fetch(uploadUrlWithFilename, {
+      const uploadResponse = await fetch(fullUploadUrl, {
         method: 'POST',
         body: file,
         headers: {
@@ -83,9 +80,6 @@ export default function DocumentsPage() {
         throw new Error(error.error || 'Upload failed');
       }
 
-      setUploadStatus('Triggering document parsing...');
-      await apiClient.enqueueParsing(document_id, gcs_uri);
-      
       return document_id;
     },
     onSuccess: () => {
