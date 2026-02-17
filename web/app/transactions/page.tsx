@@ -13,6 +13,7 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
+  getPaginationRowModel,
   flexRender,
   SortingState,
   ColumnDef,
@@ -21,6 +22,7 @@ import {
 export default function TransactionsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const { scope } = useAccountScope();
 
   const { data: transactions, isLoading: transactionsLoading } = useTransactions({ scope });
@@ -37,12 +39,15 @@ export default function TransactionsPage() {
     state: {
       sorting,
       globalFilter,
+      pagination,
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
   });
 
   return (
@@ -70,8 +75,9 @@ export default function TransactionsPage() {
             {transactionsLoading ? (
               <p className="p-6 text-sm text-slate-600">Loading transactions...</p>
             ) : transactions && transactions.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
                   <thead className="bg-slate-50 border-b border-slate-100">
                     {table.getHeaderGroups().map((headerGroup) => (
                       <tr key={headerGroup.id}>
@@ -101,8 +107,35 @@ export default function TransactionsPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-100 px-6 py-3 text-sm text-slate-600">
+                <div>
+                  Showing {table.getRowModel().rows.length} of {table.getFilteredRowModel().rows.length}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500">
+                    Page {pagination.pageIndex + 1} of {table.getPageCount()}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                    className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-700 disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                    className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-700 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+                </div>
+              </>
             ) : (
               <p className="p-6 text-sm text-slate-600">No transactions found</p>
             )}
