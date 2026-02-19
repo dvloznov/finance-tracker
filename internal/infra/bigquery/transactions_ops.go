@@ -50,9 +50,9 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 	queryStr := `
 		INSERT INTO ` + "`" + txProjectID + "." + txDatasetID + ".transactions" + "`" + ` (
 			transaction_id, user_id, account_id, institution_id, document_id, parsing_run_id,
-			transaction_date,
+			transaction_date, statement_date, transaction_type,
 			amount, currency, balance_after, direction,
-			raw_description,
+			raw_description, merchant_name,
 			category_id, created_ts
 		)
 		VALUES
@@ -66,10 +66,11 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 		}
 		queryStr += fmt.Sprintf(`
 			(@transaction_id_%d, @user_id_%d, @account_id_%d, @institution_id_%d, @document_id_%d, @parsing_run_id_%d,
-			 @transaction_date_%d,
+			 @transaction_date_%d, @statement_date_%d, @transaction_type_%d,
 			 CAST(@amount_%d AS NUMERIC), @currency_%d, CAST(@balance_after_%d AS NUMERIC), @direction_%d,
-			 @raw_description_%d,
-			 @category_id_%d, @created_ts_%d)`, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
+			 @raw_description_%d, @merchant_name_%d,
+			 @category_id_%d, @created_ts_%d)`,
+			i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
 
 		params = append(params,
 			bigquery.QueryParameter{Name: fmt.Sprintf("transaction_id_%d", i), Value: row.TransactionID},
@@ -79,11 +80,14 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 			bigquery.QueryParameter{Name: fmt.Sprintf("document_id_%d", i), Value: row.DocumentID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("parsing_run_id_%d", i), Value: row.ParsingRunID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("transaction_date_%d", i), Value: row.TransactionDate},
+			bigquery.QueryParameter{Name: fmt.Sprintf("statement_date_%d", i), Value: row.StatementDate},
+			bigquery.QueryParameter{Name: fmt.Sprintf("transaction_type_%d", i), Value: row.TransactionType},
 			bigquery.QueryParameter{Name: fmt.Sprintf("amount_%d", i), Value: paramNumericString(row.Amount)},
 			bigquery.QueryParameter{Name: fmt.Sprintf("currency_%d", i), Value: row.Currency},
 			bigquery.QueryParameter{Name: fmt.Sprintf("balance_after_%d", i), Value: paramNumericString(row.BalanceAfter)},
 			bigquery.QueryParameter{Name: fmt.Sprintf("direction_%d", i), Value: row.Direction},
 			bigquery.QueryParameter{Name: fmt.Sprintf("raw_description_%d", i), Value: row.RawDescription},
+			bigquery.QueryParameter{Name: fmt.Sprintf("merchant_name_%d", i), Value: row.MerchantName},
 			bigquery.QueryParameter{Name: fmt.Sprintf("category_id_%d", i), Value: row.CategoryID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("created_ts_%d", i), Value: row.CreatedTS},
 		)
@@ -132,11 +136,14 @@ func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquer
 			t.document_id,
 			t.parsing_run_id,
 			t.transaction_date,
+			t.statement_date,
+			t.transaction_type,
 			t.amount,
 			t.currency,
 			t.balance_after,
 			t.direction,
 			t.raw_description,
+			t.merchant_name,
 			t.category_id,
 			t.created_ts
 		FROM finance.transactions t

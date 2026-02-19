@@ -151,6 +151,7 @@ func insertTransactionsWithRepo(
 		}
 
 		txDate := civil.DateOf(t.Date)
+		statementDate := civil.DateOf(t.StatementDate)
 
 		var balanceAfter *big.Rat
 		if t.BalanceAfter != nil {
@@ -166,6 +167,14 @@ func insertTransactionsWithRepo(
 			Valid:     true,
 		}
 
+		var transactionType bigquerylib.NullString
+		if strings.TrimSpace(t.TransactionType) != "" {
+			transactionType = bigquerylib.NullString{
+				StringVal: t.TransactionType,
+				Valid:     true,
+			}
+		}
+
 		row := &bigquery.TransactionRow{
 			TransactionID: uuid.NewString(),
 			UserID:        DefaultUserID,
@@ -175,6 +184,8 @@ func insertTransactionsWithRepo(
 			ParsingRunID:  parsingRunID,
 
 			TransactionDate: txDate,
+			StatementDate:   statementDate,
+			TransactionType: transactionType,
 
 			Amount:   new(big.Rat).SetFloat64(t.Amount),
 			Currency: t.Currency,
@@ -184,6 +195,7 @@ func insertTransactionsWithRepo(
 			Direction: dir,
 
 			RawDescription: t.Description,
+			MerchantName:   t.MerchantName,
 
 			CategoryID: categoryID,
 

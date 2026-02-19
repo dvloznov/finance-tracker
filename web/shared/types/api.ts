@@ -24,6 +24,9 @@ export interface Transaction {
   account_id?: string;
   institution_id?: string;
   transaction_date: string;
+  statement_date: string;
+  transaction_type?: string;
+  merchant_name: string;
   amount: string;
   currency: string;
   raw_description: string;

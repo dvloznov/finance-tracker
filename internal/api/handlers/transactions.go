@@ -22,9 +22,12 @@ type transactionResponse struct {
 	AccountID       string  `json:"account_id,omitempty"`
 	InstitutionID   string  `json:"institution_id,omitempty"`
 	TransactionDate string  `json:"transaction_date"`
+	StatementDate   string  `json:"statement_date"`
 	Amount          string  `json:"amount"`
 	Currency        string  `json:"currency"`
 	RawDescription  string  `json:"raw_description"`
+	MerchantName    string  `json:"merchant_name"`
+	TransactionType string  `json:"transaction_type,omitempty"`
 	CategoryID      string  `json:"category_id,omitempty"`
 	CategoryName    string  `json:"category_name,omitempty"`
 	SubcategoryName string  `json:"subcategory_name,omitempty"`
@@ -59,8 +62,6 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 			middleware.WriteError(w, http.StatusBadRequest, "Invalid start_date format")
 			return
 		}
-	} else {
-		startDate = time.Now().AddDate(-1, 0, 0) // 1 year ago
 	}
 
 	if endDateStr != "" {
@@ -69,8 +70,13 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 			middleware.WriteError(w, http.StatusBadRequest, "Invalid end_date format")
 			return
 		}
-	} else {
-		endDate = time.Now()
+	}
+
+	if startDateStr == "" {
+		startDate = time.Time{}
+	}
+	if endDateStr == "" {
+		endDate = time.Now().AddDate(100, 0, 0)
 	}
 
 	transactions, err := h.repo.QueryTransactionsByDateRange(ctx, startDate, endDate)
@@ -133,15 +139,23 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 			}
 		}
 
+		transactionType := ""
+		if txn.TransactionType.Valid {
+			transactionType = txn.TransactionType.StringVal
+		}
+
 		responses = append(responses, transactionResponse{
 			TransactionID:   txn.TransactionID,
 			DocumentID:      txn.DocumentID,
 			AccountID:       txn.AccountID,
 			InstitutionID:   txn.InstitutionID,
 			TransactionDate: txn.TransactionDate.String(),
+			StatementDate:   txn.StatementDate.String(),
 			Amount:          amount,
 			Currency:        txn.Currency,
 			RawDescription:  txn.RawDescription,
+			MerchantName:    txn.MerchantName,
+			TransactionType: transactionType,
 			CategoryID:      categoryID,
 			CategoryName:    categoryName,
 			SubcategoryName: subcategoryName,

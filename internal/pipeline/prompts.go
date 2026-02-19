@@ -38,8 +38,11 @@ func buildAccountHeaderPrompt() string {
 // extracted separately via buildAccountHeaderPrompt.
 func buildTransactionSchema() string {
 	return "Each transaction object must have these fields:\n" +
-		"- \"date\": string, ISO format \"YYYY-MM-DD\"\n" +
-		"- \"description\": string (merchant/description exactly as written in the statement)\n" +
+		"- \"date\": string, ISO format \"YYYY-MM-DD\" (date from description if present; otherwise the statement date)\n" +
+		"- \"description\": string (full description exactly as written in the statement)\n" +
+		"- \"merchant_name\": string (merchant name exactly as written in the statement; if unsure, use description)\n" +
+		"- \"statement_date\": string, ISO format \"YYYY-MM-DD\" (date when the transaction appears on the statement)\n" +
+		"- \"transaction_type\": string or null (e.g., \"CARD PAYMENT\", \"CARD PURCHASE\", \"DIRECT DEBIT\")\n" +
 		"- \"amount\": number (positive for money IN, negative for money OUT)\n" +
 		"- \"currency\": string (e.g. \"GBP\")\n" +
 		"- \"balance_after\": number or null\n\n"

@@ -7,11 +7,14 @@ CREATE TABLE IF NOT EXISTS `finance.transactions` (
   document_id            STRING,
   parsing_run_id         STRING,
   transaction_date       DATE NOT NULL,
+  statement_date         DATE NOT NULL,
+  transaction_type       STRING,
   amount                 NUMERIC NOT NULL,
   currency               STRING NOT NULL,
   balance_after          NUMERIC,
   direction              STRING,
   raw_description        STRING NOT NULL,
+  merchant_name          STRING NOT NULL,
   category_id            STRING,
   created_ts             TIMESTAMP NOT NULL
 );

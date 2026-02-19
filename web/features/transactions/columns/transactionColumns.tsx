@@ -20,11 +20,38 @@ export function getTransactionColumns(categories: Category[] | undefined): Colum
       },
     },
     {
+      accessorKey: 'statement_date',
+      header: 'Statement Date',
+      cell: ({ getValue }) => {
+        const dateStr = getValue<string>();
+        if (!dateStr) return <span className="text-slate-500">—</span>;
+        const formatted = formatShortDate(dateStr);
+        if (formatted === dateStr) return <span className="text-slate-700">{dateStr}</span>;
+        return <span className="text-slate-900 font-medium">{formatted}</span>;
+      },
+    },
+    {
+      accessorKey: 'merchant_name',
+      header: 'Merchant',
+      cell: ({ getValue }) => (
+        <span className="text-slate-900">{getValue<string>()}</span>
+      ),
+    },
+    {
       accessorKey: 'raw_description',
       header: 'Description',
       cell: ({ getValue }) => (
         <span className="text-slate-900">{getValue<string>()}</span>
       ),
+    },
+    {
+      accessorKey: 'transaction_type',
+      header: 'Type',
+      cell: ({ getValue }) => {
+        const value = getValue<string | undefined>();
+        if (!value) return <span className="text-slate-400">—</span>;
+        return <span className="text-slate-900">{value}</span>;
+      },
     },
     {
       accessorKey: 'amount',

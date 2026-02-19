@@ -8,11 +8,14 @@ import "time"
 // Note: AccountName and AccountNumber fields have been removed as accounts are
 // now extracted separately from the statement header.
 type Transaction struct {
-	Date         time.Time // parsed from "date" (YYYY-MM-DD)
-	Description  string    // from "description"
-	Amount       float64   // from "amount" (IN = positive, OUT = negative)
-	Currency     string    // from "currency"
-	BalanceAfter *float64  // from "balance_after" or nil
+	Date            time.Time // parsed from "date" (YYYY-MM-DD)
+	StatementDate   time.Time // statement date (defaults to Date for now)
+	Description     string    // from "description"
+	MerchantName    string    // from "merchant_name" (or Description)
+	TransactionType string    // from "transaction_type" (optional)
+	Amount          float64   // from "amount" (IN = positive, OUT = negative)
+	Currency        string    // from "currency"
+	BalanceAfter    *float64  // from "balance_after" or nil
 
 	Category    string // from "category" (kept for backward compatibility)
 	Subcategory string // from "subcategory" (kept for backward compatibility)

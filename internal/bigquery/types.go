@@ -114,6 +114,7 @@ type TransactionRow struct {
 	ParsingRunID string `bigquery:"parsing_run_id" json:"parsing_run_id"`
 
 	TransactionDate civil.Date `bigquery:"transaction_date" json:"transaction_date"`
+	StatementDate   civil.Date `bigquery:"statement_date" json:"statement_date"`
 
 	Amount   *big.Rat `bigquery:"amount" json:"amount"`
 	Currency string   `bigquery:"currency" json:"currency"`
@@ -122,8 +123,10 @@ type TransactionRow struct {
 
 	Direction bigquery.NullString `bigquery:"direction" json:"direction,omitempty"`
 
-	RawDescription string              `bigquery:"raw_description" json:"raw_description"`
-	CategoryID     bigquery.NullString `bigquery:"category_id" json:"category_id,omitempty"`
+	RawDescription  string              `bigquery:"raw_description" json:"raw_description"`
+	MerchantName    string              `bigquery:"merchant_name" json:"merchant_name"`
+	TransactionType bigquery.NullString `bigquery:"transaction_type" json:"transaction_type,omitempty"`
+	CategoryID      bigquery.NullString `bigquery:"category_id" json:"category_id,omitempty"`
 
 	CreatedTS time.Time `bigquery:"created_ts" json:"created_ts"`
 }
@@ -157,6 +160,12 @@ func (t TransactionRow) MarshalJSON() ([]byte, error) {
 		categoryID = &c
 	}
 
+	var transactionType *string
+	if t.TransactionType.Valid {
+		typeVal := t.TransactionType.StringVal
+		transactionType = &typeVal
+	}
+
 	return json.Marshal(&struct {
 		TransactionID   string    `json:"transaction_id"`
 		UserID          string    `json:"user_id"`
@@ -165,11 +174,14 @@ func (t TransactionRow) MarshalJSON() ([]byte, error) {
 		DocumentID      string    `json:"document_id"`
 		ParsingRunID    string    `json:"parsing_run_id"`
 		TransactionDate string    `json:"transaction_date"`
+		StatementDate   string    `json:"statement_date"`
 		Amount          string    `json:"amount"`
 		Currency        string    `json:"currency"`
 		BalanceAfter    *string   `json:"balance_after,omitempty"`
 		Direction       *string   `json:"direction,omitempty"`
 		RawDescription  string    `json:"raw_description"`
+		MerchantName    string    `json:"merchant_name"`
+		TransactionType *string   `json:"transaction_type,omitempty"`
 		CategoryID      *string   `json:"category_id,omitempty"`
 		CreatedTS       time.Time `json:"created_ts"`
 	}{
@@ -180,11 +192,14 @@ func (t TransactionRow) MarshalJSON() ([]byte, error) {
 		DocumentID:      t.DocumentID,
 		ParsingRunID:    t.ParsingRunID,
 		TransactionDate: t.TransactionDate.String(),
+		StatementDate:   t.StatementDate.String(),
 		Amount:          amount,
 		Currency:        t.Currency,
 		BalanceAfter:    balanceAfter,
 		Direction:       direction,
 		RawDescription:  t.RawDescription,
+		MerchantName:    t.MerchantName,
+		TransactionType: transactionType,
 		CategoryID:      categoryID,
 		CreatedTS:       t.CreatedTS,
 	})

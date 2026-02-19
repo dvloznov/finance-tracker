@@ -40,12 +40,30 @@ func transformModelOutputToTransactions(
 		if err != nil {
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
 		}
-		if strings.TrimSpace(desc) == "" {
-			merchant, err := getStringField(obj, "merchant", false)
-			if err != nil {
-				return nil, fmt.Errorf("transaction %d: %w", i, err)
-			}
-			desc = merchant
+		merchantNamePtr, err := getOptionalStringField(obj, "merchant_name")
+		if err != nil {
+			return nil, fmt.Errorf("transaction %d: %w", i, err)
+		}
+		merchantName := ""
+		if merchantNamePtr != nil {
+			merchantName = *merchantNamePtr
+		}
+		if strings.TrimSpace(merchantName) == "" {
+			merchantName = desc
+		}
+
+		statementDateStrPtr, err := getOptionalStringField(obj, "statement_date")
+		if err != nil {
+			return nil, fmt.Errorf("transaction %d: %w", i, err)
+		}
+
+		transactionTypePtr, err := getOptionalStringField(obj, "transaction_type")
+		if err != nil {
+			return nil, fmt.Errorf("transaction %d: %w", i, err)
+		}
+		transactionType := ""
+		if transactionTypePtr != nil {
+			transactionType = *transactionTypePtr
 		}
 		currency, err := getStringField(obj, "currency", true)
 		if err != nil {
@@ -79,6 +97,15 @@ func transformModelOutputToTransactions(
 			return nil, fmt.Errorf("transaction %d: invalid date %q: %w", i, dateStr, err)
 		}
 
+		statementDate := date
+		if statementDateStrPtr != nil && strings.TrimSpace(*statementDateStrPtr) != "" {
+			parsedStatementDate, err := time.Parse("2006-01-02", *statementDateStrPtr)
+			if err != nil {
+				return nil, fmt.Errorf("transaction %d: invalid statement_date %q: %w", i, *statementDateStrPtr, err)
+			}
+			statementDate = parsedStatementDate
+		}
+
 		// Optional fields
 		balanceAfter, err := getOptionalFloat64Field(obj, "balance_after")
 		if err != nil {
@@ -93,14 +120,17 @@ func transformModelOutputToTransactions(
 		}
 
 		t := &Transaction{
-			Date:         date,
-			Description:  desc,
-			Amount:       amount,
-			Currency:     currency,
-			BalanceAfter: balanceAfter,
-			Category:     category,
-			Subcategory:  subcategory,
-			CategoryID:   DefaultCategoryID,
+			Date:            date,
+			StatementDate:   statementDate,
+			Description:     desc,
+			MerchantName:    merchantName,
+			TransactionType: transactionType,
+			Amount:          amount,
+			Currency:        currency,
+			BalanceAfter:    balanceAfter,
+			Category:        category,
+			Subcategory:     subcategory,
+			CategoryID:      DefaultCategoryID,
 		}
 
 		result = append(result, t)
