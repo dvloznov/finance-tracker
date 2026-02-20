@@ -39,6 +39,12 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string, documentID ...st
 	}
 	defer institutionRepo.Close()
 
+	merchantRepo, err := infraBQ.NewBigQueryMerchantRepository(ctx)
+	if err != nil {
+		return fmt.Errorf("IngestStatementFromGCS: creating BigQuery merchant repository: %w", err)
+	}
+	defer merchantRepo.Close()
+
 	storage := &gcsuploader.GCSStorageService{}
 	aiParser := NewGeminiAIParser(repo)
 
@@ -48,7 +54,7 @@ func IngestStatementFromGCS(ctx context.Context, gcsURI string, documentID ...st
 		docID = documentID[0]
 	}
 
-	return IngestStatementFromGCSWithDeps(ctx, gcsURI, docID, repo, accountRepo, institutionRepo, storage, aiParser)
+	return IngestStatementFromGCSWithDeps(ctx, gcsURI, docID, repo, accountRepo, institutionRepo, merchantRepo, storage, aiParser)
 }
 
 // IngestStatementFromGCSWithDeps processes a single bank statement PDF stored in GCS
@@ -61,6 +67,7 @@ func IngestStatementFromGCSWithDeps(
 	repo bigquery.DocumentRepository,
 	accountRepo bigquery.AccountRepository,
 	institutionRepo bigquery.InstitutionRepository,
+	merchantRepo bigquery.MerchantRepository,
 	storage StorageService,
 	aiParser AIParser,
 ) error {
@@ -71,6 +78,7 @@ func IngestStatementFromGCSWithDeps(
 		DocumentRepo:    repo,
 		AccountRepo:     accountRepo,
 		InstitutionRepo: institutionRepo,
+		MerchantRepo:    merchantRepo,
 		StorageService:  storage,
 		AIParser:        aiParser,
 	}
@@ -158,21 +166,17 @@ func insertTransactionsWithRepo(
 			balanceAfter = new(big.Rat).SetFloat64(*t.BalanceAfter)
 		}
 
-		categoryValue := strings.TrimSpace(t.CategoryID)
-		if categoryValue == "" {
-			categoryValue = DefaultCategoryID
-		}
-		categoryID := bigquerylib.NullString{
-			StringVal: categoryValue,
-			Valid:     true,
-		}
-
 		var transactionType bigquerylib.NullString
 		if strings.TrimSpace(t.TransactionType) != "" {
 			transactionType = bigquerylib.NullString{
 				StringVal: t.TransactionType,
 				Valid:     true,
 			}
+		}
+
+		merchantID := strings.TrimSpace(t.MerchantID)
+		if merchantID == "" {
+			return fmt.Errorf("insertTransactions: missing merchant_id for transaction %s", t.Description)
 		}
 
 		row := &bigquery.TransactionRow{
@@ -195,9 +199,7 @@ func insertTransactionsWithRepo(
 			Direction: dir,
 
 			RawDescription: t.Description,
-			MerchantName:   t.MerchantName,
-
-			CategoryID: categoryID,
+			MerchantID:     merchantID,
 
 			CreatedTS: time.Now(),
 		}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/dvloznov/finance-tracker/internal/bigquery"
 	"google.golang.org/genai"
 )
 
@@ -184,4 +185,91 @@ func extractAccountHeaderWithModel(ctx context.Context, pdfBytes []byte) (map[st
 	}
 
 	return accountObj, nil
+}
+
+// categorizeMerchantWithModel sends a merchant name to Gemini and returns the selected category_id.
+// Returns an empty string if no category is selected.
+func categorizeMerchantsWithModel(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, error) {
+	if len(merchantNames) == 0 {
+		return map[string]string{}, nil
+	}
+	if len(categories) == 0 {
+		return nil, fmt.Errorf("categorizeMerchantsWithModel: categories list is empty")
+	}
+
+	categoryLines := make([]string, 0, len(categories))
+	for _, c := range categories {
+		label := fmt.Sprintf("%s | %s", c.CategoryID, c.CategoryName)
+		if c.SubcategoryName.Valid {
+			label += " > " + c.SubcategoryName.StringVal
+		}
+		categoryLines = append(categoryLines, label)
+	}
+
+	prompt := buildMerchantCategorizationPrompt(merchantNames, categoryLines)
+
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		HTTPOptions: genai.HTTPOptions{APIVersion: "v1"},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("categorizeMerchantsWithModel: create genai client: %w", err)
+	}
+
+	contents := []*genai.Content{
+		{
+			Role: "user",
+			Parts: []*genai.Part{{Text: prompt}},
+		},
+	}
+
+	resp, err := client.Models.GenerateContent(ctx, DefaultModelName, contents, nil)
+	if err != nil {
+		return nil, fmt.Errorf("categorizeMerchantsWithModel: generate content: %w", err)
+	}
+
+	rawText := resp.Text()
+	if rawText == "" {
+		return nil, fmt.Errorf("categorizeMerchantsWithModel: empty response from model")
+	}
+
+	clean := cleanModelJSON(rawText)
+
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(clean), &parsed); err != nil {
+		return nil, fmt.Errorf("categorizeMerchantsWithModel: unmarshal JSON: %w\nraw response: %s", err, rawText)
+	}
+
+	var items []interface{}
+	if obj, ok := parsed.(map[string]interface{}); ok {
+		if arr, ok := obj["merchants"].([]interface{}); ok {
+			items = arr
+		} else {
+			return nil, fmt.Errorf("categorizeMerchantsWithModel: expected merchants array")
+		}
+	} else if arr, ok := parsed.([]interface{}); ok {
+		items = arr
+	} else {
+		return nil, fmt.Errorf("categorizeMerchantsWithModel: expected JSON object or array, got %T", parsed)
+	}
+
+	results := make(map[string]string, len(items))
+	for i, item := range items {
+		entry, ok := item.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("categorizeMerchantsWithModel: merchants[%d] is %T, want object", i, item)
+		}
+		nameVal, ok := entry["merchant_name"].(string)
+		if !ok {
+			return nil, fmt.Errorf("categorizeMerchantsWithModel: merchants[%d] missing merchant_name", i)
+		}
+		categoryVal := ""
+		if entry["category_id"] != nil {
+			if s, ok := entry["category_id"].(string); ok {
+				categoryVal = strings.TrimSpace(s)
+			}
+		}
+		results[strings.TrimSpace(nameVal)] = categoryVal
+	}
+
+	return results, nil
 }

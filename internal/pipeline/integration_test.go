@@ -77,6 +77,13 @@ func TestPipelineWithoutCategoryInference(t *testing.T) {
 					"currency":       "GBP",
 				}, nil
 			},
+			CategorizeMerchantsFunc: func(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, error) {
+				result := make(map[string]string, len(merchantNames))
+				for _, name := range merchantNames {
+					result[name] = pipeline.DefaultCategoryID
+				}
+				return result, nil
+			},
 		}
 
 		mockAccountRepo := &MockAccountRepository{
@@ -91,6 +98,8 @@ func TestPipelineWithoutCategoryInference(t *testing.T) {
 			},
 		}
 
+		mockMerchantRepo := &MockMerchantRepository{}
+
 		repo := &mockDocumentRepo{MockDocumentRepository: mockRepo}
 		err := pipeline.IngestStatementFromGCSWithDeps(
 			context.Background(),
@@ -99,6 +108,7 @@ func TestPipelineWithoutCategoryInference(t *testing.T) {
 			repo,
 			mockAccountRepo,
 			mockInstitutionRepo,
+			mockMerchantRepo,
 			mockStorage,
 			mockAIParser,
 		)
@@ -195,4 +205,27 @@ func (m *mockDocumentRepo) UpdateDocumentAccountAndInstitution(ctx context.Conte
 
 func (m *mockDocumentRepo) Close() error {
 	return nil
+}
+
+// MockMerchantRepository is a mock implementation of MerchantRepository for testing.
+type MockMerchantRepository struct {
+	FindMerchantByNormalizedNameFunc func(ctx context.Context, normalizedName string) (*bigquery.MerchantRow, error)
+	InsertMerchantFunc               func(ctx context.Context, row *bigquery.MerchantRow) (string, error)
+}
+
+func (m *MockMerchantRepository) FindMerchantByNormalizedName(ctx context.Context, normalizedName string) (*bigquery.MerchantRow, error) {
+	if m.FindMerchantByNormalizedNameFunc != nil {
+		return m.FindMerchantByNormalizedNameFunc(ctx, normalizedName)
+	}
+	return nil, nil
+}
+
+func (m *MockMerchantRepository) InsertMerchant(ctx context.Context, row *bigquery.MerchantRow) (string, error) {
+	if m.InsertMerchantFunc != nil {
+		return m.InsertMerchantFunc(ctx, row)
+	}
+	if row.MerchantID != "" {
+		return row.MerchantID, nil
+	}
+	return "test-merchant-id", nil
 }

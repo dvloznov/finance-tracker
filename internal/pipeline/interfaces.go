@@ -21,6 +21,9 @@ type AIParser interface {
 
 	// ExtractAccountHeader sends PDF bytes to an AI model to extract account metadata from the header.
 	ExtractAccountHeader(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error)
+
+	// CategorizeMerchants assigns category_ids to merchants using the provided categories list.
+	CategorizeMerchants(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, error)
 }
 
 // GeminiAIParser is the concrete implementation of AIParser that uses Gemini AI.
@@ -43,4 +46,9 @@ func (p *GeminiAIParser) ParseStatement(ctx context.Context, pdfBytes []byte) (m
 // ExtractAccountHeader calls the AI model to extract account metadata from the statement header.
 func (p *GeminiAIParser) ExtractAccountHeader(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
 	return extractAccountHeaderWithModel(ctx, pdfBytes)
+}
+
+// CategorizeMerchants calls the AI model to classify merchants into category_ids.
+func (p *GeminiAIParser) CategorizeMerchants(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, error) {
+	return categorizeMerchantsWithModel(ctx, merchantNames, categories)
 }

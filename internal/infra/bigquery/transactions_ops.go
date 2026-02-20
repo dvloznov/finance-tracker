@@ -52,8 +52,8 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 			transaction_id, user_id, account_id, institution_id, document_id, parsing_run_id,
 			transaction_date, statement_date, transaction_type,
 			amount, currency, balance_after, direction,
-			raw_description, merchant_name,
-			category_id, created_ts
+			raw_description, merchant_id,
+			created_ts
 		)
 		VALUES
 	`
@@ -68,9 +68,9 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 			(@transaction_id_%d, @user_id_%d, @account_id_%d, @institution_id_%d, @document_id_%d, @parsing_run_id_%d,
 			 @transaction_date_%d, @statement_date_%d, @transaction_type_%d,
 			 CAST(@amount_%d AS NUMERIC), @currency_%d, CAST(@balance_after_%d AS NUMERIC), @direction_%d,
-			 @raw_description_%d, @merchant_name_%d,
-			 @category_id_%d, @created_ts_%d)`,
-			i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
+			 @raw_description_%d, @merchant_id_%d,
+			 @created_ts_%d)`,
+			i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
 
 		params = append(params,
 			bigquery.QueryParameter{Name: fmt.Sprintf("transaction_id_%d", i), Value: row.TransactionID},
@@ -87,8 +87,7 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 			bigquery.QueryParameter{Name: fmt.Sprintf("balance_after_%d", i), Value: paramNumericString(row.BalanceAfter)},
 			bigquery.QueryParameter{Name: fmt.Sprintf("direction_%d", i), Value: row.Direction},
 			bigquery.QueryParameter{Name: fmt.Sprintf("raw_description_%d", i), Value: row.RawDescription},
-			bigquery.QueryParameter{Name: fmt.Sprintf("merchant_name_%d", i), Value: row.MerchantName},
-			bigquery.QueryParameter{Name: fmt.Sprintf("category_id_%d", i), Value: row.CategoryID},
+			bigquery.QueryParameter{Name: fmt.Sprintf("merchant_id_%d", i), Value: row.MerchantID},
 			bigquery.QueryParameter{Name: fmt.Sprintf("created_ts_%d", i), Value: row.CreatedTS},
 		)
 	}
@@ -143,12 +142,15 @@ func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquer
 			t.balance_after,
 			t.direction,
 			t.raw_description,
-			t.merchant_name,
-			t.category_id,
+			t.merchant_id,
+			m.merchant_name,
+			m.category_id,
 			t.created_ts
 		FROM finance.transactions t
 		INNER JOIN finance.parsing_runs pr
 		  ON t.parsing_run_id = pr.parsing_run_id
+		LEFT JOIN finance.merchants m
+		  ON t.merchant_id = m.merchant_id
 		WHERE t.transaction_date >= @start_date
 		  AND t.transaction_date <= @end_date
 		  AND pr.status = 'SUCCESS'

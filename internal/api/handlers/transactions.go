@@ -26,6 +26,7 @@ type transactionResponse struct {
 	Amount          string  `json:"amount"`
 	Currency        string  `json:"currency"`
 	RawDescription  string  `json:"raw_description"`
+	MerchantID      string  `json:"merchant_id"`
 	MerchantName    string  `json:"merchant_name"`
 	TransactionType string  `json:"transaction_type,omitempty"`
 	CategoryID      string  `json:"category_id,omitempty"`
@@ -154,6 +155,7 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 			Amount:          amount,
 			Currency:        txn.Currency,
 			RawDescription:  txn.RawDescription,
+			MerchantID:      txn.MerchantID,
 			MerchantName:    txn.MerchantName,
 			TransactionType: transactionType,
 			CategoryID:      categoryID,

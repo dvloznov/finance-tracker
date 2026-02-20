@@ -1,5 +1,7 @@
 package pipeline
 
+import "strings"
+
 // buildAccountHeaderPrompt constructs a prompt for extracting account metadata
 // from the bank statement header (not individual transactions).
 func buildAccountHeaderPrompt() string {
@@ -46,4 +48,25 @@ func buildTransactionSchema() string {
 		"- \"amount\": number (positive for money IN, negative for money OUT)\n" +
 		"- \"currency\": string (e.g. \"GBP\")\n" +
 		"- \"balance_after\": number or null\n\n"
+}
+
+// buildMerchantCategorizationPrompt constructs a prompt for categorizing a merchant
+// into one of the predefined categories.
+func buildMerchantCategorizationPrompt(merchantNames []string, categories []string) string {
+	return "You are a merchant categorizer.\n\n" +
+		"Task:\n" +
+		"- Given a list of merchant names, select the single best category_id for each.\n" +
+		"- If none match, set category_id to null.\n\n" +
+		"Merchant names (deduplicated):\n" +
+		"- " + strings.Join(merchantNames, "\n- ") + "\n\n" +
+		"Allowed categories (category_id | category_name > subcategory_name):\n" +
+		"- " + strings.Join(categories, "\n- ") + "\n\n" +
+		"Output STRICT JSON only (no comments, no trailing commas):\n" +
+		"{\"merchants\": [{\"merchant_name\": \"Starbucks\", \"category_id\": \"cat_food_dining_coffee_shops\"}, {\"merchant_name\": \"Unknown\", \"category_id\": null}]}\n\n" +
+		"CRITICAL OUTPUT REQUIREMENTS:\n" +
+		"- Return ONLY valid, parseable JSON that follows RFC 8259 standard.\n" +
+		"- Do NOT wrap the response in code fences.\n" +
+		"- Do NOT use ```json or any Markdown.\n" +
+		"- Do NOT include any comments or explanatory text.\n" +
+		"- Output must be a single JSON object: {...}\n"
 }

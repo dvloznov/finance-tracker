@@ -69,23 +69,6 @@ func transformModelOutputToTransactions(
 		if err != nil {
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
 		}
-		categoryPtr, err := getOptionalStringField(obj, "category")
-		if err != nil {
-			return nil, fmt.Errorf("transaction %d: %w", i, err)
-		}
-		subcategoryPtr, err := getOptionalStringField(obj, "subcategory")
-		if err != nil {
-			return nil, fmt.Errorf("transaction %d: %w", i, err)
-		}
-		category := ""
-		if categoryPtr != nil {
-			category = *categoryPtr
-		}
-		subcategory := ""
-		if subcategoryPtr != nil {
-			subcategory = *subcategoryPtr
-		}
-
 		amount, err := getFloat64Field(obj, "amount", true)
 		if err != nil {
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
@@ -112,13 +95,6 @@ func transformModelOutputToTransactions(
 			return nil, fmt.Errorf("transaction %d: %w", i, err)
 		}
 
-		if strings.TrimSpace(category) == "" {
-			category = DefaultCategoryName
-		}
-		if strings.TrimSpace(subcategory) == "" {
-			subcategory = DefaultSubcategoryName
-		}
-
 		t := &Transaction{
 			Date:            date,
 			StatementDate:   statementDate,
@@ -128,8 +104,6 @@ func transformModelOutputToTransactions(
 			Amount:          amount,
 			Currency:        currency,
 			BalanceAfter:    balanceAfter,
-			Category:        category,
-			Subcategory:     subcategory,
 			CategoryID:      DefaultCategoryID,
 		}
 

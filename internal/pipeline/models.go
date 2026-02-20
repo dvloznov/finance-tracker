@@ -12,12 +12,10 @@ type Transaction struct {
 	StatementDate   time.Time // statement date (defaults to Date for now)
 	Description     string    // from "description"
 	MerchantName    string    // from "merchant_name" (or Description)
+	MerchantID      string    // resolved merchant ID
 	TransactionType string    // from "transaction_type" (optional)
 	Amount          float64   // from "amount" (IN = positive, OUT = negative)
 	Currency        string    // from "currency"
 	BalanceAfter    *float64  // from "balance_after" or nil
-
-	Category    string // from "category" (kept for backward compatibility)
-	Subcategory string // from "subcategory" (kept for backward compatibility)
-	CategoryID  string // populated during validation - links to categories table
+	CategoryID      string    // populated during validation - links to categories table
 }

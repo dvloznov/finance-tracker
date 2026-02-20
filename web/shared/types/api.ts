@@ -26,6 +26,7 @@ export interface Transaction {
   transaction_date: string;
   statement_date: string;
   transaction_type?: string;
+  merchant_id: string;
   merchant_name: string;
   amount: string;
   currency: string;
@@ -34,6 +35,14 @@ export interface Transaction {
   category_name?: string;
   subcategory_name?: string;
   balance_after?: string;
+}
+
+export interface Merchant {
+  merchant_id: string;
+  merchant_name: string;
+  normalized_name: string;
+  category_id: string;
+  created_ts: string;
 }
 
 export interface Account {

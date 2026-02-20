@@ -77,6 +77,15 @@ type CategoryRepository interface {
 	ListActiveCategories(ctx context.Context) ([]CategoryRow, error)
 }
 
+// MerchantRepository provides an interface for merchant-related database operations.
+type MerchantRepository interface {
+	// FindMerchantByNormalizedName finds a merchant by normalized name.
+	FindMerchantByNormalizedName(ctx context.Context, normalizedName string) (*MerchantRow, error)
+
+	// InsertMerchant inserts a new merchant and returns its ID.
+	InsertMerchant(ctx context.Context, row *MerchantRow) (string, error)
+}
+
 // DocumentRow represents a document record in BigQuery.
 type DocumentRow struct {
 	DocumentID string `bigquery:"document_id" json:"document_id"`
@@ -124,11 +133,21 @@ type TransactionRow struct {
 	Direction bigquery.NullString `bigquery:"direction" json:"direction,omitempty"`
 
 	RawDescription  string              `bigquery:"raw_description" json:"raw_description"`
+	MerchantID      string              `bigquery:"merchant_id" json:"merchant_id"`
 	MerchantName    string              `bigquery:"merchant_name" json:"merchant_name"`
 	TransactionType bigquery.NullString `bigquery:"transaction_type" json:"transaction_type,omitempty"`
 	CategoryID      bigquery.NullString `bigquery:"category_id" json:"category_id,omitempty"`
 
 	CreatedTS time.Time `bigquery:"created_ts" json:"created_ts"`
+}
+
+// MerchantRow represents a merchant record in BigQuery.
+type MerchantRow struct {
+	MerchantID     string    `bigquery:"merchant_id" json:"merchant_id"`
+	MerchantName   string    `bigquery:"merchant_name" json:"merchant_name"`
+	NormalizedName string    `bigquery:"normalized_name" json:"normalized_name"`
+	CategoryID     string    `bigquery:"category_id" json:"category_id"`
+	CreatedTS      time.Time `bigquery:"created_ts" json:"created_ts"`
 }
 
 // MarshalJSON customizes JSON serialization for TransactionRow.
@@ -180,6 +199,7 @@ func (t TransactionRow) MarshalJSON() ([]byte, error) {
 		BalanceAfter    *string   `json:"balance_after,omitempty"`
 		Direction       *string   `json:"direction,omitempty"`
 		RawDescription  string    `json:"raw_description"`
+		MerchantID      string    `json:"merchant_id"`
 		MerchantName    string    `json:"merchant_name"`
 		TransactionType *string   `json:"transaction_type,omitempty"`
 		CategoryID      *string   `json:"category_id,omitempty"`
@@ -198,6 +218,7 @@ func (t TransactionRow) MarshalJSON() ([]byte, error) {
 		BalanceAfter:    balanceAfter,
 		Direction:       direction,
 		RawDescription:  t.RawDescription,
+		MerchantID:      t.MerchantID,
 		MerchantName:    t.MerchantName,
 		TransactionType: transactionType,
 		CategoryID:      categoryID,

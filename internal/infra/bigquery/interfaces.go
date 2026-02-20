@@ -23,6 +23,12 @@ type BigQueryInstitutionRepository struct {
 	client *bigquery.Client
 }
 
+// BigQueryMerchantRepository is the concrete implementation of MerchantRepository
+// that interacts with BigQuery.
+type BigQueryMerchantRepository struct {
+	client *bigquery.Client
+}
+
 // NewBigQueryAccountRepository creates a new instance of BigQueryAccountRepository
 // with a shared BigQuery client.
 func NewBigQueryAccountRepository(ctx context.Context) (*BigQueryAccountRepository, error) {
@@ -47,6 +53,18 @@ func NewBigQueryInstitutionRepository(ctx context.Context) (*BigQueryInstitution
 	}, nil
 }
 
+// NewBigQueryMerchantRepository creates a new instance of BigQueryMerchantRepository
+// with a shared BigQuery client.
+func NewBigQueryMerchantRepository(ctx context.Context) (*BigQueryMerchantRepository, error) {
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("NewBigQueryMerchantRepository: creating client: %w", err)
+	}
+	return &BigQueryMerchantRepository{
+		client: client,
+	}, nil
+}
+
 // Close closes the BigQuery client connection.
 func (r *BigQueryAccountRepository) Close() error {
 	if r.client != nil {
@@ -57,6 +75,14 @@ func (r *BigQueryAccountRepository) Close() error {
 
 // Close closes the BigQuery client connection.
 func (r *BigQueryInstitutionRepository) Close() error {
+	if r.client != nil {
+		return r.client.Close()
+	}
+	return nil
+}
+
+// Close closes the BigQuery client connection.
+func (r *BigQueryMerchantRepository) Close() error {
 	if r.client != nil {
 		return r.client.Close()
 	}
@@ -86,6 +112,16 @@ func (r *BigQueryInstitutionRepository) UpsertInstitution(ctx context.Context, r
 // ListAllInstitutions delegates to the existing ListAllInstitutions function with the shared client.
 func (r *BigQueryInstitutionRepository) ListAllInstitutions(ctx context.Context) ([]*bq.InstitutionRow, error) {
 	return ListAllInstitutionsWithClient(ctx, r.client)
+}
+
+// FindMerchantByNormalizedName delegates to the existing FindMerchantByNormalizedName function with the shared client.
+func (r *BigQueryMerchantRepository) FindMerchantByNormalizedName(ctx context.Context, normalizedName string) (*bq.MerchantRow, error) {
+	return FindMerchantByNormalizedNameWithClient(ctx, r.client, normalizedName)
+}
+
+// InsertMerchant delegates to the existing InsertMerchant function with the shared client.
+func (r *BigQueryMerchantRepository) InsertMerchant(ctx context.Context, row *bq.MerchantRow) (string, error) {
+	return InsertMerchantWithClient(ctx, r.client, row)
 }
 
 // BigQueryDocumentRepository is the concrete implementation of DocumentRepository

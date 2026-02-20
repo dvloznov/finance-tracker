@@ -35,6 +35,7 @@ type PipelineState struct {
 	DocumentRepo    bigquery.DocumentRepository
 	AccountRepo     bigquery.AccountRepository
 	InstitutionRepo bigquery.InstitutionRepository
+	MerchantRepo    bigquery.MerchantRepository
 	StorageService  StorageService
 	AIParser        AIParser
 }
@@ -242,6 +243,21 @@ func (s *TransformTransactionsStep) Execute(ctx context.Context, state *Pipeline
 	return nil
 }
 
+// Step 6b: ResolveMerchantsStep resolves merchants and categorizes them.
+type ResolveMerchantsStep struct{}
+
+func (s *ResolveMerchantsStep) Name() string {
+	return "ResolveMerchants"
+}
+
+func (s *ResolveMerchantsStep) Execute(ctx context.Context, state *PipelineState) error {
+	if err := resolveMerchantsForTransactions(ctx, state.Transactions, state.MerchantRepo, state.DocumentRepo, state.AIParser); err != nil {
+		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		return err
+	}
+	return nil
+}
+
 // Step 7: InsertTransactionsStep inserts transactions into the transactions table.
 type InsertTransactionsStep struct{}
 
@@ -309,6 +325,7 @@ func NewStatementIngestionPipeline() *Pipeline {
 		&ParseStatementStep{},
 		&StoreModelOutputStep{},
 		&TransformTransactionsStep{},
+		&ResolveMerchantsStep{},
 		&InsertTransactionsStep{},
 		&MarkSuccessStep{},
 	)
