@@ -28,19 +28,23 @@ type AIParser interface {
 
 // GeminiAIParser is the concrete implementation of AIParser that uses Gemini AI.
 type GeminiAIParser struct {
-	repo CategoryRepository
+	repo     CategoryRepository
+	bankName string // e.g. "Barclays UK" — used to build parser prompts
 }
 
 // NewGeminiAIParser creates a new instance of GeminiAIParser.
+// bankName is used in the statement-parsing prompt; set via BQ_BANK_NAME env var or leave empty
+// to use the DefaultBankName constant.
 func NewGeminiAIParser(repo CategoryRepository) *GeminiAIParser {
 	return &GeminiAIParser{
-		repo: repo,
+		repo:     repo,
+		bankName: DefaultBankName,
 	}
 }
 
 // ParseStatement delegates to the existing parseStatementWithModel function.
 func (p *GeminiAIParser) ParseStatement(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
-	return parseStatementWithModel(ctx, pdfBytes, p.repo)
+	return parseStatementWithModel(ctx, pdfBytes, p.repo, p.bankName)
 }
 
 // ExtractAccountHeader calls the AI model to extract account metadata from the statement header.
