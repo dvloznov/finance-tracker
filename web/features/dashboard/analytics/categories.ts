@@ -6,13 +6,16 @@ export type CategoryDatum = {
   value: number;
 };
 
-export function getCategoryTotals(transactions?: TransactionVM[] | null): CategoryDatum[] {
+export function getCategoryTotals(
+  transactions?: TransactionVM[] | null,
+  transferIds?: Set<string>
+): CategoryDatum[] {
   if (!transactions || !Array.isArray(transactions)) return [];
 
   const categoryMap = new Map<string, number>();
 
   transactions
-    .filter((t) => parseFloat(t.amount) < 0 && t.category_name)
+    .filter((t) => parseFloat(t.amount) < 0 && t.category_name && !transferIds?.has(t.transaction_id))
     .forEach((txn) => {
       const category = txn.category_name!;
       const amount = Math.abs(parseFloat(txn.amount));
@@ -27,14 +30,15 @@ export function getCategoryTotals(transactions?: TransactionVM[] | null): Catego
 
 export function getSubcategoryTotals(
   transactions?: TransactionVM[] | null,
-  selectedCategory?: string | null
+  selectedCategory?: string | null,
+  transferIds?: Set<string>
 ): CategoryDatum[] {
   if (!transactions || !Array.isArray(transactions) || !selectedCategory) return [];
 
   const subcategoryMap = new Map<string, number>();
 
   transactions
-    .filter((t) => parseFloat(t.amount) < 0 && t.category_name === selectedCategory)
+    .filter((t) => parseFloat(t.amount) < 0 && t.category_name === selectedCategory && !transferIds?.has(t.transaction_id))
     .forEach((txn) => {
       const subcategory = txn.subcategory_name || 'Uncategorized';
       const amount = Math.abs(parseFloat(txn.amount));
