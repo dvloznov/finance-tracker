@@ -4,13 +4,15 @@ import { cardClass, currencyClass, statLabelClass, statValueClass } from '@/lib/
 import { useTransactions } from '@/features/transactions/hooks/useTransactions';
 import { AppNav } from '@/shared/ui/AppNav';
 import { useMemo, useState } from 'react';
-import { formatCurrency } from '@/shared/formatters/currency';
+import { formatCurrency, formatCurrencyWithCode } from '@/shared/formatters/currency';
+import { formatShortDate } from '@/shared/formatters/date';
 import { getBalanceSeries } from '@/features/dashboard/analytics/balance';
 import { getCategoryTotals, getSubcategoryTotals } from '@/features/dashboard/analytics/categories';
 import { getMonthlyTotals } from '@/features/dashboard/analytics/monthly';
 import { getStatsSummary, type StatsSummary } from '@/features/dashboard/analytics/stats';
 import { detectTransferIds } from '@/features/dashboard/analytics/transfers';
 import { useAccountScope } from '@/shared/account-scope/context';
+import type { TransactionVM } from '@/features/transactions/types';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
 import { ResponsivePie } from '@nivo/pie';
@@ -238,7 +240,9 @@ type SpendingByCategoryCardProps = {
   categoryData: Array<{ id: string; label: string; value: number }>;
   subcategoryData: Array<{ id: string; label: string; value: number }>;
   selectedCategory: string | null;
+  selectedSubcategory: string | null;
   onSelectCategory: (value: string) => void;
+  onSelectSubcategory: (value: string) => void;
   onClearCategory: () => void;
 };
 
@@ -246,7 +250,9 @@ function SpendingByCategoryCard({
   categoryData,
   subcategoryData,
   selectedCategory,
+  selectedSubcategory,
   onSelectCategory,
+  onSelectSubcategory,
   onClearCategory,
 }: SpendingByCategoryCardProps) {
   const activeData = selectedCategory ? subcategoryData : categoryData;
@@ -255,7 +261,11 @@ function SpendingByCategoryCard({
     <div className={cardClass}>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-sm font-semibold text-slate-900">
-          {selectedCategory ? `Spending in ${selectedCategory}` : 'Spending by Category'}
+          {selectedSubcategory
+            ? `${selectedCategory} › ${selectedSubcategory}`
+            : selectedCategory
+            ? `Spending in ${selectedCategory}`
+            : 'Spending by Category'}
         </h2>
         {selectedCategory && (
           <button
@@ -263,7 +273,7 @@ function SpendingByCategoryCard({
             onClick={onClearCategory}
             className="text-xs font-medium text-slate-600 hover:text-slate-900"
           >
-            Back to categories
+            ← Back to categories
           </button>
         )}
       </div>
@@ -299,6 +309,8 @@ function SpendingByCategoryCard({
             onClick={(datum) => {
               if (!selectedCategory) {
                 onSelectCategory(String(datum.id));
+              } else {
+                onSelectSubcategory(String(datum.id));
               }
             }}
             tooltip={({ datum }) => (
@@ -324,8 +336,160 @@ function SpendingByCategoryCard({
   );
 }
 
+type RecentTransactionsCardProps = {
+  transactions: TransactionVM[];
+  selectedCategory: string | null;
+  selectedSubcategory: string | null;
+  transferIds: Set<string>;
+  onClearFilter: () => void;
+};
+
+const PAGE_SIZE = 10;
+
+function RecentTransactionsCard({
+  transactions,
+  selectedCategory,
+  selectedSubcategory,
+  transferIds,
+  onClearFilter,
+}: RecentTransactionsCardProps) {
+  const [page, setPage] = useState(0);
+
+  const filtered = useMemo(() => {
+    let txns = [...transactions].sort(
+      (a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
+    );
+    if (selectedSubcategory) {
+      txns = txns.filter(
+        (t) => t.category_name === selectedCategory && t.subcategory_name === selectedSubcategory
+      );
+    } else if (selectedCategory) {
+      txns = txns.filter((t) => t.category_name === selectedCategory);
+    }
+    return txns;
+  }, [transactions, selectedCategory, selectedSubcategory]);
+
+  // Reset to first page whenever the filter changes.
+  const prevFilter = useMemo(
+    () => `${selectedCategory}|${selectedSubcategory}`,
+    [selectedCategory, selectedSubcategory]
+  );
+  const [lastFilter, setLastFilter] = useState(prevFilter);
+  if (prevFilter !== lastFilter) {
+    setLastFilter(prevFilter);
+    setPage(0);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageRows = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+  const filterLabel = selectedSubcategory
+    ? `${selectedCategory} › ${selectedSubcategory}`
+    : selectedCategory
+    ? selectedCategory
+    : null;
+
+  return (
+    <div className={cardClass}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm font-semibold text-slate-900">Recent Transactions</h2>
+          {filterLabel && (
+            <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 text-xs font-medium px-2.5 py-1 rounded-full">
+              {filterLabel}
+              <button
+                type="button"
+                onClick={onClearFilter}
+                className="text-slate-400 hover:text-slate-700 leading-none"
+                aria-label="Clear filter"
+              >
+                ×
+              </button>
+            </span>
+          )}
+        </div>
+        <span className="text-xs text-slate-400">
+          {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-slate-500 py-6 text-center">
+          {filterLabel ? `No transactions in "${filterLabel}"` : 'No transactions yet'}
+        </p>
+      ) : (
+        <>
+          <div className="divide-y divide-slate-100">
+            {pageRows.map((txn) => {
+              const amount = parseFloat(txn.amount);
+              const isTransfer = transferIds.has(txn.transaction_id);
+              return (
+                <div key={txn.transaction_id} className="flex items-center justify-between py-3 gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">
+                      {txn.merchant_name || txn.raw_description}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {formatShortDate(txn.transaction_date)}
+                      {txn.category_name && !isTransfer && (
+                        <> · <span className="text-slate-500">{txn.category_name}</span></>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {isTransfer ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+                        ⇄ Transfer
+                      </span>
+                    ) : txn.category_name && !selectedCategory ? (
+                      <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {txn.subcategory_name || txn.category_name}
+                      </span>
+                    ) : null}
+                    <span className={`text-sm font-semibold tabular-nums ${amount < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {formatCurrencyWithCode(amount, txn.currency)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
+              <span className="text-xs text-slate-500">
+                Page {safePage + 1} of {totalPages}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={safePage === 0}
+                  className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-700 disabled:opacity-40 hover:bg-slate-50"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={safePage === totalPages - 1}
+                  className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-700 disabled:opacity-40 hover:bg-slate-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const { scope } = useAccountScope();
   const { data: transactions, isLoading, error } = useTransactions({ scope });
 
@@ -336,6 +500,20 @@ export default function DashboardPage() {
     return detectTransferIds(transactions ?? []);
   }, [transactions, scope.mode]);
 
+  const handleSelectCategory = (cat: string) => {
+    setSelectedCategory(cat);
+    setSelectedSubcategory(null);
+  };
+
+  const handleSelectSubcategory = (sub: string) => {
+    setSelectedSubcategory(sub);
+  };
+
+  const handleClearCategory = () => {
+    setSelectedCategory(null);
+    setSelectedSubcategory(null);
+  };
+
   const stats = useMemo(() => {
     return getStatsSummary(transactions, transferIds);
   }, [transactions, transferIds]);
@@ -345,12 +523,12 @@ export default function DashboardPage() {
   }, [transactions, transferIds]);
 
   const categoryData = useMemo(() => {
-    return getCategoryTotals(transactions);
-  }, [transactions]);
+    return getCategoryTotals(transactions, transferIds);
+  }, [transactions, transferIds]);
 
   const subcategoryData = useMemo(() => {
-    return getSubcategoryTotals(transactions, selectedCategory);
-  }, [transactions, selectedCategory]);
+    return getSubcategoryTotals(transactions, selectedCategory, transferIds);
+  }, [transactions, selectedCategory, transferIds]);
 
   const balanceData = useMemo(() => {
     return getBalanceSeries(transactions);
@@ -385,10 +563,19 @@ export default function DashboardPage() {
                   categoryData={categoryData}
                   subcategoryData={subcategoryData}
                   selectedCategory={selectedCategory}
-                  onSelectCategory={setSelectedCategory}
-                  onClearCategory={() => setSelectedCategory(null)}
+                  selectedSubcategory={selectedSubcategory}
+                  onSelectCategory={handleSelectCategory}
+                  onSelectSubcategory={handleSelectSubcategory}
+                  onClearCategory={handleClearCategory}
                 />
               </div>
+              <RecentTransactionsCard
+                transactions={transactions ?? []}
+                selectedCategory={selectedCategory}
+                selectedSubcategory={selectedSubcategory}
+                transferIds={transferIds}
+                onClearFilter={handleClearCategory}
+              />
             </div>
           ) : (
             <p className="text-sm text-slate-600">No data available</p>
