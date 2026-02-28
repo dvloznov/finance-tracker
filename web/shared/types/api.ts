@@ -23,6 +23,7 @@ export interface Transaction {
   document_id: string;
   account_id?: string;
   institution_id?: string;
+  account_type?: string;
   transaction_date: string;
   statement_date: string;
   transaction_type?: string;

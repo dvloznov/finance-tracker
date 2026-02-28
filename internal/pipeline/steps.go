@@ -148,7 +148,7 @@ func (s *UpsertAccountStep) Execute(ctx context.Context, state *PipelineState) e
 	}
 
 	if accountRow == nil {
-		accountRow = generateDefaultAccount(state.DocumentID)
+		accountRow = generateDefaultAccount(state.DocumentID, institutionName)
 	}
 
 	if state.InstitutionRepo == nil {

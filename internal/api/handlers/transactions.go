@@ -29,6 +29,7 @@ type transactionResponse struct {
 	DocumentID      string  `json:"document_id"`
 	AccountID       string  `json:"account_id,omitempty"`
 	InstitutionID   string  `json:"institution_id,omitempty"`
+	AccountType     string  `json:"account_type,omitempty"`
 	TransactionDate string  `json:"transaction_date"`
 	StatementDate   string  `json:"statement_date"`
 	Amount          string  `json:"amount"`
@@ -129,6 +130,9 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 		categoryLookup[category.CategoryID] = category
 	}
 
+	// Build account type lookup so each transaction response carries account_type.
+	accountTypeLookup := h.buildAccountTypeLookup(ctx)
+
 	responses := make([]transactionResponse, 0, len(transactions))
 	for _, txn := range transactions {
 		amount := "0"
@@ -168,6 +172,7 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 			DocumentID:      txn.DocumentID,
 			AccountID:       txn.AccountID,
 			InstitutionID:   txn.InstitutionID,
+			AccountType:     accountTypeLookup[txn.AccountID],
 			TransactionDate: txn.TransactionDate.String(),
 			StatementDate:   txn.StatementDate.String(),
 			Amount:          amount,
@@ -187,4 +192,19 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 		responses = []transactionResponse{}
 	}
 	middleware.WriteJSON(w, http.StatusOK, responses)
+}
+
+// buildAccountTypeLookup fetches all accounts and returns a map of account_id → account_type.
+// Errors are logged and an empty map is returned so the caller degrades gracefully.
+func (h *TransactionsHandler) buildAccountTypeLookup(ctx context.Context) map[string]string {
+	accounts, err := h.repo.ListAllAccounts(ctx)
+	if err != nil {
+		h.log.Error().Err(err).Msg("Failed to fetch accounts for account_type lookup")
+		return map[string]string{}
+	}
+	lookup := make(map[string]string, len(accounts))
+	for _, a := range accounts {
+		lookup[a.AccountID] = a.AccountType
+	}
+	return lookup
 }

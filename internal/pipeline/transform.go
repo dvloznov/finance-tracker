@@ -251,17 +251,30 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 
 // generateDefaultAccount creates a document-scoped fallback account when
 // extraction fails or returns no account identifiers.
-func generateDefaultAccount(documentID string) *bigquery.AccountRow {
+// institutionName is used as a best-effort hint to detect credit card providers
+// (e.g. American Express) when the LLM did not return an account_type.
+func generateDefaultAccount(documentID string, institutionName *string) *bigquery.AccountRow {
 	suffix := documentID
 	if len(suffix) > 8 {
 		suffix = suffix[:8]
 	}
 
+	accountType := "CURRENT"
+	accountName := fmt.Sprintf("Current Account (%s)", suffix)
+
+	if institutionName != nil {
+		lower := strings.ToLower(*institutionName)
+		if strings.Contains(lower, "american express") || strings.Contains(lower, "amex") {
+			accountType = "CREDIT_CARD"
+			accountName = fmt.Sprintf("Credit Card (%s)", suffix)
+		}
+	}
+
 	return &bigquery.AccountRow{
 		UserID:        DefaultUserID,
 		AccountNumber: fmt.Sprintf("DOC-%s", suffix),
-		AccountName:   fmt.Sprintf("Current Account (%s)", suffix),
-		AccountType:   "CURRENT",
+		AccountName:   accountName,
+		AccountType:   accountType,
 		Currency:      "GBP",
 	}
 }

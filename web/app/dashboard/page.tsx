@@ -9,6 +9,7 @@ import { getBalanceSeries } from '@/features/dashboard/analytics/balance';
 import { getCategoryTotals, getSubcategoryTotals } from '@/features/dashboard/analytics/categories';
 import { getMonthlyTotals } from '@/features/dashboard/analytics/monthly';
 import { getStatsSummary, type StatsSummary } from '@/features/dashboard/analytics/stats';
+import { detectTransferIds } from '@/features/dashboard/analytics/transfers';
 import { useAccountScope } from '@/shared/account-scope/context';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
@@ -38,7 +39,7 @@ function StatCards({ stats }: StatCardsProps) {
         </p>
       </div>
       <div className={`${cardClass} flex flex-col gap-3`}>
-        <p className={statLabelClass}>Net Balance</p>
+        <p className={statLabelClass}>Net Worth</p>
         <p className={`${statValueClass} flex items-baseline gap-1`}>
           <span className={currencyClass}>£</span>
           <span className={stats.netBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
@@ -328,13 +329,20 @@ export default function DashboardPage() {
   const { scope } = useAccountScope();
   const { data: transactions, isLoading, error } = useTransactions({ scope });
 
+  // Detect transfer pairs only when viewing all accounts together.
+  // In single-account or single-institution scope there can be no cross-account transfers.
+  const transferIds = useMemo(() => {
+    if (scope.mode !== 'all') return new Set<string>();
+    return detectTransferIds(transactions ?? []);
+  }, [transactions, scope.mode]);
+
   const stats = useMemo(() => {
-    return getStatsSummary(transactions);
-  }, [transactions]);
+    return getStatsSummary(transactions, transferIds);
+  }, [transactions, transferIds]);
 
   const monthlyData = useMemo(() => {
-    return getMonthlyTotals(transactions);
-  }, [transactions]);
+    return getMonthlyTotals(transactions, transferIds);
+  }, [transactions, transferIds]);
 
   const categoryData = useMemo(() => {
     return getCategoryTotals(transactions);
