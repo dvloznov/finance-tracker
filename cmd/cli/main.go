@@ -55,6 +55,35 @@ func printUsage() {
 	fmt.Println("\nRun 'cli <command> -h' for more information on a command.")
 }
 
+func buildPipelineDeps(ctx context.Context, log zerolog.Logger) (
+	*infraBQ.BigQueryDocumentRepository,
+	*infraBQ.BigQueryAccountRepository,
+	*infraBQ.BigQueryInstitutionRepository,
+	*infraBQ.BigQueryMerchantRepository,
+	pipeline.StorageService,
+	pipeline.AIParser,
+) {
+	docRepo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create document repository")
+	}
+	accountRepo, err := infraBQ.NewBigQueryAccountRepository(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create account repository")
+	}
+	institutionRepo, err := infraBQ.NewBigQueryInstitutionRepository(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create institution repository")
+	}
+	merchantRepo, err := infraBQ.NewBigQueryMerchantRepository(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create merchant repository")
+	}
+	storageService := &gcsuploader.GCSStorageService{}
+	aiParser := pipeline.NewGeminiAIParser(docRepo)
+	return docRepo, accountRepo, institutionRepo, merchantRepo, storageService, aiParser
+}
+
 func runIngest(log zerolog.Logger) {
 	fs := flag.NewFlagSet("ingest", flag.ExitOnError)
 	gcsURI := fs.String("gcs-uri", "", "GCS URI of the statement PDF")
@@ -68,9 +97,15 @@ func runIngest(log zerolog.Logger) {
 	defer cancel()
 	ctx = logger.WithContext(ctx, log)
 
+	docRepo, accountRepo, institutionRepo, merchantRepo, storageService, aiParser := buildPipelineDeps(ctx, log)
+	defer docRepo.Close()
+	defer accountRepo.Close()
+	defer institutionRepo.Close()
+	defer merchantRepo.Close()
+
 	log.Info().Str("gcs_uri", *gcsURI).Msg("Starting ingestion")
 
-	if err := pipeline.IngestStatementFromGCS(ctx, *gcsURI); err != nil {
+	if err := pipeline.IngestStatementFromGCSWithDeps(ctx, *gcsURI, "", docRepo, accountRepo, institutionRepo, merchantRepo, storageService, aiParser); err != nil {
 		log.Fatal().Err(err).Msg("Ingestion failed")
 	}
 
@@ -121,33 +156,28 @@ func runReparse(log zerolog.Logger) {
 	defer cancel()
 	ctx = logger.WithContext(ctx, log)
 
+	docRepo, accountRepo, institutionRepo, merchantRepo, storageService, aiParser := buildPipelineDeps(ctx, log)
+	defer docRepo.Close()
+	defer accountRepo.Close()
+	defer institutionRepo.Close()
+	defer merchantRepo.Close()
+
 	log.Info().Str("document_id", *documentID).Msg("Starting re-parse")
 
-	// Get all documents and find the one with matching ID
-	docs, err := infraBQ.ListAllDocuments(ctx)
+	doc, err := docRepo.GetDocumentByID(ctx, *documentID)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to list documents")
+		log.Fatal().Err(err).Msg("Failed to retrieve document")
 	}
-
-	var doc *bq.DocumentRow
-	for _, d := range docs {
-		if d.DocumentID == *documentID {
-			doc = d
-			break
-		}
-	}
-
 	if doc == nil {
 		log.Fatal().Msg("Document not found")
 	}
-
 	if doc.GCSURI == "" {
 		log.Fatal().Msg("Document has no GCS URI")
 	}
 
 	log.Info().Str("gcs_uri", doc.GCSURI).Msg("Re-parsing document")
 
-	if err := pipeline.IngestStatementFromGCS(ctx, doc.GCSURI); err != nil {
+	if err := pipeline.IngestStatementFromGCSWithDeps(ctx, doc.GCSURI, *documentID, docRepo, accountRepo, institutionRepo, merchantRepo, storageService, aiParser); err != nil {
 		log.Fatal().Err(err).Msg("Re-parse failed")
 	}
 
@@ -166,20 +196,16 @@ func runInspect(log zerolog.Logger) {
 	ctx := context.Background()
 	ctx = logger.WithContext(ctx, log)
 
-	// Get all documents and find the one with matching ID
-	docs, err := infraBQ.ListAllDocuments(ctx)
+	repo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to list documents")
+		log.Fatal().Err(err).Msg("Failed to create repository")
 	}
+	defer repo.Close()
 
-	var doc *bq.DocumentRow
-	for _, d := range docs {
-		if d.DocumentID == *documentID {
-			doc = d
-			break
-		}
+	doc, err := repo.GetDocumentByID(ctx, *documentID)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to retrieve document")
 	}
-
 	if doc == nil {
 		log.Fatal().Msg("Document not found")
 	}
@@ -191,32 +217,21 @@ func runInspect(log zerolog.Logger) {
 	fmt.Printf("Created:    %s\n", doc.UploadTS)
 	fmt.Printf("Status:     %s\n", doc.ParsingStatus)
 
-	// Get all transactions (we'll filter by document ID)
-	// Query for a wide date range to get all transactions
-	startDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	endDate := time.Now().AddDate(1, 0, 0)
-
-	repo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to create repository")
-	}
-	defer repo.Close()
-
-	allTxns, err := repo.QueryTransactionsByDateRange(ctx, startDate, endDate)
+	allTxns, err := repo.QueryTransactions(ctx, bq.TransactionQuery{
+		StartDate: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:   time.Now(),
+	})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to query transactions")
 	}
 
-	// Filter by document ID
-	var transactions []*bq.TransactionRow
-	for _, txn := range allTxns {
-		if txn.DocumentID == *documentID {
-			transactions = append(transactions, txn)
+	var txCount int
+	fmt.Printf("\n=== Transactions ===\n")
+	for i, txn := range allTxns {
+		if txn.DocumentID != *documentID {
+			continue
 		}
-	}
-
-	fmt.Printf("\n=== Transactions (%d) ===\n", len(transactions))
-	for i, txn := range transactions {
+		txCount++
 		fmt.Printf("\n%d. %s\n", i+1, txn.RawDescription)
 		fmt.Printf("   Date:     %s\n", txn.TransactionDate)
 		fmt.Printf("   Amount:   %s %s\n", txn.Amount.FloatString(2), txn.Currency)
@@ -224,5 +239,5 @@ func runInspect(log zerolog.Logger) {
 			fmt.Printf("   Balance:  %s\n", txn.BalanceAfter.FloatString(2))
 		}
 	}
-	fmt.Println()
+	fmt.Printf("\nTotal: %d transactions\n", txCount)
 }

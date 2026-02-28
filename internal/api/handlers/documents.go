@@ -15,10 +15,13 @@ import (
 	"github.com/dvloznov/finance-tracker/internal/api/middleware"
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/events"
-	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
+
+// defaultUserID is a placeholder until real authentication is implemented.
+// TODO: Replace with user ID extracted from auth context.
+const defaultUserID = "denis"
 
 // DocumentsHandler handles document-related endpoints.
 type DocumentsHandler struct {
@@ -171,7 +174,7 @@ func (h *DocumentsHandler) UploadDocument(w http.ResponseWriter, r *http.Request
 
 	doc := &bigquery.DocumentRow{
 		DocumentID:       documentID,
-		UserID:           "denis",
+		UserID:           defaultUserID,
 		OriginalFilename: filename,
 		GCSURI:           gcsURI,
 		UploadTS:         time.Now(),
@@ -270,31 +273,20 @@ func (h *DocumentsHandler) EnqueueParsing(w http.ResponseWriter, r *http.Request
 func (h *DocumentsHandler) DeleteDocument(w http.ResponseWriter, r *http.Request, documentID string) {
 	ctx := r.Context()
 
-	// Get document details to find GCS URI
-	docs, err := h.repo.ListAllDocuments(ctx)
+	doc, err := h.repo.GetDocumentByID(ctx, documentID)
 	if err != nil {
-		h.log.Error().Err(err).Msg("Failed to list documents")
+		h.log.Error().Err(err).Msg("Failed to retrieve document")
 		middleware.WriteError(w, http.StatusInternalServerError, "Failed to retrieve document")
 		return
 	}
-
-	var gcsURI string
-	var found bool
-	for _, doc := range docs {
-		if doc.DocumentID == documentID {
-			gcsURI = doc.GCSURI
-			found = true
-			break
-		}
-	}
-
-	if !found {
+	if doc == nil {
 		middleware.WriteError(w, http.StatusNotFound, "Document not found")
 		return
 	}
 
-	// Delete from BigQuery (cascades to all related data)
-	if err := infraBQ.DeleteDocument(ctx, documentID); err != nil {
+	gcsURI := doc.GCSURI
+
+	if err := h.repo.DeleteDocument(ctx, documentID); err != nil {
 		h.log.Error().Err(err).Str("document_id", documentID).Msg("Failed to delete document from BigQuery")
 		middleware.WriteError(w, http.StatusInternalServerError, "Failed to delete document")
 		return

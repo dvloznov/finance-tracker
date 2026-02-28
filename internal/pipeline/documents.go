@@ -21,7 +21,7 @@ func createDocumentWithRepo(ctx context.Context, gcsURI string, repo bigquery.Do
 	// Prepare row to insert
 	row := &bigquery.DocumentRow{
 		DocumentID:       documentID,
-		UserID:           "denis",
+		UserID:           DefaultUserID,
 		GCSURI:           gcsURI,
 		InstitutionID:    "", // Can be filled later
 		AccountID:        "", // Can be filled later
