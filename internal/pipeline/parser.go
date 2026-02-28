@@ -12,12 +12,11 @@ import (
 
 // parseStatementWithModel sends the PDF to Gemini and returns the parsed JSON output.
 // It expects the model to return a STRICT JSON array of transactions.
-func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo CategoryRepository) (map[string]interface{}, error) {
-	// 1) Base instructions.
+func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo CategoryRepository, bankName string) (map[string]interface{}, error) {
 	basePrompt :=
-		"You are a financial statement parser for Barclays UK PDF bank statements.\n\n" +
+		"You are a financial statement parser for " + bankName + " PDF bank statements.\n\n" +
 			"Task:\n" +
-			"- Parse ALL transactions in the attached Barclays statement.\n" +
+			"- Parse ALL transactions in the attached statement.\n" +
 			"- Extract structured fields only;\n" +
 			"- Output STRICT JSON only (no comments, no trailing commas, no extra text).\n" +
 			"- Output a JSON array of objects.\n\n"
