@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -60,9 +61,19 @@ const (
 )
 
 var (
-	projectID = flag.String("project", "studious-union-470122-v7", "GCP project ID (required)")
+	projectID = flag.String("project", defaultProject(), "GCP project ID (or BQ_PROJECT_ID env var)")
 	appliedBy = flag.String("applied-by", "migrate-cli", "Name of the tool applying migrations")
 )
+
+func defaultProject() string {
+	if v := os.Getenv("BQ_PROJECT_ID"); v != "" {
+		return v
+	}
+	if v := os.Getenv("GOOGLE_CLOUD_PROJECT"); v != "" {
+		return v
+	}
+	return ""
+}
 
 func main() {
 	flag.Parse()

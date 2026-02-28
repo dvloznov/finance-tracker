@@ -8,11 +8,7 @@ import (
 	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
-const (
-	moProjectID       = "studious-union-470122-v7"
-	moDatasetID       = "finance"
-	modelOutputsTable = "model_outputs"
-)
+const modelOutputsTable = "model_outputs"
 
 // InsertModelOutput inserts a single ModelOutputRow into finance.model_outputs.
 func InsertModelOutput(ctx context.Context, row *bq.ModelOutputRow) error {
@@ -29,7 +25,7 @@ func InsertModelOutput(ctx context.Context, row *bq.ModelOutputRow) error {
 // using the provided BigQuery client. Uses DML INSERT to avoid streaming buffer issues.
 func InsertModelOutputWithClient(ctx context.Context, client *bigquery.Client, row *bq.ModelOutputRow) error {
 	q := client.Query(`
-		INSERT INTO ` + "`" + moProjectID + "." + moDatasetID + ".model_outputs" + "`" + ` (
+		INSERT INTO ` + "`" + projectID + "." + datasetID + ".model_outputs" + "`" + ` (
 			output_id, parsing_run_id, document_id,
 			model_name, raw_json,
 			created_ts

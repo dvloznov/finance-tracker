@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"time"
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
@@ -13,10 +12,6 @@ import (
 )
 
 const (
-	// Note: projectID and datasetID are also defined in parsing_runs_ops.go
-	// but redefined here for clarity and to avoid any import order issues
-	txProjectID       = "studious-union-470122-v7"
-	txDatasetID       = "finance"
 	transactionsTable = "transactions"
 	dateFormat        = "2006-01-02"
 )
@@ -48,7 +43,7 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 
 	// Build INSERT statement with multiple rows
 	queryStr := `
-		INSERT INTO ` + "`" + txProjectID + "." + txDatasetID + ".transactions" + "`" + ` (
+		INSERT INTO ` + "`" + projectID + "." + datasetID + ".transactions" + "`" + ` (
 			transaction_id, user_id, account_id, institution_id, document_id, parsing_run_id,
 			transaction_date, statement_date, transaction_type,
 			amount, currency, balance_after, direction,
@@ -111,22 +106,9 @@ func InsertTransactionsWithClient(ctx context.Context, client *bigquery.Client, 
 	return nil
 }
 
-// QueryTransactionsByDateRange queries transactions within the specified date range.
-func QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*bq.TransactionRow, error) {
-	client, err := bigquery.NewClient(ctx, projectID)
-	if err != nil {
-		return nil, fmt.Errorf("QueryTransactionsByDateRange: bigquery client: %w", err)
-	}
-	defer client.Close()
-
-	return QueryTransactionsByDateRangeWithClient(ctx, client, startDate, endDate)
-}
-
-// QueryTransactionsByDateRangeWithClient queries transactions within the specified date range
-// using the provided BigQuery client. Only includes transactions from successful parsing runs,
-// excluding transactions from superseded runs.
-func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquery.Client, startDate, endDate time.Time) ([]*bq.TransactionRow, error) {
-	q := client.Query(`
+// QueryTransactionsWithClient queries transactions using the provided client, with optional filters.
+func QueryTransactionsWithClient(ctx context.Context, client *bigquery.Client, opts bq.TransactionQuery) ([]*bq.TransactionRow, error) {
+	queryStr := `
 		SELECT
 			t.transaction_id,
 			t.user_id,
@@ -154,16 +136,30 @@ func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquer
 		WHERE t.transaction_date >= @start_date
 		  AND t.transaction_date <= @end_date
 		  AND pr.status = 'SUCCESS'
-		ORDER BY t.transaction_date, t.created_ts
-	`)
-	q.Parameters = []bigquery.QueryParameter{
-		{Name: "start_date", Value: civil.DateOf(startDate)},
-		{Name: "end_date", Value: civil.DateOf(endDate)},
+	`
+
+	params := []bigquery.QueryParameter{
+		{Name: "start_date", Value: civil.DateOf(opts.StartDate)},
+		{Name: "end_date", Value: civil.DateOf(opts.EndDate)},
 	}
+
+	if opts.InstitutionID != "" {
+		queryStr += "  AND t.institution_id = @institution_id\n"
+		params = append(params, bigquery.QueryParameter{Name: "institution_id", Value: opts.InstitutionID})
+	}
+	if opts.AccountID != "" {
+		queryStr += "  AND t.account_id = @account_id\n"
+		params = append(params, bigquery.QueryParameter{Name: "account_id", Value: opts.AccountID})
+	}
+
+	queryStr += "ORDER BY t.transaction_date, t.created_ts"
+
+	q := client.Query(queryStr)
+	q.Parameters = params
 
 	it, err := q.Read(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("QueryTransactionsByDateRange: query read: %w", err)
+		return nil, fmt.Errorf("QueryTransactions: query read: %w", err)
 	}
 
 	var rows []*bq.TransactionRow
@@ -174,7 +170,7 @@ func QueryTransactionsByDateRangeWithClient(ctx context.Context, client *bigquer
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("QueryTransactionsByDateRange: iter next: %w", err)
+			return nil, fmt.Errorf("QueryTransactions: iter next: %w", err)
 		}
 		rows = append(rows, &r)
 	}
