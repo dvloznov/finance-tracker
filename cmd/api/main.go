@@ -17,8 +17,16 @@ import (
 	"github.com/dvloznov/finance-tracker/internal/logger"
 )
 
+func getEnvOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
 func main() {
 	var (
+		logFilePath   = flag.String("log-file", getEnvOrDefault("LOG_FILE", "api.log"), "Log file path (truncated on each startup; JSON format)")
 		port          = flag.String("port", "8080", "HTTP server port")
 		bucket        = flag.String("bucket", os.Getenv("GCS_BUCKET"), "GCS bucket name for document uploads (or GCS_BUCKET env)")
 		pubsubProject = flag.String("pubsub-project", os.Getenv("PUBSUB_PROJECT"), "Pub/Sub project ID (or PUBSUB_PROJECT env)")
@@ -26,7 +34,12 @@ func main() {
 	)
 	flag.Parse()
 
-	log := logger.New()
+	log, logCloser, err := logger.New(*logFilePath)
+	if err != nil {
+		fallback := logger.NewConsoleOnly()
+		fallback.Fatal().Err(err).Str("log_file", *logFilePath).Msg("Failed to open log file")
+	}
+	defer logCloser.Close()
 
 	if *bucket == "" {
 		log.Warn().Msg("No GCS bucket configured - document uploads will be disabled")

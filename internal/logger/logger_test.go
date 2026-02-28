@@ -9,8 +9,20 @@ import (
 	"github.com/rs/zerolog"
 )
 
+func TestNewConsoleOnly(t *testing.T) {
+	log := NewConsoleOnly()
+	if log.GetLevel() == zerolog.Disabled {
+		t.Error("Expected logger to be enabled")
+	}
+}
+
 func TestNew(t *testing.T) {
-	log := New()
+	tmp := t.TempDir() + "/test.log"
+	log, closer, err := New(tmp)
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	defer closer.Close()
 	if log.GetLevel() == zerolog.Disabled {
 		t.Error("Expected logger to be enabled")
 	}
@@ -29,7 +41,7 @@ func TestNewWithWriter(t *testing.T) {
 }
 
 func TestWithContext(t *testing.T) {
-	log := New()
+	log := NewConsoleOnly()
 	ctx := context.Background()
 	
 	ctxWithLogger := WithContext(ctx, log)

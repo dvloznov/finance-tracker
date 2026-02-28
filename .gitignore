@@ -1,6 +1,9 @@
 # Go build outputs
 bin/
 .env.dev
+
+# Runtime log files (truncated on each startup; not committed)
+*.log
 .vscode/*
 *.exe
 *.exe~

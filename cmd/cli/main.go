@@ -16,15 +16,39 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func main() {
-	log := logger.New()
+func getEnvOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
 
+func main() {
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
 	}
 
-	switch os.Args[1] {
+	// --log-file must be parsed before subcommand flags so we accept it as a
+	// global flag placed before the subcommand (e.g. cli --log-file=x.log ingest ...).
+	logFilePath := flag.String("log-file", getEnvOrDefault("LOG_FILE", "cli.log"), "Log file path (truncated on each startup; JSON format)")
+	flag.Parse()
+
+	log, logCloser, err := logger.New(*logFilePath)
+	if err != nil {
+		fallback := logger.NewConsoleOnly()
+		fallback.Fatal().Err(err).Str("log_file", *logFilePath).Msg("Failed to open log file")
+	}
+	defer logCloser.Close()
+
+	// After flag.Parse the remaining args are available via flag.Args().
+	args := flag.Args()
+	if len(args) == 0 {
+		printUsage()
+		os.Exit(1)
+	}
+
+	switch args[0] {
 	case "ingest":
 		runIngest(log)
 	case "upload":
@@ -36,7 +60,7 @@ func main() {
 	case "help", "-h", "--help":
 		printUsage()
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", args[0])
 		printUsage()
 		os.Exit(1)
 	}
@@ -87,7 +111,7 @@ func buildPipelineDeps(ctx context.Context, log zerolog.Logger) (
 func runIngest(log zerolog.Logger) {
 	fs := flag.NewFlagSet("ingest", flag.ExitOnError)
 	gcsURI := fs.String("gcs-uri", "", "GCS URI of the statement PDF")
-	fs.Parse(os.Args[2:])
+	fs.Parse(flag.Args()[1:])
 
 	if *gcsURI == "" {
 		log.Fatal().Msg("Error: --gcs-uri is required")
@@ -117,7 +141,7 @@ func runUpload(log zerolog.Logger) {
 	bucketName := fs.String("bucket", "", "GCS bucket name")
 	objectName := fs.String("object", "", "GCS object name (defaults to filename)")
 	filePath := fs.String("file", "", "Path to local PDF file")
-	fs.Parse(os.Args[2:])
+	fs.Parse(flag.Args()[1:])
 
 	if *bucketName == "" || *filePath == "" {
 		log.Fatal().Msg("Usage: cli upload -bucket NAME -file PATH")
@@ -146,7 +170,7 @@ func runUpload(log zerolog.Logger) {
 func runReparse(log zerolog.Logger) {
 	fs := flag.NewFlagSet("reparse", flag.ExitOnError)
 	documentID := fs.String("document-id", "", "Document ID to re-parse")
-	fs.Parse(os.Args[2:])
+	fs.Parse(flag.Args()[1:])
 
 	if *documentID == "" {
 		log.Fatal().Msg("Error: --document-id is required")
@@ -187,7 +211,7 @@ func runReparse(log zerolog.Logger) {
 func runInspect(log zerolog.Logger) {
 	fs := flag.NewFlagSet("inspect", flag.ExitOnError)
 	documentID := fs.String("document-id", "", "Document ID to inspect")
-	fs.Parse(os.Args[2:])
+	fs.Parse(flag.Args()[1:])
 
 	if *documentID == "" {
 		log.Fatal().Msg("Error: --document-id is required")

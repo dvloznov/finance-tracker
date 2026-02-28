@@ -17,8 +17,22 @@ const (
 	LoggerKey ContextKey = "logger"
 )
 
-// New creates a new structured logger with default configuration
-func New() zerolog.Logger {
+// New creates a logger that writes human-readable output to stdout and
+// newline-delimited JSON to filePath. The file is truncated on every call so
+// it always contains only the current run's logs.
+func New(filePath string) (zerolog.Logger, io.Closer, error) {
+	f, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return zerolog.Logger{}, nil, err
+	}
+	console := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
+	multi := zerolog.MultiLevelWriter(console, f)
+	return zerolog.New(multi).With().Timestamp().Caller().Logger(), f, nil
+}
+
+// NewConsoleOnly creates a console-only logger. Use this as a fallback before
+// the log file path is known (e.g. to report flag-parse or startup errors).
+func NewConsoleOnly() zerolog.Logger {
 	output := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
 		TimeFormat: time.RFC3339,
@@ -41,7 +55,7 @@ func FromContext(ctx context.Context) zerolog.Logger {
 	if logger, ok := ctx.Value(LoggerKey).(zerolog.Logger); ok {
 		return logger
 	}
-	return New()
+	return NewConsoleOnly()
 }
 
 // WithFields adds structured fields to a logger

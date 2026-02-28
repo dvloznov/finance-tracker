@@ -17,13 +17,18 @@ import (
 )
 
 func main() {
-	// Initialize logger
-	log := logger.New()
-
-	// Parse CLI flags
+	// Parse CLI flags before opening the log file so --log-file is available.
+	logFilePath := flag.String("log-file", getEnvOrDefault("LOG_FILE", "worker.log"), "Log file path (truncated on each startup; JSON format)")
 	pubsubProject := flag.String("pubsub-project", os.Getenv("PUBSUB_PROJECT"), "Pub/Sub project ID (or PUBSUB_PROJECT env)")
 	pubsubSubscription := flag.String("pubsub-subscription", os.Getenv("PUBSUB_SUBSCRIPTION"), "Pub/Sub subscription ID or full name (or PUBSUB_SUBSCRIPTION env)")
 	flag.Parse()
+
+	log, logCloser, err := logger.New(*logFilePath)
+	if err != nil {
+		fallback := logger.NewConsoleOnly()
+		fallback.Fatal().Err(err).Str("log_file", *logFilePath).Msg("Failed to open log file")
+	}
+	defer logCloser.Close()
 
 	if *pubsubProject == "" {
 		*pubsubProject = os.Getenv("GOOGLE_CLOUD_PROJECT")
@@ -119,6 +124,10 @@ func main() {
 			Str("gcs_uri", event.GCSURI).
 			Msg("Processing document upload event")
 
+		// Store the tee logger in the Pub/Sub-provided context so that all
+		// downstream code (including LLM call logging) writes to the log file.
+		ctx = logger.WithContext(ctx, log)
+
 		if err := docRepo.UpdateDocumentParsingStatus(ctx, event.DocumentID, "PROCESSING"); err != nil {
 			log.Warn().Err(err).Str("document_id", event.DocumentID).Msg("Failed to update document status")
 		}
@@ -162,4 +171,11 @@ func main() {
 	}
 
 	log.Info().Msg("Worker service exited")
+}
+
+func getEnvOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
