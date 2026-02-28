@@ -6,7 +6,10 @@ import type { TransactionVM } from '@/features/transactions/types';
 import { AmountCell } from '@/features/transactions/components/cells/AmountCell';
 import { CategoryCell } from '@/features/transactions/components/cells/CategoryCell';
 
-export function getTransactionColumns(categories: Category[] | undefined): ColumnDef<TransactionVM>[] {
+export function getTransactionColumns(
+  categories: Category[] | undefined,
+  transferIds?: Set<string>
+): ColumnDef<TransactionVM>[] {
   return [
     {
       accessorKey: 'transaction_date',
@@ -69,6 +72,14 @@ export function getTransactionColumns(categories: Category[] | undefined): Colum
       accessorKey: 'category_name',
       header: 'Category',
       cell: ({ getValue, row }) => {
+        const isTransfer = transferIds?.has(row.original.transaction_id) ?? false;
+        if (isTransfer) {
+          return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+              ⇄ Transfer
+            </span>
+          );
+        }
         return (
           <CategoryCell
             categories={categories}

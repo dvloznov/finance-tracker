@@ -7,6 +7,7 @@ import { getTransactionColumns } from '@/features/transactions/columns/transacti
 import { useCategories } from '@/features/categories/hooks/useCategories';
 import { useTransactions } from '@/features/transactions/hooks/useTransactions';
 import { useAccountScope } from '@/shared/account-scope/context';
+import { detectTransferIds } from '@/features/dashboard/analytics/transfers';
 import { useState, useMemo } from 'react';
 import {
   useReactTable,
@@ -28,9 +29,14 @@ export default function TransactionsPage() {
   const { data: transactions, isLoading: transactionsLoading } = useTransactions({ scope });
   const { data: categories } = useCategories();
 
+  const transferIds = useMemo(() => {
+    if (scope.mode !== 'all') return new Set<string>();
+    return detectTransferIds(transactions ?? []);
+  }, [transactions, scope.mode]);
+
   const columns = useMemo<ColumnDef<TransactionVM>[]>(
-    () => getTransactionColumns(categories),
-    [categories]
+    () => getTransactionColumns(categories, transferIds),
+    [categories, transferIds]
   );
 
   const table = useReactTable({
