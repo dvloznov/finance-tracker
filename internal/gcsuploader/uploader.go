@@ -39,19 +39,15 @@ func UploadFile(ctx context.Context, bucketName, objectName, filePath string) er
 	// Get object handle
 	obj := bkt.Object(objectName)
 
-	// Create writer
+	// Create writer; must be explicitly closed to finalize the upload.
+	// Do not defer-close — closing twice causes an error from GCS.
 	w := obj.NewWriter(ctx)
-	defer func() {
-		// Ensure the writer is closed even on early returns
-		_ = w.Close()
-	}()
 
-	// Copy file content into writer
 	if _, err := io.Copy(w, f); err != nil {
+		_ = w.Close() // discard the object on copy failure
 		return fmt.Errorf("copy file to GCS writer: %w", err)
 	}
 
-	// Close to finalize the upload
 	if err := w.Close(); err != nil {
 		return fmt.Errorf("finalize upload: %w", err)
 	}

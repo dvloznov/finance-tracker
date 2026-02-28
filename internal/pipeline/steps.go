@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
-	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 )
 
 // PipelineStep represents a single step in the ingestion pipeline.
@@ -48,12 +47,12 @@ func (s *CreateDocumentStep) Name() string {
 }
 
 func (s *CreateDocumentStep) Execute(ctx context.Context, state *PipelineState) error {
-	// Skip if documentID is already provided (from upload)
+	// Skip if documentID is already provided (reparse path)
 	if state.DocumentID != "" {
+		state.IsReparse = true
 		return nil
 	}
 
-	// Create new document
 	documentID, err := createDocumentWithRepo(ctx, state.GCSURI, state.DocumentRepo, state.StorageService)
 	if err != nil {
 		return err
@@ -108,9 +107,8 @@ func (s *FetchPDFStep) Name() string {
 func (s *FetchPDFStep) Execute(ctx context.Context, state *PipelineState) error {
 	pdfBytes, err := state.StorageService.FetchFromGCS(ctx, state.GCSURI)
 	if err != nil {
-		// Only mark parsing run as failed if it exists
 		if state.ParsingRunID != "" {
-			state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+			_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		}
 		return err
 	}
@@ -128,7 +126,7 @@ func (s *ExtractAccountHeaderStep) Name() string {
 func (s *ExtractAccountHeaderStep) Execute(ctx context.Context, state *PipelineState) error {
 	accountInfo, err := state.AIParser.ExtractAccountHeader(ctx, state.PDFBytes)
 	if err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	state.ExtractedAccountInfo = accountInfo
@@ -143,21 +141,20 @@ func (s *UpsertAccountStep) Name() string {
 }
 
 func (s *UpsertAccountStep) Execute(ctx context.Context, state *PipelineState) error {
-	// Transform raw account info to AccountRow
 	accountRow, institutionName, err := transformAccountInfo(state.ExtractedAccountInfo, state.DocumentID)
 	if err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 
-	// If extraction returned nothing useful, generate default account
 	if accountRow == nil {
 		accountRow = generateDefaultAccount(state.DocumentID)
 	}
 
 	if state.InstitutionRepo == nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, fmt.Errorf("UpsertAccount: institution repository is nil"))
-		return fmt.Errorf("UpsertAccount: institution repository is nil")
+		repoErr := fmt.Errorf("UpsertAccount: institution repository is nil")
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, repoErr)
+		return repoErr
 	}
 
 	name := strings.TrimSpace(DefaultSourceSystem)
@@ -170,22 +167,21 @@ func (s *UpsertAccountStep) Execute(ctx context.Context, state *PipelineState) e
 		CreatedTS: time.Now(),
 	})
 	if err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 
 	accountRow.InstitutionID = institutionID
 	state.InstitutionID = institutionID
 
-	// Upsert account (find existing or create new)
 	accountID, err := state.AccountRepo.UpsertAccount(ctx, accountRow)
 	if err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 
 	if err := state.DocumentRepo.UpdateDocumentAccountAndInstitution(ctx, state.DocumentID, accountID, state.InstitutionID); err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 
@@ -203,7 +199,7 @@ func (s *ParseStatementStep) Name() string {
 func (s *ParseStatementStep) Execute(ctx context.Context, state *PipelineState) error {
 	rawModelOutput, err := state.AIParser.ParseStatement(ctx, state.PDFBytes)
 	if err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	state.RawModelOutput = rawModelOutput
@@ -220,7 +216,7 @@ func (s *StoreModelOutputStep) Name() string {
 func (s *StoreModelOutputStep) Execute(ctx context.Context, state *PipelineState) error {
 	_, err := storeModelOutputWithRepo(ctx, state.ParsingRunID, state.DocumentID, state.RawModelOutput, state.DocumentRepo)
 	if err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	return nil
@@ -236,7 +232,7 @@ func (s *TransformTransactionsStep) Name() string {
 func (s *TransformTransactionsStep) Execute(ctx context.Context, state *PipelineState) error {
 	txs, err := transformModelOutputToTransactions(state.RawModelOutput)
 	if err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	state.Transactions = txs
@@ -252,7 +248,7 @@ func (s *ResolveMerchantsStep) Name() string {
 
 func (s *ResolveMerchantsStep) Execute(ctx context.Context, state *PipelineState) error {
 	if err := resolveMerchantsForTransactions(ctx, state.Transactions, state.MerchantRepo, state.DocumentRepo, state.AIParser); err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	return nil
@@ -267,7 +263,7 @@ func (s *InsertTransactionsStep) Name() string {
 
 func (s *InsertTransactionsStep) Execute(ctx context.Context, state *PipelineState) error {
 	if err := insertTransactionsWithRepo(ctx, state.DocumentID, state.ParsingRunID, state.AccountID, state.InstitutionID, state.Transactions, state.DocumentRepo); err != nil {
-		state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	return nil
@@ -285,8 +281,7 @@ func (s *MarkSuccessStep) Execute(ctx context.Context, state *PipelineState) err
 		return err
 	}
 
-	// Update document status to COMPLETED
-	if err := infraBQ.UpdateDocumentParsingStatus(ctx, state.DocumentID, "COMPLETED"); err != nil {
+	if err := state.DocumentRepo.UpdateDocumentParsingStatus(ctx, state.DocumentID, "COMPLETED"); err != nil {
 		return fmt.Errorf("updating document status: %w", err)
 	}
 

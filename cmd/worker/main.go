@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/pubsub/v2"
 	"github.com/dvloznov/finance-tracker/internal/events"
+	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
 	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/logger"
 	"github.com/dvloznov/finance-tracker/internal/pipeline"
@@ -62,6 +63,34 @@ func main() {
 		cancel()
 	}()
 
+	// Build shared infrastructure dependencies once at startup
+	docRepo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create document repository")
+	}
+	defer docRepo.Close()
+
+	accountRepo, err := infraBQ.NewBigQueryAccountRepository(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create account repository")
+	}
+	defer accountRepo.Close()
+
+	institutionRepo, err := infraBQ.NewBigQueryInstitutionRepository(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create institution repository")
+	}
+	defer institutionRepo.Close()
+
+	merchantRepo, err := infraBQ.NewBigQueryMerchantRepository(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create merchant repository")
+	}
+	defer merchantRepo.Close()
+
+	storageService := &gcsuploader.GCSStorageService{}
+	aiParser := pipeline.NewGeminiAIParser(docRepo)
+
 	log.Info().Msg("Worker service started, waiting for document events...")
 
 	err = sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
@@ -90,22 +119,33 @@ func main() {
 			Str("gcs_uri", event.GCSURI).
 			Msg("Processing document upload event")
 
-		if err := infraBQ.UpdateDocumentParsingStatus(ctx, event.DocumentID, "PROCESSING"); err != nil {
+		if err := docRepo.UpdateDocumentParsingStatus(ctx, event.DocumentID, "PROCESSING"); err != nil {
 			log.Warn().Err(err).Str("document_id", event.DocumentID).Msg("Failed to update document status")
 		}
 
-		if err := pipeline.IngestStatementFromGCS(ctx, event.GCSURI, event.DocumentID); err != nil {
+		err := pipeline.IngestStatementFromGCSWithDeps(
+			ctx,
+			event.GCSURI,
+			event.DocumentID,
+			docRepo,
+			accountRepo,
+			institutionRepo,
+			merchantRepo,
+			storageService,
+			aiParser,
+		)
+		if err != nil {
 			log.Error().
 				Err(err).
 				Str("event_id", event.EventID).
 				Str("document_id", event.DocumentID).
 				Msg("Pipeline execution failed")
 
-			if updateErr := infraBQ.UpdateDocumentParsingStatus(ctx, event.DocumentID, "FAILED"); updateErr != nil {
+			if updateErr := docRepo.UpdateDocumentParsingStatus(ctx, event.DocumentID, "FAILED"); updateErr != nil {
 				log.Error().Err(updateErr).Str("document_id", event.DocumentID).Msg("Failed to update document status to FAILED")
 			}
 
-			msg.Ack()
+			msg.Nack()
 			return
 		}
 

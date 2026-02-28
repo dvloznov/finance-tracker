@@ -252,14 +252,16 @@ func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (
 // generateDefaultAccount creates a document-scoped fallback account when
 // extraction fails or returns no account identifiers.
 func generateDefaultAccount(documentID string) *bigquery.AccountRow {
-	// Generate synthetic account number from document ID
-	accountNumber := fmt.Sprintf("DOC-%s", documentID[:8])
+	suffix := documentID
+	if len(suffix) > 8 {
+		suffix = suffix[:8]
+	}
 
 	return &bigquery.AccountRow{
 		UserID:        DefaultUserID,
-		AccountNumber: accountNumber,
-		AccountName:   fmt.Sprintf("Barclays Current Account (%s)", documentID[:8]),
+		AccountNumber: fmt.Sprintf("DOC-%s", suffix),
+		AccountName:   fmt.Sprintf("Current Account (%s)", suffix),
 		AccountType:   "CURRENT",
-		Currency:      "GBP", // Default to GBP for UK statements
+		Currency:      "GBP",
 	}
 }
