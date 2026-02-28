@@ -6,22 +6,8 @@ import (
 	"time"
 
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
-	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
-	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
 	"github.com/google/uuid"
 )
-
-// createDocument inserts a row into the documents table for this file.
-func createDocument(ctx context.Context, gcsURI string) (string, error) {
-	repo, err := infraBQ.NewBigQueryDocumentRepository(ctx)
-	if err != nil {
-		return "", fmt.Errorf("createDocument: creating BigQuery repository: %w", err)
-	}
-	defer repo.Close()
-
-	storage := gcsuploader.NewGCSStorageService()
-	return createDocumentWithRepo(ctx, gcsURI, repo, storage)
-}
 
 // createDocumentWithRepo inserts a row into the documents table using the provided repository.
 func createDocumentWithRepo(ctx context.Context, gcsURI string, repo bigquery.DocumentRepository, storage StorageService) (string, error) {
