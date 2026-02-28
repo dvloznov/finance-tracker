@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dvloznov/finance-tracker/internal/api/middleware"
@@ -10,10 +12,16 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const categoryTTL = 60 * time.Second
+
 // TransactionsHandler handles transaction-related endpoints.
 type TransactionsHandler struct {
 	repo bigquery.DocumentRepository
 	log  zerolog.Logger
+
+	categoryMu        sync.Mutex
+	categoryCache     []bigquery.CategoryRow
+	categoryCachedAt  time.Time
 }
 
 type transactionResponse struct {
@@ -41,6 +49,29 @@ func NewTransactionsHandler(repo bigquery.DocumentRepository, log zerolog.Logger
 		repo: repo,
 		log:  log,
 	}
+}
+
+// cachedCategories returns the active categories, refreshing from the DB at most once per TTL.
+func (h *TransactionsHandler) cachedCategories(ctx context.Context) []bigquery.CategoryRow {
+	h.categoryMu.Lock()
+	defer h.categoryMu.Unlock()
+
+	if time.Since(h.categoryCachedAt) < categoryTTL && h.categoryCache != nil {
+		return h.categoryCache
+	}
+
+	cats, err := h.repo.ListActiveCategories(ctx)
+	if err != nil {
+		h.log.Error().Err(err).Msg("Failed to refresh category cache")
+		if h.categoryCache != nil {
+			return h.categoryCache // serve stale on error
+		}
+		return []bigquery.CategoryRow{}
+	}
+
+	h.categoryCache = cats
+	h.categoryCachedAt = time.Now()
+	return cats
 }
 
 // ListTransactions handles GET /api/transactions
@@ -77,35 +108,22 @@ func (h *TransactionsHandler) ListTransactions(w http.ResponseWriter, r *http.Re
 		startDate = time.Time{}
 	}
 	if endDateStr == "" {
-		endDate = time.Now().AddDate(100, 0, 0)
+		endDate = time.Now()
 	}
 
-	transactions, err := h.repo.QueryTransactionsByDateRange(ctx, startDate, endDate)
+	transactions, err := h.repo.QueryTransactions(ctx, bigquery.TransactionQuery{
+		StartDate:     startDate,
+		EndDate:       endDate,
+		InstitutionID: institutionID,
+		AccountID:     accountID,
+	})
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to query transactions")
 		middleware.WriteError(w, http.StatusInternalServerError, "Failed to query transactions")
 		return
 	}
 
-	if institutionID != "" || accountID != "" {
-		filtered := make([]*bigquery.TransactionRow, 0, len(transactions))
-		for _, tx := range transactions {
-			if institutionID != "" && tx.InstitutionID != institutionID {
-				continue
-			}
-			if accountID != "" && tx.AccountID != accountID {
-				continue
-			}
-			filtered = append(filtered, tx)
-		}
-		transactions = filtered
-	}
-
-	categories, err := h.repo.ListActiveCategories(ctx)
-	if err != nil {
-		h.log.Error().Err(err).Msg("Failed to list categories")
-		categories = []bigquery.CategoryRow{}
-	}
+	categories := h.cachedCategories(ctx)
 	categoryLookup := make(map[string]bigquery.CategoryRow, len(categories))
 	for _, category := range categories {
 		categoryLookup[category.CategoryID] = category
