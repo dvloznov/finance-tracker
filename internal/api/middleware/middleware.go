@@ -3,9 +3,11 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
@@ -32,6 +34,7 @@ func Logger(log zerolog.Logger) func(http.Handler) http.Handler {
 }
 
 // CORS adds Cross-Origin Resource Sharing headers.
+// TODO: Restrict Access-Control-Allow-Origin to known origins before production deployment.
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -74,7 +77,7 @@ func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := r.Header.Get("X-Request-ID")
 		if requestID == "" {
-			requestID = time.Now().Format("20060102150405")
+			requestID = uuid.NewString()
 		}
 
 		w.Header().Set("X-Request-ID", requestID)
@@ -112,7 +115,9 @@ func WriteJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if data != nil {
-		json.NewEncoder(w).Encode(data)
+		if err := json.NewEncoder(w).Encode(data); err != nil {
+			log.Printf("WriteJSON: encoding response: %v", err)
+		}
 	}
 }
 
