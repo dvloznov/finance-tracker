@@ -16,6 +16,21 @@ type DocumentRepository interface {
 	// InsertDocument inserts a single DocumentRow into the database.
 	InsertDocument(ctx context.Context, row *DocumentRow) error
 
+	// GetDocumentByID retrieves a single document by its ID.
+	GetDocumentByID(ctx context.Context, documentID string) (*DocumentRow, error)
+
+	// ListAllDocuments retrieves all documents from the database.
+	ListAllDocuments(ctx context.Context) ([]*DocumentRow, error)
+
+	// DeleteDocument deletes a document and all its related data.
+	DeleteDocument(ctx context.Context, documentID string) error
+
+	// UpdateDocumentParsingStatus updates the parsing_status field for a document.
+	UpdateDocumentParsingStatus(ctx context.Context, documentID, status string) error
+
+	// UpdateDocumentAccountAndInstitution updates the account_id and institution_id for a document.
+	UpdateDocumentAccountAndInstitution(ctx context.Context, documentID, accountID, institutionID string) error
+
 	// InsertTransactions inserts a batch of TransactionRow into the database.
 	InsertTransactions(ctx context.Context, rows []*TransactionRow) error
 
@@ -26,28 +41,24 @@ type DocumentRepository interface {
 	StartParsingRun(ctx context.Context, documentID string) (string, error)
 
 	// MarkParsingRunFailed sets status=FAILED, finished_ts and error_message for a parsing run.
-	MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error)
+	MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) error
 
 	// MarkParsingRunSucceeded sets status=SUCCESS and finished_ts for a parsing run.
 	MarkParsingRunSucceeded(ctx context.Context, parsingRunID string) error
 
-	// ListActiveCategories retrieves all active categories from the database.
-	ListActiveCategories(ctx context.Context) ([]CategoryRow, error)
-
-	// QueryTransactionsByDateRange queries transactions within the specified date range.
-	QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*TransactionRow, error)
-
-	// ListAllAccounts retrieves all accounts from the database.
-	ListAllAccounts(ctx context.Context) ([]*AccountRow, error)
-
-	// ListAllDocuments retrieves all documents from the database.
-	ListAllDocuments(ctx context.Context) ([]*DocumentRow, error)
-
 	// MarkParsingRunsAsSuperseded marks all non-running parsing runs for a document as SUPERSEDED.
 	MarkParsingRunsAsSuperseded(ctx context.Context, documentID string) error
 
-	// UpdateDocumentAccountAndInstitution updates the account_id and institution_id for a document.
-	UpdateDocumentAccountAndInstitution(ctx context.Context, documentID, accountID, institutionID string) error
+	// ListActiveCategories retrieves all active categories from the database.
+	ListActiveCategories(ctx context.Context) ([]CategoryRow, error)
+
+	// QueryTransactions queries transactions with optional filters.
+	// Pass empty strings for institutionID/accountID to skip those filters.
+	QueryTransactions(ctx context.Context, opts TransactionQuery) ([]*TransactionRow, error)
+
+
+	// ListAllAccounts retrieves all accounts from the database.
+	ListAllAccounts(ctx context.Context) ([]*AccountRow, error)
 }
 
 // AccountRepository provides an interface for account-related database operations.
@@ -84,6 +95,14 @@ type MerchantRepository interface {
 
 	// InsertMerchant inserts a new merchant and returns its ID.
 	InsertMerchant(ctx context.Context, row *MerchantRow) (string, error)
+}
+
+// TransactionQuery holds optional filter parameters for querying transactions.
+type TransactionQuery struct {
+	StartDate     time.Time
+	EndDate       time.Time
+	InstitutionID string // optional
+	AccountID     string // optional
 }
 
 // DocumentRow represents a document record in BigQuery.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/bigquery"
+	"golang.org/x/sync/errgroup"
 )
 
 // DeleteDocument deletes a document and all its related data (transactions, parsing runs, model outputs).
@@ -15,25 +16,38 @@ func DeleteDocument(ctx context.Context, documentID string) error {
 	}
 	defer client.Close()
 
-	// Delete in order: transactions, model_outputs, parsing_runs, then document
-	// This ensures foreign key constraints are respected
+	return DeleteDocumentWithClient(ctx, client, documentID)
+}
 
-	// 1. Delete transactions
-	if err := deleteTransactions(ctx, client, documentID); err != nil {
-		return fmt.Errorf("deleting transactions: %w", err)
+// DeleteDocumentWithClient deletes a document and all related data using the provided BigQuery client.
+// Related rows (transactions, model_outputs, parsing_runs) are deleted concurrently; the document
+// record itself is deleted last once all child deletes succeed.
+func DeleteDocumentWithClient(ctx context.Context, client *bigquery.Client, documentID string) error {
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		if err := deleteTransactions(gCtx, client, documentID); err != nil {
+			return fmt.Errorf("deleting transactions: %w", err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if err := deleteModelOutputs(gCtx, client, documentID); err != nil {
+			return fmt.Errorf("deleting model outputs: %w", err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if err := deleteParsingRuns(gCtx, client, documentID); err != nil {
+			return fmt.Errorf("deleting parsing runs: %w", err)
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
-	// 2. Delete model outputs
-	if err := deleteModelOutputs(ctx, client, documentID); err != nil {
-		return fmt.Errorf("deleting model outputs: %w", err)
-	}
-
-	// 3. Delete parsing runs
-	if err := deleteParsingRuns(ctx, client, documentID); err != nil {
-		return fmt.Errorf("deleting parsing runs: %w", err)
-	}
-
-	// 4. Delete document
 	if err := deleteDocumentRecord(ctx, client, documentID); err != nil {
 		return fmt.Errorf("deleting document: %w", err)
 	}

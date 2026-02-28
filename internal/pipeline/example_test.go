@@ -14,7 +14,7 @@ type MockDocumentRepository struct {
 	InsertTransactionsFunc      func(ctx context.Context, rows interface{}) error
 	InsertModelOutputFunc       func(ctx context.Context, row interface{}) error
 	StartParsingRunFunc         func(ctx context.Context, documentID string) (string, error)
-	MarkParsingRunFailedFunc    func(ctx context.Context, parsingRunID string, parseErr error)
+	MarkParsingRunFailedFunc    func(ctx context.Context, parsingRunID string, parseErr error) error
 	MarkParsingRunSucceededFunc func(ctx context.Context, parsingRunID string) error
 	ListActiveCategoriesFunc    func(ctx context.Context) (interface{}, error)
 }

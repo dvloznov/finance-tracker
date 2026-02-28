@@ -3,7 +3,6 @@ package bigquery
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"cloud.google.com/go/bigquery"
 	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
@@ -157,6 +156,21 @@ func (r *BigQueryDocumentRepository) InsertDocument(ctx context.Context, row *bq
 	return InsertDocumentWithClient(ctx, r.client, row)
 }
 
+// GetDocumentByID retrieves a single document by its ID.
+func (r *BigQueryDocumentRepository) GetDocumentByID(ctx context.Context, documentID string) (*bq.DocumentRow, error) {
+	return GetDocumentByIDWithClient(ctx, r.client, documentID)
+}
+
+// DeleteDocument deletes a document and all its related data.
+func (r *BigQueryDocumentRepository) DeleteDocument(ctx context.Context, documentID string) error {
+	return DeleteDocumentWithClient(ctx, r.client, documentID)
+}
+
+// UpdateDocumentParsingStatus updates the parsing_status field for a document.
+func (r *BigQueryDocumentRepository) UpdateDocumentParsingStatus(ctx context.Context, documentID, status string) error {
+	return UpdateDocumentParsingStatusWithClient(ctx, r.client, documentID, status)
+}
+
 // InsertTransactions delegates to the existing InsertTransactions function with the shared client.
 func (r *BigQueryDocumentRepository) InsertTransactions(ctx context.Context, rows []*bq.TransactionRow) error {
 	return InsertTransactionsWithClient(ctx, r.client, rows)
@@ -173,8 +187,8 @@ func (r *BigQueryDocumentRepository) StartParsingRun(ctx context.Context, docume
 }
 
 // MarkParsingRunFailed delegates to the existing MarkParsingRunFailed function with the shared client.
-func (r *BigQueryDocumentRepository) MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) {
-	MarkParsingRunFailedWithClient(ctx, r.client, parsingRunID, parseErr)
+func (r *BigQueryDocumentRepository) MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) error {
+	return MarkParsingRunFailedWithClient(ctx, r.client, parsingRunID, parseErr)
 }
 
 // MarkParsingRunSucceeded delegates to the existing MarkParsingRunSucceeded function with the shared client.
@@ -187,9 +201,9 @@ func (r *BigQueryDocumentRepository) ListActiveCategories(ctx context.Context) (
 	return ListActiveCategoriesWithClient(ctx, r.client)
 }
 
-// QueryTransactionsByDateRange delegates to the existing QueryTransactionsByDateRange function with the shared client.
-func (r *BigQueryDocumentRepository) QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*bq.TransactionRow, error) {
-	return QueryTransactionsByDateRangeWithClient(ctx, r.client, startDate, endDate)
+// QueryTransactions queries transactions with optional filters.
+func (r *BigQueryDocumentRepository) QueryTransactions(ctx context.Context, opts bq.TransactionQuery) ([]*bq.TransactionRow, error) {
+	return QueryTransactionsWithClient(ctx, r.client, opts)
 }
 
 // ListAllAccounts delegates to the existing ListAllAccounts function with the shared client.

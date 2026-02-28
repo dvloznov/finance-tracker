@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	bigquerylib "cloud.google.com/go/bigquery"
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
@@ -13,39 +12,44 @@ import (
 
 // TestPipelineWithoutCategoryInference tests the full pipeline without category inference/validation
 func TestPipelineWithoutCategoryInference(t *testing.T) {
-	// Setup mock categories (still available for API lookups and future categorization)
 	mockCategories := []bigquery.CategoryRow{
 		{CategoryID: "cat1-sub1", CategoryName: "Food & Dining", SubcategoryName: bigquerylib.NullString{StringVal: "Groceries", Valid: true}},
-		{CategoryID: "cat2-sub1", CategoryName: "Transportation", SubcategoryName: bigquerylib.NullString{StringVal: "Fuel", Valid: true}},
 		{CategoryID: "cat_uncategorized_other", CategoryName: "Uncategorized", SubcategoryName: bigquerylib.NullString{StringVal: "Other", Valid: true}},
 	}
 
-	// Setup mock document repository
+	var insertedDocuments int
+	var startedParsingRuns int
+	var insertedTransactions int
+	var succeededParsingRuns int
+
 	mockRepo := &MockDocumentRepository{
 		InsertDocumentFunc: func(ctx context.Context, row interface{}) error {
+			insertedDocuments++
 			return nil
 		},
 		StartParsingRunFunc: func(ctx context.Context, documentID string) (string, error) {
+			startedParsingRuns++
 			return "test-parsing-run-id", nil
 		},
 		InsertModelOutputFunc: func(ctx context.Context, row interface{}) error {
 			return nil
 		},
 		InsertTransactionsFunc: func(ctx context.Context, rows interface{}) error {
+			insertedTransactions++
 			return nil
 		},
 		MarkParsingRunSucceededFunc: func(ctx context.Context, parsingRunID string) error {
+			succeededParsingRuns++
 			return nil
 		},
-		MarkParsingRunFailedFunc: func(ctx context.Context, parsingRunID string, parseErr error) {
-			// Track failures if needed
+		MarkParsingRunFailedFunc: func(ctx context.Context, parsingRunID string, parseErr error) error {
+			return nil
 		},
 		ListActiveCategoriesFunc: func(ctx context.Context) (interface{}, error) {
 			return mockCategories, nil
 		},
 	}
 
-	// Setup mock storage
 	mockStorage := &MockStorageService{
 		FetchFromGCSFunc: func(ctx context.Context, gcsURI string) ([]byte, error) {
 			return []byte("mock pdf data"), nil
@@ -55,8 +59,12 @@ func TestPipelineWithoutCategoryInference(t *testing.T) {
 		},
 	}
 
-	// Test case: Transactions parsed without categories
 	t.Run("NoCategoriesProvided", func(t *testing.T) {
+		insertedDocuments = 0
+		startedParsingRuns = 0
+		insertedTransactions = 0
+		succeededParsingRuns = 0
+
 		mockAIParser := &MockAIParser{
 			ParseStatementFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
 				return map[string]interface{}{
@@ -104,7 +112,7 @@ func TestPipelineWithoutCategoryInference(t *testing.T) {
 		err := pipeline.IngestStatementFromGCSWithDeps(
 			context.Background(),
 			"gs://test-bucket/test.pdf",
-			"", // empty documentID - let pipeline create it
+			"",
 			repo,
 			mockAccountRepo,
 			mockInstitutionRepo,
@@ -114,7 +122,20 @@ func TestPipelineWithoutCategoryInference(t *testing.T) {
 		)
 
 		if err != nil {
-			t.Errorf("Expected no error without categories, got: %v", err)
+			t.Fatalf("expected no error, got: %v", err)
+		}
+
+		if insertedDocuments != 1 {
+			t.Errorf("expected 1 document inserted, got %d", insertedDocuments)
+		}
+		if startedParsingRuns != 1 {
+			t.Errorf("expected 1 parsing run started, got %d", startedParsingRuns)
+		}
+		if insertedTransactions != 1 {
+			t.Errorf("expected 1 transaction batch inserted, got %d", insertedTransactions)
+		}
+		if succeededParsingRuns != 1 {
+			t.Errorf("expected 1 parsing run marked succeeded, got %d", succeededParsingRuns)
 		}
 	})
 }
@@ -152,10 +173,11 @@ func (m *mockDocumentRepo) StartParsingRun(ctx context.Context, documentID strin
 	return "test-run-id", nil
 }
 
-func (m *mockDocumentRepo) MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) {
+func (m *mockDocumentRepo) MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) error {
 	if m.MarkParsingRunFailedFunc != nil {
 		m.MarkParsingRunFailedFunc(ctx, parsingRunID, parseErr)
 	}
+	return nil
 }
 
 func (m *mockDocumentRepo) MarkParsingRunSucceeded(ctx context.Context, parsingRunID string) error {
@@ -179,8 +201,7 @@ func (m *mockDocumentRepo) ListActiveCategories(ctx context.Context) ([]bigquery
 	return nil, nil
 }
 
-func (m *mockDocumentRepo) QueryTransactionsByDateRange(ctx context.Context, startDate, endDate time.Time) ([]*bigquery.TransactionRow, error) {
-	// Not needed for pipeline tests, return empty slice
+func (m *mockDocumentRepo) QueryTransactions(ctx context.Context, opts bigquery.TransactionQuery) ([]*bigquery.TransactionRow, error) {
 	return []*bigquery.TransactionRow{}, nil
 }
 
@@ -200,6 +221,18 @@ func (m *mockDocumentRepo) MarkParsingRunsAsSuperseded(ctx context.Context, docu
 }
 
 func (m *mockDocumentRepo) UpdateDocumentAccountAndInstitution(ctx context.Context, documentID, accountID, institutionID string) error {
+	return nil
+}
+
+func (m *mockDocumentRepo) GetDocumentByID(ctx context.Context, documentID string) (*bigquery.DocumentRow, error) {
+	return nil, nil
+}
+
+func (m *mockDocumentRepo) DeleteDocument(ctx context.Context, documentID string) error {
+	return nil
+}
+
+func (m *mockDocumentRepo) UpdateDocumentParsingStatus(ctx context.Context, documentID, status string) error {
 	return nil
 }
 

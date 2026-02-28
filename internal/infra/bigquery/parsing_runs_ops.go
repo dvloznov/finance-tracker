@@ -6,15 +6,10 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
-	"github.com/dvloznov/finance-tracker/internal/logger"
 	"github.com/google/uuid"
 )
 
-const (
-	projectID        = "studious-union-470122-v7"
-	datasetID        = "finance"
-	parsingRunsTable = "parsing_runs"
-)
+const parsingRunsTable = "parsing_runs"
 
 // StartParsingRun inserts a new row into finance.parsing_runs with status=RUNNING
 // and returns the generated parsing_run_id.
@@ -79,27 +74,19 @@ func StartParsingRunWithClient(ctx context.Context, client *bigquery.Client, doc
 }
 
 // MarkParsingRunFailed sets status=FAILED, finished_ts and error_message.
-func MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) {
-	log := logger.FromContext(ctx)
-
+func MarkParsingRunFailed(ctx context.Context, parsingRunID string, parseErr error) error {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
-		log.Error().
-			Err(err).
-			Str("parsing_run_id", parsingRunID).
-			Msg("MarkParsingRunFailed: bigquery client error")
-		return
+		return fmt.Errorf("MarkParsingRunFailed: bigquery client: %w", err)
 	}
 	defer client.Close()
 
-	MarkParsingRunFailedWithClient(ctx, client, parsingRunID, parseErr)
+	return MarkParsingRunFailedWithClient(ctx, client, parsingRunID, parseErr)
 }
 
 // MarkParsingRunFailedWithClient sets status=FAILED, finished_ts and error_message
 // using the provided BigQuery client.
-func MarkParsingRunFailedWithClient(ctx context.Context, client *bigquery.Client, parsingRunID string, parseErr error) {
-	log := logger.FromContext(ctx)
-
+func MarkParsingRunFailedWithClient(ctx context.Context, client *bigquery.Client, parsingRunID string, parseErr error) error {
 	errMsg := ""
 	if parseErr != nil {
 		errMsg = parseErr.Error()
@@ -126,27 +113,17 @@ func MarkParsingRunFailedWithClient(ctx context.Context, client *bigquery.Client
 
 	job, err := q.Run(ctx)
 	if err != nil {
-		log.Error().
-			Err(err).
-			Str("parsing_run_id", parsingRunID).
-			Msg("MarkParsingRunFailed: running update query")
-		return
+		return fmt.Errorf("MarkParsingRunFailed: running update query: %w", err)
 	}
 
 	status, err := job.Wait(ctx)
 	if err != nil {
-		log.Error().
-			Err(err).
-			Str("parsing_run_id", parsingRunID).
-			Msg("MarkParsingRunFailed: waiting for job")
-		return
+		return fmt.Errorf("MarkParsingRunFailed: waiting for job: %w", err)
 	}
 	if err := status.Err(); err != nil {
-		log.Error().
-			Err(err).
-			Str("parsing_run_id", parsingRunID).
-			Msg("MarkParsingRunFailed: job completed with error")
+		return fmt.Errorf("MarkParsingRunFailed: job error: %w", err)
 	}
+	return nil
 }
 
 // MarkParsingRunSucceeded sets status=SUCCESS and finished_ts, clears error_message.
