@@ -2,12 +2,18 @@ import { createColumnHelper, type CellContext } from '@tanstack/react-table';
 import { Trash2 } from 'lucide-react';
 import { formatMonthDay, formatShortDateTime } from '@/shared/formatters/date';
 import type { DocumentVM } from '@/features/documents/types';
+import type { Institution } from '@/shared/types/api';
 
 const columnHelper = createColumnHelper<DocumentVM>();
 
 type SetDeleteConfirm = (value: { show: boolean; documentId: string | null }) => void;
 
-export function getDocumentColumns(setDeleteConfirm: SetDeleteConfirm) {
+export function getDocumentColumns(
+  setDeleteConfirm: SetDeleteConfirm,
+  institutions: Institution[] = []
+) {
+  const institutionLookup = new Map(institutions.map((i) => [i.institution_id, i.name]));
+
   return [
     columnHelper.accessor('original_filename', {
       header: 'Filename',
@@ -27,11 +33,15 @@ export function getDocumentColumns(setDeleteConfirm: SetDeleteConfirm) {
     }),
     columnHelper.accessor('institution_id', {
       header: 'Institution',
-      cell: (info) => (
-        <span className="text-slate-700">
-          {info.getValue() || '-'}
-        </span>
-      ),
+      cell: (info) => {
+        const id = info.getValue();
+        const name = id ? institutionLookup.get(id) : null;
+        return (
+          <span className="text-slate-700">
+            {name ?? id ?? '-'}
+          </span>
+        );
+      },
     }),
     columnHelper.accessor('statement_start_date', {
       header: 'Statement Period',

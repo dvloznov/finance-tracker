@@ -9,6 +9,7 @@ import { DocumentsTableCard } from '@/features/documents/components/DocumentsTab
 import { UploadCard } from '@/features/documents/components/UploadCard';
 import { useDocuments } from '@/features/documents/hooks/useDocuments';
 import { useAccountScope } from '@/shared/account-scope/context';
+import { useAccountOptions } from '@/shared/account-scope/useAccountOptions';
 import { useState, useMemo } from 'react';
 import {
   useReactTable,
@@ -31,10 +32,14 @@ export default function DocumentsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { scope } = useAccountScope();
+  const { institutions = [] } = useAccountOptions();
 
   const { data: documents, isLoading } = useDocuments({ scope });
 
-  const columns = useMemo(() => getDocumentColumns(setDeleteConfirm), [setDeleteConfirm]);
+  const columns = useMemo(
+    () => getDocumentColumns(setDeleteConfirm, institutions),
+    [setDeleteConfirm, institutions]
+  );
 
   const table = useReactTable({
     data: documents || [],
