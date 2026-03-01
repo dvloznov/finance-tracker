@@ -75,8 +75,10 @@ class ApiClient {
   }
 
   // Merchants
-  async listMerchants(): Promise<Merchant[]> {
-    return this.fetch<Merchant[]>('/api/merchants');
+  async listMerchants(params?: { start_date?: string; end_date?: string }): Promise<Merchant[]> {
+    const query = new URLSearchParams(params as Record<string, string>);
+    const endpoint = `/api/merchants${query.toString() ? `?${query}` : ''}`;
+    return this.fetch<Merchant[]>(endpoint);
   }
 
   async updateMerchantCategory(merchantId: string, categoryId: string): Promise<void> {

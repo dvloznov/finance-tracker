@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/dvloznov/finance-tracker/internal/api/middleware"
 	"github.com/dvloznov/finance-tracker/internal/bigquery"
@@ -31,6 +33,7 @@ type merchantResponse struct {
 	CategoryName          string `json:"category_name,omitempty"`
 	SubcategoryName       string `json:"subcategory_name,omitempty"`
 	TransactionCount      int64  `json:"transaction_count"`
+	TotalSpent            string `json:"total_spent,omitempty"`
 	MergedIntoMerchantID  string `json:"merged_into_merchant_id,omitempty"`
 	CanonicalMerchantName string `json:"canonical_merchant_name,omitempty"`
 }
@@ -38,10 +41,24 @@ type merchantResponse struct {
 // ListMerchants handles GET /api/merchants
 // Returns all merchants with resolved category names and transaction counts,
 // ordered by transaction count descending.
+// Optional query params: start_date, end_date (YYYY-MM-DD) to filter by transaction date.
 func (h *MerchantsHandler) ListMerchants(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	merchants, err := h.repo.ListMerchants(ctx)
+	query := r.URL.Query()
+	opts := bigquery.MerchantQuery{}
+	if s := query.Get("start_date"); s != "" {
+		if t, err := time.Parse("2006-01-02", s); err == nil {
+			opts.StartDate = t
+		}
+	}
+	if s := query.Get("end_date"); s != "" {
+		if t, err := time.Parse("2006-01-02", s); err == nil {
+			opts.EndDate = t
+		}
+	}
+
+	merchants, err := h.repo.ListMerchants(ctx, opts)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to list merchants")
 		middleware.WriteError(w, http.StatusInternalServerError, "Failed to list merchants")
@@ -62,12 +79,14 @@ func (h *MerchantsHandler) ListMerchants(w http.ResponseWriter, r *http.Request)
 
 	responses := make([]merchantResponse, 0, len(merchants))
 	for _, m := range merchants {
+		totalSpent := fmt.Sprintf("%.2f", m.TotalSpent)
 		resp := merchantResponse{
 			MerchantID:       m.MerchantID,
 			MerchantName:     m.MerchantName,
 			NormalizedName:   m.NormalizedName,
 			CategoryID:       m.CategoryID,
 			TransactionCount: m.TransactionCount,
+			TotalSpent:       totalSpent,
 		}
 		if cat, ok := categoryLookup[m.CategoryID]; ok {
 			resp.CategoryName = cat.CategoryName

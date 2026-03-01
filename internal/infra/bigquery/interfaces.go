@@ -124,8 +124,8 @@ func (r *BigQueryMerchantRepository) InsertMerchant(ctx context.Context, row *bq
 }
 
 // ListMerchants delegates to the existing ListMerchantsWithClient function with the shared client.
-func (r *BigQueryMerchantRepository) ListMerchants(ctx context.Context) ([]*bq.MerchantWithCount, error) {
-	return ListMerchantsWithClient(ctx, r.client)
+func (r *BigQueryMerchantRepository) ListMerchants(ctx context.Context, opts bq.MerchantQuery) ([]*bq.MerchantWithCount, error) {
+	return ListMerchantsWithClient(ctx, r.client, opts)
 }
 
 // UpdateMerchantCategory delegates to the existing UpdateMerchantCategoryWithClient function with the shared client.
@@ -247,8 +247,8 @@ func (r *BigQueryDocumentRepository) UpdateDocumentAccountAndInstitution(ctx con
 }
 
 // ListMerchants delegates to the existing ListMerchantsWithClient function with the shared client.
-func (r *BigQueryDocumentRepository) ListMerchants(ctx context.Context) ([]*bq.MerchantWithCount, error) {
-	return ListMerchantsWithClient(ctx, r.client)
+func (r *BigQueryDocumentRepository) ListMerchants(ctx context.Context, opts bq.MerchantQuery) ([]*bq.MerchantWithCount, error) {
+	return ListMerchantsWithClient(ctx, r.client, opts)
 }
 
 // UpdateMerchantCategory delegates to the existing UpdateMerchantCategoryWithClient function with the shared client.

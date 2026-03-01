@@ -60,7 +60,8 @@ type DocumentRepository interface {
 	ListAllAccounts(ctx context.Context) ([]*AccountRow, error)
 
 	// ListMerchants returns all merchants ordered by transaction count descending.
-	ListMerchants(ctx context.Context) ([]*MerchantWithCount, error)
+	// Pass MerchantQuery with optional StartDate/EndDate to filter by transaction date.
+	ListMerchants(ctx context.Context, opts MerchantQuery) ([]*MerchantWithCount, error)
 
 	// UpdateMerchantCategory updates the category_id for a merchant.
 	UpdateMerchantCategory(ctx context.Context, merchantID, categoryID string) error
@@ -108,7 +109,8 @@ type MerchantRepository interface {
 	InsertMerchant(ctx context.Context, row *MerchantRow) (string, error)
 
 	// ListMerchants returns all merchants ordered by transaction count descending.
-	ListMerchants(ctx context.Context) ([]*MerchantWithCount, error)
+	// Pass MerchantQuery with optional StartDate/EndDate to filter by transaction date.
+	ListMerchants(ctx context.Context, opts MerchantQuery) ([]*MerchantWithCount, error)
 
 	// UpdateMerchantCategory updates the category_id for a merchant.
 	UpdateMerchantCategory(ctx context.Context, merchantID, categoryID string) error
@@ -126,6 +128,12 @@ type TransactionQuery struct {
 	EndDate       time.Time
 	InstitutionID string // optional
 	AccountID     string // optional
+}
+
+// MerchantQuery holds optional filter parameters for listing merchants.
+type MerchantQuery struct {
+	StartDate time.Time // when non-zero, filter transactions by transaction_date >= StartDate
+	EndDate   time.Time // when non-zero, filter transactions by transaction_date <= EndDate
 }
 
 // DocumentRow represents a document record in BigQuery.
@@ -194,10 +202,11 @@ type MerchantRow struct {
 }
 
 // MerchantWithCount extends MerchantRow with the number of transactions
-// associated with this merchant, used for the merchants listing endpoint.
+// and total spent, used for the merchants listing endpoint.
 type MerchantWithCount struct {
 	MerchantRow
 	TransactionCount      int64     `bigquery:"transaction_count" json:"transaction_count"`
+	TotalSpent            float64   `bigquery:"total_spent" json:"total_spent,omitempty"`
 	CanonicalMerchantName bigquery.NullString `bigquery:"canonical_merchant_name" json:"canonical_merchant_name,omitempty"`
 }
 

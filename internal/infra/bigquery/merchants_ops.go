@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"cloud.google.com/go/civil"
 	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 	"github.com/google/uuid"
 	"google.golang.org/api/iterator"
@@ -69,8 +70,23 @@ func InsertMerchant(ctx context.Context, row *bq.MerchantRow) (string, error) {
 
 // ListMerchantsWithClient returns all merchants joined with their transaction counts,
 // ordered by transaction_count descending so the most-used merchants appear first.
-// Transaction count includes direct transactions plus transitive (merchants merged into this one).
-func ListMerchantsWithClient(ctx context.Context, client *bigquery.Client) ([]*bq.MerchantWithCount, error) {
+// For canonical merchants: transaction_count and total_spent include direct + transitive (merchants merged into this one).
+// For merged merchants: transaction_count and total_spent are the transactions directly linked to that merchant.
+// When opts.StartDate/EndDate are set, only transactions within that date range are counted.
+func ListMerchantsWithClient(ctx context.Context, client *bigquery.Client, opts bq.MerchantQuery) ([]*bq.MerchantWithCount, error) {
+	dateFilter := ""
+	params := []bigquery.QueryParameter{}
+	if !opts.StartDate.IsZero() || !opts.EndDate.IsZero() {
+		if !opts.StartDate.IsZero() {
+			dateFilter += " AND t.transaction_date >= @start_date"
+			params = append(params, bigquery.QueryParameter{Name: "start_date", Value: civil.DateOf(opts.StartDate)})
+		}
+		if !opts.EndDate.IsZero() {
+			dateFilter += " AND t.transaction_date <= @end_date"
+			params = append(params, bigquery.QueryParameter{Name: "end_date", Value: civil.DateOf(opts.EndDate)})
+		}
+	}
+
 	q := client.Query(fmt.Sprintf(`
 		WITH merchant_resolved AS (
 			SELECT
@@ -81,10 +97,23 @@ func ListMerchantsWithClient(ctx context.Context, client *bigquery.Client) ([]*b
 		txn_counts AS (
 			SELECT
 				mr.resolved_merchant_id,
-				COUNT(t.transaction_id) AS cnt
+				COUNT(t.transaction_id) AS cnt,
+				SUM(IF(t.amount < 0, -t.amount, 0)) AS total_spent
 			FROM %s.%s AS t
+			INNER JOIN %s.%s pr ON t.parsing_run_id = pr.parsing_run_id AND pr.status = 'SUCCESS'
 			INNER JOIN merchant_resolved mr ON t.merchant_id = mr.merchant_id
+			WHERE 1=1%s
 			GROUP BY mr.resolved_merchant_id
+		),
+		txn_counts_direct AS (
+			SELECT
+				t.merchant_id,
+				COUNT(t.transaction_id) AS cnt,
+				SUM(IF(t.amount < 0, -t.amount, 0)) AS total_spent
+			FROM %s.%s AS t
+			INNER JOIN %s.%s pr ON t.parsing_run_id = pr.parsing_run_id AND pr.status = 'SUCCESS'
+			WHERE 1=1%s
+			GROUP BY t.merchant_id
 		)
 		SELECT
 			m.merchant_id,
@@ -93,13 +122,22 @@ func ListMerchantsWithClient(ctx context.Context, client *bigquery.Client) ([]*b
 			m.category_id,
 			m.merged_into_merchant_id,
 			m.created_ts,
-			COALESCE(tc.cnt, 0) AS transaction_count,
+			COALESCE(
+				CASE WHEN m.merged_into_merchant_id IS NOT NULL THEN tcd.cnt ELSE tc.cnt END,
+				0
+			) AS transaction_count,
+			COALESCE(
+				CASE WHEN m.merged_into_merchant_id IS NOT NULL THEN CAST(tcd.total_spent AS FLOAT64) ELSE CAST(tc.total_spent AS FLOAT64) END,
+				0
+			) AS total_spent,
 			m_canon.merchant_name AS canonical_merchant_name
 		FROM %s.%s AS m
 		LEFT JOIN txn_counts tc ON m.merchant_id = tc.resolved_merchant_id
+		LEFT JOIN txn_counts_direct tcd ON m.merchant_id = tcd.merchant_id
 		LEFT JOIN %s.%s AS m_canon ON m.merged_into_merchant_id = m_canon.merchant_id
 		ORDER BY transaction_count DESC, m.merchant_name ASC
-	`, datasetID, merchantsTable, datasetID, "transactions", datasetID, merchantsTable, datasetID, merchantsTable))
+	`, datasetID, merchantsTable, datasetID, "transactions", datasetID, "parsing_runs", dateFilter, datasetID, "transactions", datasetID, "parsing_runs", dateFilter, datasetID, merchantsTable, datasetID, merchantsTable))
+	q.Parameters = params
 
 	it, err := q.Read(ctx)
 	if err != nil {
@@ -123,14 +161,14 @@ func ListMerchantsWithClient(ctx context.Context, client *bigquery.Client) ([]*b
 }
 
 // ListMerchants returns all merchants ordered by transaction count descending.
-func ListMerchants(ctx context.Context) ([]*bq.MerchantWithCount, error) {
+func ListMerchants(ctx context.Context, opts bq.MerchantQuery) ([]*bq.MerchantWithCount, error) {
 	client, err := bigquery.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("ListMerchants: bigquery client: %w", err)
 	}
 	defer client.Close()
 
-	return ListMerchantsWithClient(ctx, client)
+	return ListMerchantsWithClient(ctx, client, opts)
 }
 
 // UpdateMerchantCategoryWithClient updates the category_id for a merchant using a shared client.

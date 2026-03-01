@@ -191,10 +191,23 @@ function MergeModal({
   );
 }
 
+function getDateRangeParams(range: 'all' | '12m'): { start_date?: string; end_date?: string } {
+  if (range === 'all') return {};
+  const end = new Date();
+  const start = new Date();
+  start.setFullYear(start.getFullYear() - 1);
+  return {
+    start_date: start.toISOString().slice(0, 10),
+    end_date: end.toISOString().slice(0, 10),
+  };
+}
+
 export default function MerchantsPage() {
   const [globalFilter, setGlobalFilter] = useState('');
+  const [dateRange, setDateRange] = useState<'all' | '12m'>('all');
   const [mergeVariant, setMergeVariant] = useState<Merchant | null>(null);
-  const { data: merchants, isLoading } = useMerchants();
+  const dateParams = useMemo(() => getDateRangeParams(dateRange), [dateRange]);
+  const { data: merchants, isLoading } = useMerchants(dateParams);
   const { data: categories } = useCategories();
   const { mutate: mergeMerchant, isPending: isMergePending } = useMergeMerchant();
   const { mutate: unmergeMerchant, isPending: isUnmergePending } = useUnmergeMerchant();
@@ -233,13 +246,23 @@ export default function MerchantsPage() {
           </div>
 
           <div className={cardClass}>
-            <input
-              type="text"
-              placeholder="Search merchants..."
-              value={globalFilter}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm"
-            />
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                placeholder="Search merchants..."
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm"
+              />
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value as 'all' | '12m')}
+                className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm bg-white"
+              >
+                <option value="all">All time</option>
+                <option value="12m">Last 12 months</option>
+              </select>
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm overflow-hidden">
@@ -263,6 +286,9 @@ export default function MerchantsPage() {
                         </th>
                         <th className="px-6 py-3 text-right text-[11px] font-medium text-slate-500 uppercase tracking-wider">
                           Transactions
+                        </th>
+                        <th className="px-6 py-3 text-right text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                          Total spent
                         </th>
                         <th className="px-6 py-3 text-right text-[11px] font-medium text-slate-500 uppercase tracking-wider">
                           Actions
@@ -294,7 +320,6 @@ export default function MerchantsPage() {
                                 </span>
                               )}
                             </p>
-                            <p className="text-xs text-slate-400 mt-0.5">{merchant.normalized_name}</p>
                           </td>
                           <td className="px-6 py-4">
                             {categories ? (
@@ -310,6 +335,11 @@ export default function MerchantsPage() {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <span className="text-sm tabular-nums text-slate-600">{merchant.transaction_count}</span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <span className="text-sm tabular-nums text-slate-600">
+                              {merchant.total_spent ? `£${Number(merchant.total_spent).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                            </span>
                           </td>
                           <td className="px-6 py-4 text-right">
                             {merchant.merged_into_merchant_id ? (
