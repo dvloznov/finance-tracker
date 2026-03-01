@@ -1,4 +1,4 @@
-import type { Account, Category, Document, Institution, Job, Transaction } from '@/shared/types/api';
+import type { Account, Category, Document, Institution, Job, Merchant, Transaction } from '@/shared/types/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -69,6 +69,18 @@ class ApiClient {
   // Categories
   async listCategories(): Promise<Category[]> {
     return this.fetch<Category[]>('/api/categories');
+  }
+
+  // Merchants
+  async listMerchants(): Promise<Merchant[]> {
+    return this.fetch<Merchant[]>('/api/merchants');
+  }
+
+  async updateMerchantCategory(merchantId: string, categoryId: string): Promise<void> {
+    await this.fetch(`/api/merchants/${merchantId}/category`, {
+      method: 'PUT',
+      body: JSON.stringify({ category_id: categoryId }),
+    });
   }
 
   // Accounts

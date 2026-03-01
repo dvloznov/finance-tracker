@@ -79,6 +79,7 @@ func main() {
 	categoriesHandler := handlers.NewCategoriesHandler(docRepo, log)
 	accountsHandler := handlers.NewAccountsHandler(docRepo, log)
 	institutionsHandler := handlers.NewInstitutionsHandler(institutionRepo, log)
+	merchantsHandler := handlers.NewMerchantsHandler(docRepo, log)
 
 	mux := http.NewServeMux()
 
@@ -112,6 +113,12 @@ func main() {
 
 	// Institutions
 	mux.HandleFunc("GET /api/institutions", institutionsHandler.ListInstitutions)
+
+	// Merchants
+	mux.HandleFunc("GET /api/merchants", merchantsHandler.ListMerchants)
+	mux.HandleFunc("PUT /api/merchants/{merchantID}/category", func(w http.ResponseWriter, r *http.Request) {
+		merchantsHandler.UpdateMerchantCategory(w, r, r.PathValue("merchantID"))
+	})
 
 	// Health
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {

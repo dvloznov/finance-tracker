@@ -56,9 +56,14 @@ type DocumentRepository interface {
 	// Pass empty strings for institutionID/accountID to skip those filters.
 	QueryTransactions(ctx context.Context, opts TransactionQuery) ([]*TransactionRow, error)
 
-
 	// ListAllAccounts retrieves all accounts from the database.
 	ListAllAccounts(ctx context.Context) ([]*AccountRow, error)
+
+	// ListMerchants returns all merchants ordered by transaction count descending.
+	ListMerchants(ctx context.Context) ([]*MerchantWithCount, error)
+
+	// UpdateMerchantCategory updates the category_id for a merchant.
+	UpdateMerchantCategory(ctx context.Context, merchantID, categoryID string) error
 }
 
 // AccountRepository provides an interface for account-related database operations.
@@ -95,6 +100,12 @@ type MerchantRepository interface {
 
 	// InsertMerchant inserts a new merchant and returns its ID.
 	InsertMerchant(ctx context.Context, row *MerchantRow) (string, error)
+
+	// ListMerchants returns all merchants ordered by transaction count descending.
+	ListMerchants(ctx context.Context) ([]*MerchantWithCount, error)
+
+	// UpdateMerchantCategory updates the category_id for a merchant.
+	UpdateMerchantCategory(ctx context.Context, merchantID, categoryID string) error
 }
 
 // TransactionQuery holds optional filter parameters for querying transactions.
@@ -167,6 +178,13 @@ type MerchantRow struct {
 	NormalizedName string    `bigquery:"normalized_name" json:"normalized_name"`
 	CategoryID     string    `bigquery:"category_id" json:"category_id"`
 	CreatedTS      time.Time `bigquery:"created_ts" json:"created_ts"`
+}
+
+// MerchantWithCount extends MerchantRow with the number of transactions
+// associated with this merchant, used for the merchants listing endpoint.
+type MerchantWithCount struct {
+	MerchantRow
+	TransactionCount int64 `bigquery:"transaction_count" json:"transaction_count"`
 }
 
 // MarshalJSON customizes JSON serialization for TransactionRow.
@@ -261,11 +279,10 @@ type AccountRow struct {
 
 // CategoryRow represents a denormalized category-subcategory pair.
 type CategoryRow struct {
-	CategoryID      string              `bigquery:"category_id"`
-	CategoryName    string              `bigquery:"category_name"`
-	SubcategoryName bigquery.NullString `bigquery:"subcategory_name"`
-
-	Slug string `bigquery:"slug"`
+	CategoryID      string              `bigquery:"category_id" json:"category_id"`
+	CategoryName    string              `bigquery:"category_name" json:"category_name"`
+	SubcategoryName bigquery.NullString `bigquery:"subcategory_name" json:"subcategory_name,omitempty"`
+	Slug            string              `bigquery:"slug" json:"slug"`
 }
 
 // ParsingRunRow represents a parsing run record in BigQuery.

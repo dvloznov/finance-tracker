@@ -65,7 +65,7 @@ function BalanceChartCard({ balanceData }: BalanceChartCardProps) {
         <div style={{ height: 300 }}>
           <ResponsiveLine
             data={balanceData}
-            margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
+            margin={{ top: 20, right: 20, bottom: 60, left: 60 }}
             xScale={{ type: 'point' }}
             yScale={{ type: 'linear', min: 'auto', max: 'auto' }}
             curve="monotoneX"
@@ -73,11 +73,18 @@ function BalanceChartCard({ balanceData }: BalanceChartCardProps) {
             axisRight={null}
             axisBottom={{
               tickSize: 0,
-              tickPadding: 8,
-              tickRotation: 0,
+              tickPadding: 10,
+              tickRotation: -45,
               legend: '',
-              legendOffset: 36,
-              legendPosition: 'middle'
+              legendOffset: 50,
+              legendPosition: 'middle',
+              tickValues: balanceData[0]?.data
+                .filter((_, i, arr) => {
+                  if (arr.length <= 8) return true;
+                  const step = Math.ceil(arr.length / 8);
+                  return i === 0 || i === arr.length - 1 || i % step === 0;
+                })
+                .map((d) => d.x) ?? [],
             }}
             axisLeft={{
               tickSize: 0,

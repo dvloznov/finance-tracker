@@ -43,6 +43,9 @@ export interface Merchant {
   merchant_name: string;
   normalized_name: string;
   category_id: string;
+  category_name?: string;
+  subcategory_name?: string;
+  transaction_count: number;
   created_ts: string;
 }
 

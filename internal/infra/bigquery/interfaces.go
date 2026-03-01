@@ -123,6 +123,16 @@ func (r *BigQueryMerchantRepository) InsertMerchant(ctx context.Context, row *bq
 	return InsertMerchantWithClient(ctx, r.client, row)
 }
 
+// ListMerchants delegates to the existing ListMerchantsWithClient function with the shared client.
+func (r *BigQueryMerchantRepository) ListMerchants(ctx context.Context) ([]*bq.MerchantWithCount, error) {
+	return ListMerchantsWithClient(ctx, r.client)
+}
+
+// UpdateMerchantCategory delegates to the existing UpdateMerchantCategoryWithClient function with the shared client.
+func (r *BigQueryMerchantRepository) UpdateMerchantCategory(ctx context.Context, merchantID, categoryID string) error {
+	return UpdateMerchantCategoryWithClient(ctx, r.client, merchantID, categoryID)
+}
+
 // BigQueryDocumentRepository is the concrete implementation of DocumentRepository
 // that interacts with BigQuery. It holds a shared BigQuery client to avoid
 // creating a new connection for each operation.
@@ -224,4 +234,14 @@ func (r *BigQueryDocumentRepository) MarkParsingRunsAsSuperseded(ctx context.Con
 // UpdateDocumentAccountAndInstitution delegates to the existing UpdateDocumentAccountAndInstitution function with the shared client.
 func (r *BigQueryDocumentRepository) UpdateDocumentAccountAndInstitution(ctx context.Context, documentID, accountID, institutionID string) error {
 	return UpdateDocumentAccountAndInstitutionWithClient(ctx, r.client, documentID, accountID, institutionID)
+}
+
+// ListMerchants delegates to the existing ListMerchantsWithClient function with the shared client.
+func (r *BigQueryDocumentRepository) ListMerchants(ctx context.Context) ([]*bq.MerchantWithCount, error) {
+	return ListMerchantsWithClient(ctx, r.client)
+}
+
+// UpdateMerchantCategory delegates to the existing UpdateMerchantCategoryWithClient function with the shared client.
+func (r *BigQueryDocumentRepository) UpdateMerchantCategory(ctx context.Context, merchantID, categoryID string) error {
+	return UpdateMerchantCategoryWithClient(ctx, r.client, merchantID, categoryID)
 }

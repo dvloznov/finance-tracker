@@ -50,7 +50,9 @@ export function getBalanceSeries(transactions?: TransactionVM[] | null): Balance
 }
 
 function buildSingleAccountSeries(sorted: TransactionVM[], isCreditCard: boolean): BalanceSeries {
-  const balanceHistory: Array<{ x: string; y: number }> = [];
+  // Use ISO date string as the key so multiple transactions on the same day
+  // collapse into one point (the last balance of that day wins).
+  const dayMap = new Map<string, number>();
   const txnsWithBalance = sorted.filter((txn) => txn.balance_after);
 
   if (txnsWithBalance.length > 0) {
@@ -68,32 +70,29 @@ function buildSingleAccountSeries(sorted: TransactionVM[], isCreditCard: boolean
         workingBalance -= parseFloat(txn.amount);
       }
 
-      balanceHistory.unshift({ x: format(date, 'MMM dd'), y: workingBalance });
+      dayMap.set(txn.transaction_date.slice(0, 10), workingBalance);
     }
   } else {
-    // No balance_after data — reconstruct from transaction flow.
-    // Credit cards start with 0 owed; spend makes it more negative on the net-worth scale,
-    // but for the single-account chart we show amount owed (positive).
     let running = 0;
     for (const txn of sorted) {
       const date = new Date(txn.transaction_date);
       if (isNaN(date.getTime())) continue;
       running += parseFloat(txn.amount);
-      // For credit cards: amount owed = -running (spend is negative after prompt fix).
-      balanceHistory.push({ x: format(date, 'MMM dd'), y: isCreditCard ? -running : running });
+      dayMap.set(txn.transaction_date.slice(0, 10), isCreditCard ? -running : running);
     }
   }
 
-  const decimated = decimate(balanceHistory);
-  return [{ id: isCreditCard ? 'amount owed' : 'balance', data: decimated }];
+  const points = [...dayMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([iso, y]) => ({ x: format(new Date(iso), 'MMM d'), y }));
+
+  return [{ id: isCreditCard ? 'amount owed' : 'balance', data: decimate(points) }];
 }
 
 function buildMultiAccountSeries(sorted: TransactionVM[]): BalanceSeries {
-  // Track the latest known signed balance per account.
   const latestBalance = new Map<string, number>();
-
-  // Collect all unique dates (by day string) in order.
-  const datePoints: Array<{ x: string; netWorth: number }> = [];
+  // Use ISO date as key so same-day transactions collapse to one net-worth point.
+  const dayMap = new Map<string, number>();
 
   for (const txn of sorted) {
     const date = new Date(txn.transaction_date);
@@ -106,27 +105,37 @@ function buildMultiAccountSeries(sorted: TransactionVM[]): BalanceSeries {
       const raw = parseFloat(txn.balance_after);
       latestBalance.set(accountId, signedBalance(raw, accountType));
     } else {
-      // Adjust the known balance for this account by the transaction amount.
-      // For credit cards, a negative amount (spend) increases the amount owed,
-      // which means it *decreases* net worth — already handled by signedBalance
-      // being negative for CC balances, and spend being negative after the prompt fix.
       const prev = latestBalance.get(accountId) ?? 0;
       latestBalance.set(accountId, prev + parseFloat(txn.amount));
     }
 
-    // Sum all known account balances for this point in time.
     let netWorth = 0;
     for (const b of latestBalance.values()) netWorth += b;
 
-    datePoints.push({ x: format(date, 'MMM dd'), netWorth });
+    dayMap.set(txn.transaction_date.slice(0, 10), netWorth);
   }
 
-  const data = decimate(datePoints.map((p) => ({ x: p.x, y: p.netWorth })));
-  return [{ id: 'net worth', data }];
+  const points = [...dayMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([iso, y]) => ({ x: format(new Date(iso), 'MMM d'), y }));
+
+  return [{ id: 'net worth', data: decimate(points) }];
 }
 
-function decimate(points: Array<{ x: string; y: number }>): Array<{ x: string; y: number }> {
-  if (points.length <= 30) return points;
-  const step = Math.ceil(points.length / 30);
-  return points.filter((_, i) => i % step === 0);
+/**
+ * Thin the series to at most maxPoints, always keeping the first and last points
+ * so the chart always shows the true earliest and latest dates.
+ */
+function decimate(
+  points: Array<{ x: string; y: number }>,
+  maxPoints = 24
+): Array<{ x: string; y: number }> {
+  if (points.length <= maxPoints) return points;
+  const step = Math.ceil((points.length - 2) / (maxPoints - 2));
+  const result: Array<{ x: string; y: number }> = [points[0]];
+  for (let i = 1; i < points.length - 1; i++) {
+    if ((i - 1) % step === 0) result.push(points[i]);
+  }
+  result.push(points[points.length - 1]);
+  return result;
 }
