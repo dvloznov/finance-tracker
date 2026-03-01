@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import type { TransactionVM } from '@/features/transactions/types';
 
 export type MonthlyTotals = {
@@ -6,6 +6,8 @@ export type MonthlyTotals = {
   income: number;
   expenses: number;
 };
+
+export type BarSelection = { month: string; type: 'income' | 'expenses' };
 
 /**
  * Returns true if a credit card transaction is a repayment/payment (money used to
@@ -68,4 +70,47 @@ export function getMonthlyTotals(
   return Array.from(monthlyMap.entries())
     .map(([month, data]) => ({ month, ...data }))
     .slice(-6);
+}
+
+/**
+ * Filters transactions to those that contribute to a specific bar (month + type).
+ * Uses the same logic as getMonthlyTotals: excludes transfers, and for income
+ * excludes credit card repayments.
+ */
+export function filterTransactionsByBar(
+  transactions: TransactionVM[],
+  selection: BarSelection,
+  transferIds?: Set<string>
+): TransactionVM[] {
+  if (!transactions?.length) return [];
+
+  const flowTxns = transferIds?.size
+    ? transactions.filter((t) => !transferIds.has(t.transaction_id))
+    : transactions;
+
+  let targetMonth: Date;
+  try {
+    targetMonth = parse(selection.month, 'MMM yyyy', new Date());
+  } catch {
+    return [];
+  }
+  const targetMonthNum = targetMonth.getMonth();
+  const targetYear = targetMonth.getFullYear();
+
+  return flowTxns.filter((txn) => {
+    const dateStr = typeof txn.transaction_date === 'string'
+      ? txn.transaction_date
+      : String(txn.transaction_date || '');
+    if (!dateStr) return false;
+
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return false;
+    if (date.getMonth() !== targetMonthNum || date.getFullYear() !== targetYear) return false;
+
+    const amount = parseFloat(txn.amount);
+    if (selection.type === 'income') {
+      return amount > 0 && !isCreditCardRepayment(txn);
+    }
+    return amount < 0;
+  });
 }

@@ -8,7 +8,7 @@ import { formatCurrency, formatCurrencyWithCode } from '@/shared/formatters/curr
 import { formatShortDate } from '@/shared/formatters/date';
 import { getBalanceSeries } from '@/features/dashboard/analytics/balance';
 import { getCategoryTotals, getSubcategoryTotals } from '@/features/dashboard/analytics/categories';
-import { getMonthlyTotals } from '@/features/dashboard/analytics/monthly';
+import { getMonthlyTotals, filterTransactionsByBar, type BarSelection } from '@/features/dashboard/analytics/monthly';
 import { getStatsSummary, type StatsSummary } from '@/features/dashboard/analytics/stats';
 import { detectTransferIds } from '@/features/dashboard/analytics/transfers';
 import { useAccountScope } from '@/shared/account-scope/context';
@@ -168,18 +168,24 @@ function BalanceChartCard({ balanceData, institutions }: BalanceChartCardProps) 
 
 type MonthlyOverviewCardProps = {
   monthlyData: Array<{ month: string; income: number; expenses: number }>;
+  onBarClick?: (month: string, type: 'income' | 'expenses') => void;
 };
 
-function MonthlyOverviewCard({ monthlyData }: MonthlyOverviewCardProps) {
+function MonthlyOverviewCard({ monthlyData, onBarClick }: MonthlyOverviewCardProps) {
   return (
     <div className={cardClass}>
       <h2 className="text-sm font-semibold text-slate-900 mb-6">Monthly Overview</h2>
       {monthlyData.length > 0 ? (
-        <div style={{ height: 300 }}>
+        <div style={{ height: 300 }} className={onBarClick ? 'cursor-pointer' : ''}>
           <ResponsiveBar
             data={monthlyData}
             keys={['income', 'expenses']}
             indexBy="month"
+            onClick={(datum) => {
+              if (onBarClick && datum.indexValue != null && datum.id != null) {
+                onBarClick(String(datum.indexValue), datum.id as 'income' | 'expenses');
+              }
+            }}
             margin={{ top: 20, right: 100, bottom: 50, left: 60 }}
             padding={0.25}
             groupMode="grouped"
@@ -376,8 +382,10 @@ type RecentTransactionsCardProps = {
   transactions: TransactionVM[];
   selectedCategory: string | null;
   selectedSubcategory: string | null;
+  selectedBar: BarSelection | null;
   transferIds: Set<string>;
   onClearFilter: () => void;
+  onClearBarFilter: () => void;
 };
 
 const PAGE_SIZE = 10;
@@ -386,8 +394,10 @@ function RecentTransactionsCard({
   transactions,
   selectedCategory,
   selectedSubcategory,
+  selectedBar,
   transferIds,
   onClearFilter,
+  onClearBarFilter,
 }: RecentTransactionsCardProps) {
   const [page, setPage] = useState(0);
 
@@ -395,6 +405,9 @@ function RecentTransactionsCard({
     let txns = [...transactions].sort(
       (a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
     );
+    if (selectedBar) {
+      txns = filterTransactionsByBar(txns, selectedBar, transferIds);
+    }
     if (selectedSubcategory) {
       txns = txns.filter(
         (t) => t.category_name === selectedCategory && t.subcategory_name === selectedSubcategory
@@ -403,12 +416,12 @@ function RecentTransactionsCard({
       txns = txns.filter((t) => t.category_name === selectedCategory);
     }
     return txns;
-  }, [transactions, selectedCategory, selectedSubcategory]);
+  }, [transactions, selectedCategory, selectedSubcategory, selectedBar, transferIds]);
 
   // Reset to first page whenever the filter changes.
   const prevFilter = useMemo(
-    () => `${selectedCategory}|${selectedSubcategory}`,
-    [selectedCategory, selectedSubcategory]
+    () => `${selectedCategory}|${selectedSubcategory}|${selectedBar?.month ?? ''}|${selectedBar?.type ?? ''}`,
+    [selectedCategory, selectedSubcategory, selectedBar]
   );
   const [lastFilter, setLastFilter] = useState(prevFilter);
   if (prevFilter !== lastFilter) {
@@ -420,25 +433,33 @@ function RecentTransactionsCard({
   const safePage = Math.min(page, totalPages - 1);
   const pageRows = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
-  const filterLabel = selectedSubcategory
-    ? `${selectedCategory} › ${selectedSubcategory}`
-    : selectedCategory
-    ? selectedCategory
-    : null;
+  const filterLabels: string[] = [];
+  if (selectedBar) {
+    filterLabels.push(`${selectedBar.month} ${selectedBar.type}`);
+  }
+  if (selectedSubcategory) {
+    filterLabels.push(`${selectedCategory} › ${selectedSubcategory}`);
+  } else if (selectedCategory) {
+    filterLabels.push(selectedCategory);
+  }
+  const filterLabel = filterLabels.length > 0 ? filterLabels.join(' · ') : null;
 
   return (
     <div className={cardClass}>
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <h2 className="text-sm font-semibold text-slate-900">Recent Transactions</h2>
           {filterLabel && (
             <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 text-xs font-medium px-2.5 py-1 rounded-full">
               {filterLabel}
               <button
                 type="button"
-                onClick={onClearFilter}
+                onClick={() => {
+                  onClearFilter();
+                  onClearBarFilter();
+                }}
                 className="text-slate-400 hover:text-slate-700 leading-none"
-                aria-label="Clear filter"
+                aria-label="Clear filters"
               >
                 ×
               </button>
@@ -561,6 +582,14 @@ export default function DashboardPage() {
     setSelectedSubcategory(null);
   };
 
+  const [selectedBar, setSelectedBar] = useState<BarSelection | null>(null);
+  const handleBarClick = (month: string, type: 'income' | 'expenses') => {
+    setSelectedBar((prev) =>
+      prev?.month === month && prev?.type === type ? null : { month, type }
+    );
+  };
+  const handleClearBarFilter = () => setSelectedBar(null);
+
   const stats = useMemo(() => {
     return getStatsSummary(transactions, transferIds);
   }, [transactions, transferIds]);
@@ -638,7 +667,7 @@ export default function DashboardPage() {
               <StatCards stats={stats} />
               <BalanceChartCard balanceData={balanceData} institutions={institutions} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <MonthlyOverviewCard monthlyData={monthlyData} />
+                <MonthlyOverviewCard monthlyData={monthlyData} onBarClick={handleBarClick} />
                 <SpendingByCategoryCard
                   categoryData={categoryData}
                   subcategoryData={subcategoryData}
@@ -653,8 +682,10 @@ export default function DashboardPage() {
                 transactions={transactions ?? []}
                 selectedCategory={selectedCategory}
                 selectedSubcategory={selectedSubcategory}
+                selectedBar={selectedBar}
                 transferIds={transferIds}
                 onClearFilter={handleClearCategory}
+                onClearBarFilter={handleClearBarFilter}
               />
             </div>
           ) : (
