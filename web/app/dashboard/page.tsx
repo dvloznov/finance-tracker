@@ -403,7 +403,7 @@ function RecentTransactionsCard({
 
   const filtered = useMemo(() => {
     let txns = [...transactions].sort(
-      (a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
+      (a, b) => Math.abs(parseFloat(b.amount)) - Math.abs(parseFloat(a.amount))
     );
     if (selectedBar) {
       txns = filterTransactionsByBar(txns, selectedBar, transferIds);
