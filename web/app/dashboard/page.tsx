@@ -12,6 +12,7 @@ import { getMonthlyTotals } from '@/features/dashboard/analytics/monthly';
 import { getStatsSummary, type StatsSummary } from '@/features/dashboard/analytics/stats';
 import { detectTransferIds } from '@/features/dashboard/analytics/transfers';
 import { useAccountScope } from '@/shared/account-scope/context';
+import { useAccountOptions } from '@/shared/account-scope/useAccountOptions';
 import type { TransactionVM } from '@/features/transactions/types';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
@@ -54,10 +55,15 @@ function StatCards({ stats }: StatCardsProps) {
 }
 
 type BalanceChartCardProps = {
-  balanceData: Array<{ id: string; data: Array<{ x: string; y: number }> }>;
+  balanceData: Array<{ id: string; data: Array<{ x: string; y: number; breakdown?: Record<string, number> }> }>;
+  institutions: Array<{ institution_id: string; name: string }>;
 };
 
-function BalanceChartCard({ balanceData }: BalanceChartCardProps) {
+function BalanceChartCard({ balanceData, institutions }: BalanceChartCardProps) {
+  const institutionLookup = useMemo(
+    () => new Map(institutions.map((i) => [i.institution_id, i.name])),
+    [institutions]
+  );
   return (
     <div className={cardClass}>
       <h2 className="text-sm font-semibold text-slate-900 mb-6">Account Balance Over Time</h2>
@@ -118,14 +124,36 @@ function BalanceChartCard({ balanceData }: BalanceChartCardProps) {
                 }
               }
             }}
-            tooltip={(point) => (
-              <div className="bg-white px-3 py-2 shadow-sm rounded-lg ring-1 ring-black/5">
-                <div className="text-xs font-medium text-slate-900">{String(point.point.data.x)}</div>
-                <div className="text-xs text-slate-600 mt-1">
-                  <span className="tabular-nums font-semibold">£{Math.round(Number(point.point.data.y)).toLocaleString()}</span>
+            tooltip={(point) => {
+              const data = point.point.data as { x: string; y: number; breakdown?: Record<string, number> };
+              const value = Number(data.y);
+              const breakdown = data.breakdown;
+              return (
+                <div className="bg-white px-3 py-2 shadow-sm rounded-lg ring-1 ring-black/5 min-w-[140px]">
+                  <div className="text-xs font-medium text-slate-900">{String(data.x)}</div>
+                  <div className="text-sm text-slate-700 mt-1 tabular-nums font-semibold">
+                    £{value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  {breakdown && Object.keys(breakdown).length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
+                      {Object.entries(breakdown)
+                        .filter(([, v]) => v !== 0)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([instId, bal]) => (
+                          <div key={instId} className="flex justify-between gap-4 text-xs">
+                            <span className="text-slate-500 truncate max-w-[100px]">
+                              {instId === '__unknown__' ? 'Unknown' : institutionLookup.get(instId) ?? instId}
+                            </span>
+                            <span className={`tabular-nums font-medium shrink-0 ${bal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              £{bal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            }}
           />
         </div>
       ) : (
@@ -499,6 +527,7 @@ export default function DashboardPage() {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const { scope } = useAccountScope();
   const { data: transactions, isLoading, error } = useTransactions({ scope });
+  const { institutions = [] } = useAccountOptions();
 
   // Detect transfer pairs only when viewing all accounts together.
   // In single-account or single-institution scope there can be no cross-account transfers.
@@ -563,7 +592,7 @@ export default function DashboardPage() {
           ) : stats ? (
             <div className="space-y-6">
               <StatCards stats={stats} />
-              <BalanceChartCard balanceData={balanceData} />
+              <BalanceChartCard balanceData={balanceData} institutions={institutions} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <MonthlyOverviewCard monthlyData={monthlyData} />
                 <SpendingByCategoryCard

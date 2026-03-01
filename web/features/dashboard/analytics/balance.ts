@@ -1,7 +1,14 @@
 import { format } from 'date-fns';
 import type { TransactionVM } from '@/features/transactions/types';
 
-export type BalanceSeries = Array<{ id: string; data: Array<{ x: string; y: number }> }>;
+export type BalancePoint = {
+  x: string;
+  y: number;
+  /** Per-institution signed balance at this point (institution_id -> total). Only in multi-account view. */
+  breakdown?: Record<string, number>;
+};
+
+export type BalanceSeries = Array<{ id: string; data: BalancePoint[] }>;
 
 /**
  * Compute the signed balance contribution for a balance_after value.
@@ -91,15 +98,19 @@ function buildSingleAccountSeries(sorted: TransactionVM[], isCreditCard: boolean
 
 function buildMultiAccountSeries(sorted: TransactionVM[]): BalanceSeries {
   const latestBalance = new Map<string, number>();
-  // Use ISO date as key so same-day transactions collapse to one net-worth point.
-  const dayMap = new Map<string, number>();
+  const accountToInstitution = new Map<string, string>();
+  // Use ISO date as key; value is { netWorth, breakdown }
+  const dayMap = new Map<string, { netWorth: number; breakdown: Record<string, number> }>();
 
   for (const txn of sorted) {
     const date = new Date(txn.transaction_date);
     if (isNaN(date.getTime())) continue;
 
     const accountId = txn.account_id ?? '__unknown__';
+    const institutionId = txn.institution_id ?? '__unknown__';
     const accountType = txn.account_type;
+
+    accountToInstitution.set(accountId, institutionId);
 
     if (txn.balance_after) {
       const raw = parseFloat(txn.balance_after);
@@ -109,15 +120,25 @@ function buildMultiAccountSeries(sorted: TransactionVM[]): BalanceSeries {
       latestBalance.set(accountId, prev + parseFloat(txn.amount));
     }
 
+    // Build per-institution totals from current account balances
+    const breakdown: Record<string, number> = {};
     let netWorth = 0;
-    for (const b of latestBalance.values()) netWorth += b;
+    for (const [accId, bal] of latestBalance.entries()) {
+      const instId = accountToInstitution.get(accId) ?? '__unknown__';
+      breakdown[instId] = (breakdown[instId] ?? 0) + bal;
+      netWorth += bal;
+    }
 
-    dayMap.set(txn.transaction_date.slice(0, 10), netWorth);
+    dayMap.set(txn.transaction_date.slice(0, 10), { netWorth, breakdown });
   }
 
-  const points = [...dayMap.entries()]
+  const points: BalancePoint[] = [...dayMap.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([iso, y]) => ({ x: format(new Date(iso), 'MMM d'), y }));
+    .map(([iso, { netWorth, breakdown }]) => ({
+      x: format(new Date(iso), 'MMM d'),
+      y: netWorth,
+      breakdown,
+    }));
 
   return [{ id: 'net worth', data: decimate(points) }];
 }
@@ -126,13 +147,10 @@ function buildMultiAccountSeries(sorted: TransactionVM[]): BalanceSeries {
  * Thin the series to at most maxPoints, always keeping the first and last points
  * so the chart always shows the true earliest and latest dates.
  */
-function decimate(
-  points: Array<{ x: string; y: number }>,
-  maxPoints = 24
-): Array<{ x: string; y: number }> {
+function decimate(points: BalancePoint[], maxPoints = 24): BalancePoint[] {
   if (points.length <= maxPoints) return points;
   const step = Math.ceil((points.length - 2) / (maxPoints - 2));
-  const result: Array<{ x: string; y: number }> = [points[0]];
+  const result: BalancePoint[] = [points[0]];
   for (let i = 1; i < points.length - 1; i++) {
     if ((i - 1) % step === 0) result.push(points[i]);
   }
