@@ -6,9 +6,10 @@ import { AppNav } from '@/shared/ui/AppNav';
 import { useMemo, useState } from 'react';
 import { formatCurrency, formatCurrencyWithCode } from '@/shared/formatters/currency';
 import { formatShortDate } from '@/shared/formatters/date';
+import { format, parse, subMonths, lastDayOfMonth } from 'date-fns';
 import { getBalanceSeries } from '@/features/dashboard/analytics/balance';
 import { getCategoryTotals, getSubcategoryTotals } from '@/features/dashboard/analytics/categories';
-import { getMonthlyTotals, filterTransactionsByBar, type BarSelection } from '@/features/dashboard/analytics/monthly';
+import { getMonthlyTotals, getDailyTotals, filterTransactionsByBar, type BarSelection } from '@/features/dashboard/analytics/monthly';
 import { getStatsSummary, type StatsSummary } from '@/features/dashboard/analytics/stats';
 import { detectTransferIds } from '@/features/dashboard/analytics/transfers';
 import { useAccountScope } from '@/shared/account-scope/context';
@@ -19,6 +20,18 @@ import { ResponsiveBar } from '@nivo/bar';
 import { ResponsivePie } from '@nivo/pie';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
+function getMonthOptions(): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [{ value: 'all', label: 'All time' }];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = subMonths(now, i);
+    const value = format(d, 'yyyy-MM');
+    const label = format(d, 'MMMM yyyy');
+    options.push({ value, label });
+  }
+  return options;
+}
 
 
 type StatCardsProps = {
@@ -166,24 +179,46 @@ function BalanceChartCard({ balanceData, institutions }: BalanceChartCardProps) 
   );
 }
 
+type OverviewChartData = Array<{ month?: string; day?: string; income: number; expenses: number }>;
+
 type MonthlyOverviewCardProps = {
-  monthlyData: Array<{ month: string; income: number; expenses: number }>;
-  onBarClick?: (month: string, type: 'income' | 'expenses') => void;
+  data: OverviewChartData;
+  indexBy: 'month' | 'day';
+  title: string;
+  onBarClick?: (indexValue: string, type: 'income' | 'expenses', day?: number) => void;
 };
 
-function MonthlyOverviewCard({ monthlyData, onBarClick }: MonthlyOverviewCardProps) {
+function MonthlyOverviewCard({ data, indexBy, title, onBarClick }: MonthlyOverviewCardProps) {
+  const indexKey = indexBy === 'month' ? 'month' : 'day';
+  const chartData = data.map((d) => ({ ...d, [indexKey]: d[indexKey] ?? '' }));
+  const isDaily = indexBy === 'day';
+  const axisBottom = {
+    tickSize: 0,
+    tickPadding: 8,
+    tickRotation: isDaily ? -45 : 0,
+    legend: '',
+    legendPosition: 'middle' as const,
+    legendOffset: 40,
+    ...(isDaily && chartData.length > 10 && {
+      tickValues: chartData
+        .filter((_, i) => i % Math.ceil(chartData.length / 10) === 0 || i === chartData.length - 1)
+        .map((d) => d.day),
+    }),
+  };
+
   return (
     <div className={cardClass}>
-      <h2 className="text-sm font-semibold text-slate-900 mb-6">Monthly Overview</h2>
-      {monthlyData.length > 0 ? (
+      <h2 className="text-sm font-semibold text-slate-900 mb-6">{title}</h2>
+      {chartData.length > 0 ? (
         <div style={{ height: 300 }} className={onBarClick ? 'cursor-pointer' : ''}>
           <ResponsiveBar
-            data={monthlyData}
+            data={chartData}
             keys={['income', 'expenses']}
-            indexBy="month"
+            indexBy={indexKey}
             onClick={(datum) => {
               if (onBarClick && datum.indexValue != null && datum.id != null) {
-                onBarClick(String(datum.indexValue), datum.id as 'income' | 'expenses');
+                const day = indexBy === 'day' ? parseInt(String(datum.indexValue), 10) : undefined;
+                onBarClick(String(datum.indexValue), datum.id as 'income' | 'expenses', day);
               }
             }}
             margin={{ top: 20, right: 100, bottom: 50, left: 60 }}
@@ -199,14 +234,7 @@ function MonthlyOverviewCard({ monthlyData, onBarClick }: MonthlyOverviewCardPro
             }}
             axisTop={null}
             axisRight={null}
-            axisBottom={{
-              tickSize: 0,
-              tickPadding: 8,
-              tickRotation: 0,
-              legend: '',
-              legendPosition: 'middle',
-              legendOffset: 40
-            }}
+            axisBottom={axisBottom}
             axisLeft={{
               tickSize: 0,
               tickPadding: 8,
@@ -272,7 +300,7 @@ function MonthlyOverviewCard({ monthlyData, onBarClick }: MonthlyOverviewCardPro
           />
         </div>
       ) : (
-        <p className="text-sm text-slate-500 text-center py-12">No monthly data available</p>
+        <p className="text-sm text-slate-500 text-center py-12">No data available</p>
       )}
     </div>
   );
@@ -420,7 +448,7 @@ function RecentTransactionsCard({
 
   // Reset to first page whenever the filter changes.
   const prevFilter = useMemo(
-    () => `${selectedCategory}|${selectedSubcategory}|${selectedBar?.month ?? ''}|${selectedBar?.type ?? ''}`,
+    () => `${selectedCategory}|${selectedSubcategory}|${selectedBar?.month ?? ''}|${selectedBar?.type ?? ''}|${selectedBar?.day ?? ''}`,
     [selectedCategory, selectedSubcategory, selectedBar]
   );
   const [lastFilter, setLastFilter] = useState(prevFilter);
@@ -435,7 +463,10 @@ function RecentTransactionsCard({
 
   const filterLabels: string[] = [];
   if (selectedBar) {
-    filterLabels.push(`${selectedBar.month} ${selectedBar.type}`);
+    const barLabel = selectedBar.day != null
+      ? `${selectedBar.month} ${selectedBar.day} ${selectedBar.type}`
+      : `${selectedBar.month} ${selectedBar.type}`;
+    filterLabels.push(barLabel);
   }
   if (selectedSubcategory) {
     filterLabels.push(`${selectedCategory} › ${selectedSubcategory}`);
@@ -547,17 +578,18 @@ function RecentTransactionsCard({
 export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [dateRange, setDateRange] = useState<string>('all');
   const { scope } = useAccountScope();
-  const dateParams = useMemo(
-    () => ({
-      ...(startDate && { start_date: startDate }),
-      ...(endDate && { end_date: endDate }),
-    }),
-    [startDate, endDate]
-  );
+  const dateParams = useMemo(() => {
+    if (dateRange === 'all') return {};
+    const [year, month] = dateRange.split('-').map(Number);
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = lastDayOfMonth(firstDay);
+    return {
+      start_date: format(firstDay, 'yyyy-MM-dd'),
+      end_date: format(lastDay, 'yyyy-MM-dd'),
+    };
+  }, [dateRange]);
   const { data: transactions, isLoading, error } = useTransactions({ scope, ...dateParams });
   const { institutions = [] } = useAccountOptions();
 
@@ -583,9 +615,11 @@ export default function DashboardPage() {
   };
 
   const [selectedBar, setSelectedBar] = useState<BarSelection | null>(null);
-  const handleBarClick = (month: string, type: 'income' | 'expenses') => {
+  const handleBarClick = (indexValue: string, type: 'income' | 'expenses', day?: number) => {
+    const month = dateRange === 'all' ? indexValue : format(parse(`${dateRange}-01`, 'yyyy-MM', new Date()), 'MMM yyyy');
+    const newSel: BarSelection = { month, type, ...(day != null && { day }) };
     setSelectedBar((prev) =>
-      prev?.month === month && prev?.type === type ? null : { month, type }
+      prev?.month === newSel.month && prev?.type === newSel.type && prev?.day === newSel.day ? null : newSel
     );
   };
   const handleClearBarFilter = () => setSelectedBar(null);
@@ -597,6 +631,16 @@ export default function DashboardPage() {
   const monthlyData = useMemo(() => {
     return getMonthlyTotals(transactions, transferIds);
   }, [transactions, transferIds]);
+
+  const dailyData = useMemo(() => {
+    if (dateRange === 'all') return [];
+    return getDailyTotals(transactions, dateRange, transferIds);
+  }, [transactions, dateRange, transferIds]);
+
+  const overviewData = dateRange === 'all' ? monthlyData : dailyData;
+  const overviewMode = dateRange === 'all' ? 'monthly' : 'daily';
+  const overviewTitle = dateRange === 'all' ? 'Monthly Overview' : 'Daily Overview';
+  const overviewIndexBy = dateRange === 'all' ? 'month' : 'day';
 
   const categoryData = useMemo(() => {
     return getCategoryTotals(transactions, transferIds);
@@ -621,37 +665,17 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
               <p className="text-sm text-slate-600">Overview of your financial activity</p>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-600">From</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                max={endDate || today}
-                className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm bg-white"
-              />
-              <label className="text-sm text-slate-600">To</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={startDate}
-                max={today}
-                className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm bg-white"
-              />
-              {(startDate || endDate) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStartDate('');
-                    setEndDate('');
-                  }}
-                  className="text-sm text-slate-500 hover:text-slate-700"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm bg-white w-fit"
+            >
+              {getMonthOptions().map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           {error && (
@@ -667,7 +691,12 @@ export default function DashboardPage() {
               <StatCards stats={stats} />
               <BalanceChartCard balanceData={balanceData} institutions={institutions} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <MonthlyOverviewCard monthlyData={monthlyData} onBarClick={handleBarClick} />
+                <MonthlyOverviewCard
+                  data={overviewData}
+                  indexBy={overviewIndexBy}
+                  title={overviewTitle}
+                  onBarClick={handleBarClick}
+                />
                 <SpendingByCategoryCard
                   categoryData={categoryData}
                   subcategoryData={subcategoryData}
