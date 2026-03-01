@@ -412,6 +412,7 @@ type RecentTransactionsCardProps = {
   selectedSubcategory: string | null;
   selectedBar: BarSelection | null;
   transferIds: Set<string>;
+  institutions: Array<{ institution_id: string; name: string }>;
   onClearFilter: () => void;
   onClearBarFilter: () => void;
 };
@@ -424,10 +425,15 @@ function RecentTransactionsCard({
   selectedSubcategory,
   selectedBar,
   transferIds,
+  institutions,
   onClearFilter,
   onClearBarFilter,
 }: RecentTransactionsCardProps) {
   const [page, setPage] = useState(0);
+  const institutionLookup = useMemo(
+    () => new Map(institutions.map((i) => [i.institution_id, i.name])),
+    [institutions]
+  );
 
   const filtered = useMemo(() => {
     let txns = [...transactions].sort(
@@ -520,6 +526,9 @@ function RecentTransactionsCard({
                     </p>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {formatShortDate(txn.transaction_date)}
+                      {txn.institution_id && (
+                        <> · <span className="text-slate-500">{institutionLookup.get(txn.institution_id) ?? txn.institution_id}</span></>
+                      )}
                       {txn.category_name && !isTransfer && (
                         <> · <span className="text-slate-500">{txn.category_name}</span></>
                       )}
@@ -713,6 +722,7 @@ export default function DashboardPage() {
                 selectedSubcategory={selectedSubcategory}
                 selectedBar={selectedBar}
                 transferIds={transferIds}
+                institutions={institutions}
                 onClearFilter={handleClearCategory}
                 onClearBarFilter={handleClearBarFilter}
               />
