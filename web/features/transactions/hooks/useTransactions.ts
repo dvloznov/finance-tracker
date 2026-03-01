@@ -6,6 +6,8 @@ import type { AccountScope } from '@/shared/account-scope/types';
 
 type UseTransactionsParams = {
   scope?: AccountScope;
+  start_date?: string;
+  end_date?: string;
 };
 
 function getScopeParams(scope?: AccountScope) {
@@ -19,14 +21,19 @@ function getScopeParams(scope?: AccountScope) {
   return {};
 }
 
-export function useTransactions({ scope }: UseTransactionsParams = {}) {
+export function useTransactions({ scope, start_date, end_date }: UseTransactionsParams = {}) {
   const scopeParams = getScopeParams(scope);
+  const params = {
+    ...scopeParams,
+    ...(start_date != null && { start_date }),
+    ...(end_date != null && { end_date }),
+  };
 
   return useQuery({
-    queryKey: ['transactions', scope?.mode ?? 'all', scope?.institutionId ?? null, scope?.accountId ?? null],
+    queryKey: ['transactions', scope?.mode ?? 'all', scope?.institutionId ?? null, scope?.accountId ?? null, start_date ?? null, end_date ?? null],
     queryFn: async () => {
       const [transactions, categories] = await Promise.all([
-        listTransactions(scopeParams),
+        listTransactions(params),
         listCategories(),
       ]);
       const categoryLookup = new Map(categories.map((category) => [category.category_id, category]));

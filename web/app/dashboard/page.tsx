@@ -20,6 +20,7 @@ import { ResponsivePie } from '@nivo/pie';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
+
 type StatCardsProps = {
   stats: StatsSummary;
 };
@@ -525,8 +526,18 @@ function RecentTransactionsCard({
 export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const { scope } = useAccountScope();
-  const { data: transactions, isLoading, error } = useTransactions({ scope });
+  const dateParams = useMemo(
+    () => ({
+      ...(startDate && { start_date: startDate }),
+      ...(endDate && { end_date: endDate }),
+    }),
+    [startDate, endDate]
+  );
+  const { data: transactions, isLoading, error } = useTransactions({ scope, ...dateParams });
   const { institutions = [] } = useAccountOptions();
 
   // Detect transfer pairs only when viewing all accounts together.
@@ -576,9 +587,42 @@ export default function DashboardPage() {
 
       <main className="container mx-auto px-6 py-8">
         <div className="space-y-6">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
-            <p className="text-sm text-slate-600">Overview of your financial activity</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
+              <p className="text-sm text-slate-600">Overview of your financial activity</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-slate-600">From</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                max={endDate || today}
+                className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm bg-white"
+              />
+              <label className="text-sm text-slate-600">To</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate}
+                max={today}
+                className="px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm bg-white"
+              />
+              {(startDate || endDate) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartDate('');
+                    setEndDate('');
+                  }}
+                  className="text-sm text-slate-500 hover:text-slate-700"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
           {error && (
