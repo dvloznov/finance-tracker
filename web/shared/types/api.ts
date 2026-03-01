@@ -46,7 +46,9 @@ export interface Merchant {
   category_name?: string;
   subcategory_name?: string;
   transaction_count: number;
-  created_ts: string;
+  created_ts?: string;
+  merged_into_merchant_id?: string;
+  canonical_merchant_name?: string;
 }
 
 export interface Account {

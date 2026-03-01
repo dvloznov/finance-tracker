@@ -24,13 +24,15 @@ func NewMerchantsHandler(repo bigquery.DocumentRepository, log zerolog.Logger) *
 }
 
 type merchantResponse struct {
-	MerchantID       string `json:"merchant_id"`
-	MerchantName     string `json:"merchant_name"`
-	NormalizedName   string `json:"normalized_name"`
-	CategoryID       string `json:"category_id"`
-	CategoryName     string `json:"category_name,omitempty"`
-	SubcategoryName  string `json:"subcategory_name,omitempty"`
-	TransactionCount int64  `json:"transaction_count"`
+	MerchantID            string `json:"merchant_id"`
+	MerchantName          string `json:"merchant_name"`
+	NormalizedName        string `json:"normalized_name"`
+	CategoryID            string `json:"category_id"`
+	CategoryName          string `json:"category_name,omitempty"`
+	SubcategoryName       string `json:"subcategory_name,omitempty"`
+	TransactionCount      int64  `json:"transaction_count"`
+	MergedIntoMerchantID  string `json:"merged_into_merchant_id,omitempty"`
+	CanonicalMerchantName string `json:"canonical_merchant_name,omitempty"`
 }
 
 // ListMerchants handles GET /api/merchants
@@ -73,6 +75,12 @@ func (h *MerchantsHandler) ListMerchants(w http.ResponseWriter, r *http.Request)
 				resp.SubcategoryName = cat.SubcategoryName.StringVal
 			}
 		}
+		if m.MergedIntoMerchantID.Valid {
+			resp.MergedIntoMerchantID = m.MergedIntoMerchantID.StringVal
+		}
+		if m.CanonicalMerchantName.Valid {
+			resp.CanonicalMerchantName = m.CanonicalMerchantName.StringVal
+		}
 		responses = append(responses, resp)
 	}
 
@@ -99,6 +107,46 @@ func (h *MerchantsHandler) UpdateMerchantCategory(w http.ResponseWriter, r *http
 	if err := h.repo.UpdateMerchantCategory(ctx, merchantID, body.CategoryID); err != nil {
 		h.log.Error().Err(err).Str("merchant_id", merchantID).Msg("Failed to update merchant category")
 		middleware.WriteError(w, http.StatusInternalServerError, "Failed to update merchant category")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// MergeMerchant handles PUT /api/merchants/{merchantID}/merge
+// Body: { "canonical_merchant_id": "..." }
+func (h *MerchantsHandler) MergeMerchant(w http.ResponseWriter, r *http.Request, merchantID string) {
+	ctx := r.Context()
+
+	var body struct {
+		CanonicalMerchantID string `json:"canonical_merchant_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if body.CanonicalMerchantID == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "canonical_merchant_id is required")
+		return
+	}
+
+	if err := h.repo.UpdateMerchantMergeInto(ctx, merchantID, body.CanonicalMerchantID); err != nil {
+		h.log.Error().Err(err).Str("merchant_id", merchantID).Str("canonical_merchant_id", body.CanonicalMerchantID).Msg("Failed to merge merchant")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to merge merchant")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// UnmergeMerchant handles DELETE /api/merchants/{merchantID}/merge
+// Removes the merge for a merchant (sets merged_into_merchant_id to NULL).
+func (h *MerchantsHandler) UnmergeMerchant(w http.ResponseWriter, r *http.Request, merchantID string) {
+	ctx := r.Context()
+
+	if err := h.repo.ClearMerchantMergeInto(ctx, merchantID); err != nil {
+		h.log.Error().Err(err).Str("merchant_id", merchantID).Msg("Failed to unmerge merchant")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to unmerge merchant")
 		return
 	}
 

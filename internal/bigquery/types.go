@@ -64,6 +64,12 @@ type DocumentRepository interface {
 
 	// UpdateMerchantCategory updates the category_id for a merchant.
 	UpdateMerchantCategory(ctx context.Context, merchantID, categoryID string) error
+
+	// UpdateMerchantMergeInto merges variantMerchantID into canonicalMerchantID.
+	UpdateMerchantMergeInto(ctx context.Context, variantMerchantID, canonicalMerchantID string) error
+
+	// ClearMerchantMergeInto removes the merge for a merchant (sets merged_into_merchant_id to NULL).
+	ClearMerchantMergeInto(ctx context.Context, merchantID string) error
 }
 
 // AccountRepository provides an interface for account-related database operations.
@@ -106,6 +112,12 @@ type MerchantRepository interface {
 
 	// UpdateMerchantCategory updates the category_id for a merchant.
 	UpdateMerchantCategory(ctx context.Context, merchantID, categoryID string) error
+
+	// UpdateMerchantMergeInto merges variantMerchantID into canonicalMerchantID.
+	UpdateMerchantMergeInto(ctx context.Context, variantMerchantID, canonicalMerchantID string) error
+
+	// ClearMerchantMergeInto removes the merge for a merchant (sets merged_into_merchant_id to NULL).
+	ClearMerchantMergeInto(ctx context.Context, merchantID string) error
 }
 
 // TransactionQuery holds optional filter parameters for querying transactions.
@@ -173,18 +185,20 @@ type TransactionRow struct {
 
 // MerchantRow represents a merchant record in BigQuery.
 type MerchantRow struct {
-	MerchantID     string    `bigquery:"merchant_id" json:"merchant_id"`
-	MerchantName   string    `bigquery:"merchant_name" json:"merchant_name"`
-	NormalizedName string    `bigquery:"normalized_name" json:"normalized_name"`
-	CategoryID     string    `bigquery:"category_id" json:"category_id"`
-	CreatedTS      time.Time `bigquery:"created_ts" json:"created_ts"`
+	MerchantID           string         `bigquery:"merchant_id" json:"merchant_id"`
+	MerchantName         string         `bigquery:"merchant_name" json:"merchant_name"`
+	NormalizedName       string         `bigquery:"normalized_name" json:"normalized_name"`
+	CategoryID           string         `bigquery:"category_id" json:"category_id"`
+	MergedIntoMerchantID bigquery.NullString `bigquery:"merged_into_merchant_id" json:"merged_into_merchant_id,omitempty"`
+	CreatedTS            time.Time      `bigquery:"created_ts" json:"created_ts"`
 }
 
 // MerchantWithCount extends MerchantRow with the number of transactions
 // associated with this merchant, used for the merchants listing endpoint.
 type MerchantWithCount struct {
 	MerchantRow
-	TransactionCount int64 `bigquery:"transaction_count" json:"transaction_count"`
+	TransactionCount      int64     `bigquery:"transaction_count" json:"transaction_count"`
+	CanonicalMerchantName bigquery.NullString `bigquery:"canonical_merchant_name" json:"canonical_merchant_name,omitempty"`
 }
 
 // MarshalJSON customizes JSON serialization for TransactionRow.

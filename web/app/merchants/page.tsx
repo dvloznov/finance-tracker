@@ -5,6 +5,8 @@ import { AppNav } from '@/shared/ui/AppNav';
 import { cardClass } from '@/lib/ui';
 import { useMerchants } from '@/features/merchants/hooks/useMerchants';
 import { useUpdateMerchantCategory } from '@/features/merchants/hooks/useUpdateMerchantCategory';
+import { useMergeMerchant } from '@/features/merchants/hooks/useMergeMerchant';
+import { useUnmergeMerchant } from '@/features/merchants/hooks/useUnmergeMerchant';
 import { useCategories } from '@/features/categories/hooks/useCategories';
 import type { Category, Merchant } from '@/shared/types/api';
 
@@ -113,21 +115,107 @@ function CategorySelects({
   );
 }
 
+function MergeModal({
+  variant,
+  merchants,
+  onSelect,
+  onClose,
+}: {
+  variant: Merchant;
+  merchants: Merchant[];
+  onSelect: (canonical: Merchant) => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const candidates = useMemo(() => {
+    return merchants.filter(
+      (m) =>
+        m.merchant_id !== variant.merchant_id &&
+        !m.merged_into_merchant_id &&
+        (search.trim() === '' ||
+          m.merchant_name.toLowerCase().includes(search.toLowerCase()) ||
+          m.normalized_name.toLowerCase().includes(search.toLowerCase()))
+    );
+  }, [merchants, variant.merchant_id, search]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-slate-100">
+          <h3 className="font-semibold text-slate-900">Merge &quot;{variant.merchant_name}&quot; into</h3>
+          <p className="text-xs text-slate-500 mt-1">Select the canonical merchant to merge into</p>
+        </div>
+        <div className="p-4 border-b border-slate-100">
+          <input
+            type="text"
+            placeholder="Search merchants..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+          />
+        </div>
+        <div className="overflow-y-auto flex-1 p-2">
+          {candidates.length === 0 ? (
+            <p className="p-4 text-sm text-slate-500 text-center">No merchants match</p>
+          ) : (
+            <ul className="space-y-0.5">
+              {candidates.map((m) => (
+                <li key={m.merchant_id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(m)}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 text-sm"
+                  >
+                    <span className="font-medium text-slate-900">{m.merchant_name}</span>
+                    <span className="text-slate-400 ml-2 text-xs">{m.normalized_name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="p-4 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-slate-600 hover:text-slate-900"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MerchantsPage() {
   const [globalFilter, setGlobalFilter] = useState('');
+  const [mergeVariant, setMergeVariant] = useState<Merchant | null>(null);
   const { data: merchants, isLoading } = useMerchants();
   const { data: categories } = useCategories();
+  const { mutate: mergeMerchant, isPending: isMergePending } = useMergeMerchant();
+  const { mutate: unmergeMerchant, isPending: isUnmergePending } = useUnmergeMerchant();
 
   const filtered = useMemo(() => {
     if (!merchants) return [];
     const q = globalFilter.trim().toLowerCase();
-    if (!q) return merchants;
-    return merchants.filter(
-      (m) =>
-        m.merchant_name.toLowerCase().includes(q) ||
-        m.normalized_name.toLowerCase().includes(q) ||
-        (m.category_name ?? '').toLowerCase().includes(q)
-    );
+    const list = q
+      ? merchants.filter(
+          (m) =>
+            m.merchant_name.toLowerCase().includes(q) ||
+            m.normalized_name.toLowerCase().includes(q) ||
+            (m.category_name ?? '').toLowerCase().includes(q)
+        )
+      : merchants;
+    // Merged merchants at the bottom, canonical first (preserve transaction_count order within each group)
+    return [...list].sort((a, b) => {
+      const aMerged = !!a.merged_into_merchant_id ? 1 : 0;
+      const bMerged = !!b.merged_into_merchant_id ? 1 : 0;
+      return aMerged - bMerged;
+    });
   }, [merchants, globalFilter]);
 
   return (
@@ -176,13 +264,36 @@ export default function MerchantsPage() {
                         <th className="px-6 py-3 text-right text-[11px] font-medium text-slate-500 uppercase tracking-wider">
                           Transactions
                         </th>
+                        <th className="px-6 py-3 text-right text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-100">
                       {filtered.map((merchant) => (
-                        <tr key={merchant.merchant_id} className="hover:bg-slate-50">
+                        <tr
+                          key={merchant.merchant_id}
+                          className={
+                            merchant.merged_into_merchant_id
+                              ? 'bg-slate-50/60 hover:bg-slate-100/60 text-slate-500'
+                              : 'hover:bg-slate-50'
+                          }
+                        >
                           <td className="px-6 py-4">
-                            <p className="text-sm font-medium text-slate-900">{merchant.merchant_name}</p>
+                            <p
+                              className={
+                                merchant.merged_into_merchant_id
+                                  ? 'text-sm font-medium text-slate-500'
+                                  : 'text-sm font-medium text-slate-900'
+                              }
+                            >
+                              {merchant.merchant_name}
+                              {merchant.merged_into_merchant_id && (
+                                <span className="inline-flex items-center ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
+                                  Merged into {merchant.canonical_merchant_name ?? merchant.merged_into_merchant_id}
+                                </span>
+                              )}
+                            </p>
                             <p className="text-xs text-slate-400 mt-0.5">{merchant.normalized_name}</p>
                           </td>
                           <td className="px-6 py-4">
@@ -200,6 +311,27 @@ export default function MerchantsPage() {
                           <td className="px-6 py-4 text-right">
                             <span className="text-sm tabular-nums text-slate-600">{merchant.transaction_count}</span>
                           </td>
+                          <td className="px-6 py-4 text-right">
+                            {merchant.merged_into_merchant_id ? (
+                              <button
+                                type="button"
+                                onClick={() => unmergeMerchant(merchant.merchant_id)}
+                                disabled={isUnmergePending}
+                                className="text-xs text-slate-600 hover:text-slate-900 hover:underline"
+                              >
+                                Unmerge
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setMergeVariant(merchant)}
+                                disabled={isMergePending}
+                                className="text-xs text-slate-600 hover:text-slate-900 hover:underline"
+                              >
+                                Merge into…
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -214,6 +346,20 @@ export default function MerchantsPage() {
           </div>
         </div>
       </main>
+
+      {mergeVariant && merchants && (
+        <MergeModal
+          variant={mergeVariant}
+          merchants={merchants}
+          onSelect={(canonical) => {
+            mergeMerchant(
+              { merchantId: mergeVariant.merchant_id, canonicalMerchantId: canonical.merchant_id },
+              { onSuccess: () => setMergeVariant(null) }
+            );
+          }}
+          onClose={() => setMergeVariant(null)}
+        />
+      )}
     </div>
   );
 }

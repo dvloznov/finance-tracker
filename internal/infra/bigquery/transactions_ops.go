@@ -125,14 +125,16 @@ func QueryTransactionsWithClient(ctx context.Context, client *bigquery.Client, o
 			t.direction,
 			t.raw_description,
 			t.merchant_id,
-			m.merchant_name,
-			m.category_id,
+			m_canon.merchant_name,
+			m_canon.category_id,
 			t.created_ts
 		FROM finance.transactions t
 		INNER JOIN finance.parsing_runs pr
 		  ON t.parsing_run_id = pr.parsing_run_id
 		LEFT JOIN finance.merchants m
 		  ON t.merchant_id = m.merchant_id
+		LEFT JOIN finance.merchants m_canon
+		  ON m_canon.merchant_id = COALESCE(m.merged_into_merchant_id, m.merchant_id)
 		WHERE t.transaction_date >= @start_date
 		  AND t.transaction_date <= @end_date
 		  AND pr.status = 'SUCCESS'

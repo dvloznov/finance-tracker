@@ -23,6 +23,9 @@ class ApiClient {
       throw new Error(error.error || `API Error: ${response.status}`);
     }
 
+    if (response.status === 204) {
+      return undefined as T;
+    }
     return response.json();
   }
 
@@ -80,6 +83,19 @@ class ApiClient {
     await this.fetch(`/api/merchants/${merchantId}/category`, {
       method: 'PUT',
       body: JSON.stringify({ category_id: categoryId }),
+    });
+  }
+
+  async mergeMerchant(merchantId: string, canonicalMerchantId: string): Promise<void> {
+    await this.fetch(`/api/merchants/${merchantId}/merge`, {
+      method: 'PUT',
+      body: JSON.stringify({ canonical_merchant_id: canonicalMerchantId }),
+    });
+  }
+
+  async unmergeMerchant(merchantId: string): Promise<void> {
+    await this.fetch(`/api/merchants/${merchantId}/merge`, {
+      method: 'DELETE',
     });
   }
 

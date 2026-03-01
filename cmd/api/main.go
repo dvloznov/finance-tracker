@@ -119,6 +119,12 @@ func main() {
 	mux.HandleFunc("PUT /api/merchants/{merchantID}/category", func(w http.ResponseWriter, r *http.Request) {
 		merchantsHandler.UpdateMerchantCategory(w, r, r.PathValue("merchantID"))
 	})
+	mux.HandleFunc("PUT /api/merchants/{merchantID}/merge", func(w http.ResponseWriter, r *http.Request) {
+		merchantsHandler.MergeMerchant(w, r, r.PathValue("merchantID"))
+	})
+	mux.HandleFunc("DELETE /api/merchants/{merchantID}/merge", func(w http.ResponseWriter, r *http.Request) {
+		merchantsHandler.UnmergeMerchant(w, r, r.PathValue("merchantID"))
+	})
 
 	// Health
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {

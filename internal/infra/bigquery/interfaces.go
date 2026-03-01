@@ -133,6 +133,16 @@ func (r *BigQueryMerchantRepository) UpdateMerchantCategory(ctx context.Context,
 	return UpdateMerchantCategoryWithClient(ctx, r.client, merchantID, categoryID)
 }
 
+// UpdateMerchantMergeInto delegates to UpdateMerchantMergeIntoWithClient.
+func (r *BigQueryMerchantRepository) UpdateMerchantMergeInto(ctx context.Context, variantMerchantID, canonicalMerchantID string) error {
+	return UpdateMerchantMergeIntoWithClient(ctx, r.client, variantMerchantID, canonicalMerchantID)
+}
+
+// ClearMerchantMergeInto delegates to ClearMerchantMergeIntoWithClient.
+func (r *BigQueryMerchantRepository) ClearMerchantMergeInto(ctx context.Context, merchantID string) error {
+	return ClearMerchantMergeIntoWithClient(ctx, r.client, merchantID)
+}
+
 // BigQueryDocumentRepository is the concrete implementation of DocumentRepository
 // that interacts with BigQuery. It holds a shared BigQuery client to avoid
 // creating a new connection for each operation.
@@ -244,4 +254,14 @@ func (r *BigQueryDocumentRepository) ListMerchants(ctx context.Context) ([]*bq.M
 // UpdateMerchantCategory delegates to the existing UpdateMerchantCategoryWithClient function with the shared client.
 func (r *BigQueryDocumentRepository) UpdateMerchantCategory(ctx context.Context, merchantID, categoryID string) error {
 	return UpdateMerchantCategoryWithClient(ctx, r.client, merchantID, categoryID)
+}
+
+// UpdateMerchantMergeInto delegates to UpdateMerchantMergeIntoWithClient.
+func (r *BigQueryDocumentRepository) UpdateMerchantMergeInto(ctx context.Context, variantMerchantID, canonicalMerchantID string) error {
+	return UpdateMerchantMergeIntoWithClient(ctx, r.client, variantMerchantID, canonicalMerchantID)
+}
+
+// ClearMerchantMergeInto delegates to ClearMerchantMergeIntoWithClient.
+func (r *BigQueryDocumentRepository) ClearMerchantMergeInto(ctx context.Context, merchantID string) error {
+	return ClearMerchantMergeIntoWithClient(ctx, r.client, merchantID)
 }
