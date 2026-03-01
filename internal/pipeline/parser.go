@@ -72,7 +72,10 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo Category
 	rulesPrompt :=
 		"Rules:\n" +
 			"- Use the description exactly as written in the statement.\n" +
-			"- If the statement has separate \"paid out\" / \"paid in\" columns, convert to a single signed \"amount\".\n" +
+			"- If the statement has separate \"Money out\" / \"Money in\" or \"Paid out\" / \"Paid in\" columns:\n" +
+			"  * Values in the OUT column must be output as NEGATIVE amounts.\n" +
+			"  * Values in the IN column must be output as positive amounts.\n" +
+			"  * Never output a positive amount for money that left the account.\n" +
 			"- If the running balance is missing, set \"balance_after\" to null.\n\n" +
 			"CRITICAL OUTPUT REQUIREMENTS:\n" +
 			"- Return ONLY valid, parseable JSON that follows RFC 8259 standard.\n" +

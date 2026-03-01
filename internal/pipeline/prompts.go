@@ -51,10 +51,14 @@ func buildTransactionSchema() string {
 		"- \"transaction_type\": string or null (e.g., \"CARD PAYMENT\", \"CARD PURCHASE\", \"DIRECT DEBIT\", \"PAYMENT RECEIVED\")\n" +
 		"- \"amount\": number\n" +
 		"  SIGN CONVENTION (applies to ALL account types — normalise before outputting):\n" +
-		"  * Positive (+): money that REDUCES what you owe or INCREASES your assets.\n" +
+		"  * Positive (+): money IN — increases your balance or reduces what you owe.\n" +
 		"    Examples: salary received, refund, credit card payment made by you.\n" +
-		"  * Negative (-): money that INCREASES what you owe or DECREASES your assets.\n" +
+		"  * Negative (-): money OUT — decreases your balance or increases what you owe.\n" +
 		"    Examples: purchase, subscription, direct debit, cash withdrawal.\n" +
+		"  STATEMENTS WITH SEPARATE COLUMNS (Revolut, etc.):\n" +
+		"  * \"Money out\" / \"Paid out\" / \"Out\" column: ALWAYS output as NEGATIVE.\n" +
+		"  * \"Money in\" / \"Paid in\" / \"In\" column: output as positive.\n" +
+		"  * Do NOT copy the raw number from the money-out column — you MUST negate it.\n" +
 		"  CREDIT CARD STATEMENTS (e.g. American Express, Amex):\n" +
 		"  * Spend/purchases appear as positive numbers on the statement — NEGATE them (output as negative).\n" +
 		"  * Payments/credits are marked CR or CREDIT on the statement — output as positive.\n" +
