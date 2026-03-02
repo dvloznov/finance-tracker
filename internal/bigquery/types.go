@@ -329,7 +329,9 @@ type ModelOutputRow struct {
 	ParsingRunID string `bigquery:"parsing_run_id"`
 	DocumentID   string `bigquery:"document_id"`
 
-	ModelName string                 `bigquery:"model_name"`
+	Operation string `bigquery:"operation"` // e.g. extract_account_header, parse_statement, categorize_merchants
+	Prompt    string `bigquery:"prompt"`    // full prompt sent to the model
+	ModelName string `bigquery:"model_name"`
 	RawJSON   bigquery.NullJSON      `bigquery:"raw_json"`
 	CreatedTS bigquery.NullTimestamp `bigquery:"created_ts"`
 }

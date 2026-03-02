@@ -66,7 +66,7 @@ func TestPipelineWithoutCategoryInference(t *testing.T) {
 		succeededParsingRuns = 0
 
 		mockAIParser := &MockAIParser{
-			ParseStatementFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+			ParseStatementFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, string, error) {
 				return map[string]interface{}{
 					"transactions": []interface{}{
 						map[string]interface{}{
@@ -77,20 +77,20 @@ func TestPipelineWithoutCategoryInference(t *testing.T) {
 							"balance_after": 100.0,
 						},
 					},
-				}, nil
+				}, "mock prompt", nil
 			},
-			ExtractAccountHeaderFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+			ExtractAccountHeaderFunc: func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, string, error) {
 				return map[string]interface{}{
 					"account_number": "12345678",
 					"currency":       "GBP",
-				}, nil
+				}, "mock prompt", nil
 			},
-			CategorizeMerchantsFunc: func(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, error) {
+			CategorizeMerchantsFunc: func(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, string, error) {
 				result := make(map[string]string, len(merchantNames))
 				for _, name := range merchantNames {
 					result[name] = pipeline.DefaultCategoryID
 				}
-				return result, nil
+				return result, "mock prompt", nil
 			},
 		}
 

@@ -6,7 +6,7 @@ const activeLink = `${linkBase} text-slate-900 border-slate-900`;
 const inactiveLink = `${linkBase} text-slate-600 hover:text-slate-900 border-transparent`;
 
 type AppNavProps = {
-  active: 'dashboard' | 'documents' | 'transactions' | 'merchants';
+  active: 'dashboard' | 'documents' | 'transactions' | 'merchants' | 'accounts';
 };
 
 export function AppNav({ active }: AppNavProps) {
@@ -29,6 +29,9 @@ export function AppNav({ active }: AppNavProps) {
             </Link>
             <Link href="/merchants" className={active === 'merchants' ? activeLink : inactiveLink}>
               Merchants
+            </Link>
+            <Link href="/accounts" className={active === 'accounts' ? activeLink : inactiveLink}>
+              Accounts
             </Link>
             <AccountScopeSelect />
           </div>

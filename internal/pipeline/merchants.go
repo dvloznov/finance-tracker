@@ -23,13 +23,19 @@ func resolveMerchantsForTransactions(
 	txs []*Transaction,
 	merchantRepo bigquery.MerchantRepository,
 	categoryRepo bigquery.CategoryRepository,
+	documentRepo bigquery.DocumentRepository,
 	aiParser AIParser,
+	parsingRunID string,
+	documentID string,
 ) error {
 	if merchantRepo == nil {
 		return fmt.Errorf("resolveMerchantsForTransactions: merchant repository is nil")
 	}
 	if categoryRepo == nil {
 		return fmt.Errorf("resolveMerchantsForTransactions: category repository is nil")
+	}
+	if documentRepo == nil {
+		return fmt.Errorf("resolveMerchantsForTransactions: document repository is nil")
 	}
 	if aiParser == nil {
 		return fmt.Errorf("resolveMerchantsForTransactions: AI parser is nil")
@@ -89,9 +95,24 @@ func resolveMerchantsForTransactions(
 			merchantNames = append(merchantNames, name)
 		}
 
-		categorized, err := aiParser.CategorizeMerchants(ctx, merchantNames, categories)
+		categorized, categorizePrompt, err := aiParser.CategorizeMerchants(ctx, merchantNames, categories)
 		if err != nil {
 			return fmt.Errorf("resolveMerchantsForTransactions: categorize merchants: %w", err)
+		}
+
+		// Store categorize_merchants output in model_outputs for audit
+		merchantEntries := make([]map[string]interface{}, 0, len(categorized))
+		for name, catID := range categorized {
+			merchantEntries = append(merchantEntries, map[string]interface{}{
+				"merchant_name": name,
+				"category_id":   catID,
+			})
+		}
+		categorizeOutput := map[string]interface{}{"merchants": merchantEntries}
+		if _, err := storeModelOutputWithRepo(ctx, parsingRunID, documentID,
+			"categorize_merchants", categorizePrompt,
+			categorizeOutput, documentRepo); err != nil {
+			return fmt.Errorf("resolveMerchantsForTransactions: store categorize output: %w", err)
 		}
 
 		nameToCategory := make(map[string]string, len(categorized))

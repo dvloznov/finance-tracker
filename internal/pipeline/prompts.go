@@ -29,7 +29,8 @@ func buildAccountHeaderPrompt() string {
 		"    CURRENT    — standard current/checking account\n" +
 		"    SAVINGS    — savings account\n" +
 		"    CREDIT_CARD — any credit card (American Express, Amex, Visa, Mastercard credit, etc.)\n" +
-		"  If the statement is from American Express or any other credit card provider, set account_type to CREDIT_CARD.\n\n" +
+		"  If the statement is from American Express or any other credit card provider, set account_type to CREDIT_CARD.\n" +
+		"- For American Express or Amex statements: extract the membership number (account_number) without leading asterisks (***). Use the full digits only.\n\n" +
 		"CRITICAL OUTPUT REQUIREMENTS:\n" +
 		"- Return ONLY valid, parseable JSON that follows RFC 8259 standard.\n" +
 		"- Do NOT wrap the response in code fences.\n" +

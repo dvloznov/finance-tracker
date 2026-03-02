@@ -26,9 +26,11 @@ type PipelineState struct {
 	IsReparse      bool // True if we're re-parsing an existing document
 
 	// Account extraction results
-	ExtractedAccountInfo map[string]interface{} // Raw LLM output for account header
-	AccountID            string                 // Resolved/created account ID
-	InstitutionID        string                 // Resolved/created institution ID
+	ExtractedAccountInfo       map[string]interface{} // Raw LLM output for account header
+	ExtractAccountHeaderPrompt string                 // Prompt sent for account header extraction
+	ParseStatementPrompt       string                 // Prompt sent for transaction parsing
+	AccountID                  string                 // Resolved/created account ID
+	InstitutionID              string                 // Resolved/created institution ID
 
 	// Injected dependencies
 	DocumentRepo    bigquery.DocumentRepository
@@ -124,16 +126,35 @@ func (s *ExtractAccountHeaderStep) Name() string {
 }
 
 func (s *ExtractAccountHeaderStep) Execute(ctx context.Context, state *PipelineState) error {
-	accountInfo, err := state.AIParser.ExtractAccountHeader(ctx, state.PDFBytes)
+	accountInfo, prompt, err := state.AIParser.ExtractAccountHeader(ctx, state.PDFBytes)
 	if err != nil {
 		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	state.ExtractedAccountInfo = accountInfo
+	state.ExtractAccountHeaderPrompt = prompt
 	return nil
 }
 
-// Step 3c: UpsertAccountStep transforms account info and creates/finds account in BigQuery.
+// Step 3c: StoreAccountHeaderOutputStep stores the account header extraction in model_outputs.
+type StoreAccountHeaderOutputStep struct{}
+
+func (s *StoreAccountHeaderOutputStep) Name() string {
+	return "StoreAccountHeaderOutput"
+}
+
+func (s *StoreAccountHeaderOutputStep) Execute(ctx context.Context, state *PipelineState) error {
+	_, err := storeModelOutputWithRepo(ctx, state.ParsingRunID, state.DocumentID,
+		"extract_account_header", state.ExtractAccountHeaderPrompt,
+		state.ExtractedAccountInfo, state.DocumentRepo)
+	if err != nil {
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		return err
+	}
+	return nil
+}
+
+// Step 3d: UpsertAccountStep transforms account info and creates/finds account in BigQuery.
 type UpsertAccountStep struct{}
 
 func (s *UpsertAccountStep) Name() string {
@@ -197,12 +218,13 @@ func (s *ParseStatementStep) Name() string {
 }
 
 func (s *ParseStatementStep) Execute(ctx context.Context, state *PipelineState) error {
-	rawModelOutput, err := state.AIParser.ParseStatement(ctx, state.PDFBytes)
+	rawModelOutput, prompt, err := state.AIParser.ParseStatement(ctx, state.PDFBytes)
 	if err != nil {
 		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
 	state.RawModelOutput = rawModelOutput
+	state.ParseStatementPrompt = prompt
 	return nil
 }
 
@@ -214,7 +236,9 @@ func (s *StoreModelOutputStep) Name() string {
 }
 
 func (s *StoreModelOutputStep) Execute(ctx context.Context, state *PipelineState) error {
-	_, err := storeModelOutputWithRepo(ctx, state.ParsingRunID, state.DocumentID, state.RawModelOutput, state.DocumentRepo)
+	_, err := storeModelOutputWithRepo(ctx, state.ParsingRunID, state.DocumentID,
+		"parse_statement", state.ParseStatementPrompt,
+		state.RawModelOutput, state.DocumentRepo)
 	if err != nil {
 		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
@@ -247,7 +271,7 @@ func (s *ResolveMerchantsStep) Name() string {
 }
 
 func (s *ResolveMerchantsStep) Execute(ctx context.Context, state *PipelineState) error {
-	if err := resolveMerchantsForTransactions(ctx, state.Transactions, state.MerchantRepo, state.DocumentRepo, state.AIParser); err != nil {
+	if err := resolveMerchantsForTransactions(ctx, state.Transactions, state.MerchantRepo, state.DocumentRepo, state.DocumentRepo, state.AIParser, state.ParsingRunID, state.DocumentID); err != nil {
 		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
 	}
@@ -316,6 +340,7 @@ func NewStatementIngestionPipeline() *Pipeline {
 		&SupersedeOldParsingRunsStep{},
 		&StartParsingRunStep{},
 		&ExtractAccountHeaderStep{},
+		&StoreAccountHeaderOutputStep{},
 		&UpsertAccountStep{},
 		&ParseStatementStep{},
 		&StoreModelOutputStep{},

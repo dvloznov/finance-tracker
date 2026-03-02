@@ -97,21 +97,21 @@ func (m *MockAccountRepository) ListAllAccounts(ctx context.Context) ([]*bigquer
 
 // MockAIParser is a mock implementation of AIParser for testing.
 type MockAIParser struct {
-	ParseStatementFunc       func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error)
-	ExtractAccountHeaderFunc func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error)
-	CategorizeMerchantsFunc  func(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, error)
+	ParseStatementFunc       func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, string, error)
+	ExtractAccountHeaderFunc func(ctx context.Context, pdfBytes []byte) (map[string]interface{}, string, error)
+	CategorizeMerchantsFunc  func(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, string, error)
 }
 
-func (m *MockAIParser) ParseStatement(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+func (m *MockAIParser) ParseStatement(ctx context.Context, pdfBytes []byte) (map[string]interface{}, string, error) {
 	if m.ParseStatementFunc != nil {
 		return m.ParseStatementFunc(ctx, pdfBytes)
 	}
 	return map[string]interface{}{
 		"transactions": []interface{}{},
-	}, nil
+	}, "", nil
 }
 
-func (m *MockAIParser) ExtractAccountHeader(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+func (m *MockAIParser) ExtractAccountHeader(ctx context.Context, pdfBytes []byte) (map[string]interface{}, string, error) {
 	if m.ExtractAccountHeaderFunc != nil {
 		return m.ExtractAccountHeaderFunc(ctx, pdfBytes)
 	}
@@ -121,10 +121,10 @@ func (m *MockAIParser) ExtractAccountHeader(ctx context.Context, pdfBytes []byte
 		"currency":       "GBP",
 		"account_name":   "Current Account",
 		"account_type":   "CURRENT",
-	}, nil
+	}, "", nil
 }
 
-func (m *MockAIParser) CategorizeMerchants(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, error) {
+func (m *MockAIParser) CategorizeMerchants(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, string, error) {
 	if m.CategorizeMerchantsFunc != nil {
 		return m.CategorizeMerchantsFunc(ctx, merchantNames, categories)
 	}
@@ -132,7 +132,7 @@ func (m *MockAIParser) CategorizeMerchants(ctx context.Context, merchantNames []
 	for _, name := range merchantNames {
 		result[name] = pipeline.DefaultCategoryID
 	}
-	return result, nil
+	return result, "", nil
 }
 
 // TestPipelineWithMocks demonstrates how to use the interfaces for testing.

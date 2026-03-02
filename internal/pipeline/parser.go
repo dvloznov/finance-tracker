@@ -57,7 +57,7 @@ func loggedGenerateContent(ctx context.Context, client *genai.Client, operation,
 
 // parseStatementWithModel sends the PDF to Gemini and returns the parsed JSON output.
 // It expects the model to return a STRICT JSON array of transactions.
-func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo CategoryRepository, bankName string) (map[string]interface{}, error) {
+func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo CategoryRepository, bankName string) (map[string]interface{}, string, error) {
 	basePrompt :=
 		"You are a financial statement parser for " + bankName + " PDF bank statements.\n\n" +
 			"Task:\n" +
@@ -93,7 +93,7 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo Category
 		HTTPOptions: genai.HTTPOptions{APIVersion: "v1"},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("parseStatementWithModel: create genai client: %w", err)
+		return nil, "", fmt.Errorf("parseStatementWithModel: create genai client: %w", err)
 	}
 
 	contents := []*genai.Content{
@@ -113,12 +113,12 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo Category
 
 	resp, err := loggedGenerateContent(ctx, client, "parse_statement", fullPrompt, contents)
 	if err != nil {
-		return nil, fmt.Errorf("parseStatementWithModel: generate content: %w", err)
+		return nil, "", fmt.Errorf("parseStatementWithModel: generate content: %w", err)
 	}
 
 	rawText := resp.Text()
 	if rawText == "" {
-		return nil, fmt.Errorf("parseStatementWithModel: empty response from model")
+		return nil, "", fmt.Errorf("parseStatementWithModel: empty response from model")
 	}
 
 	// Clean up Markdown fences / extra text if the model ignored instructions.
@@ -127,13 +127,13 @@ func parseStatementWithModel(ctx context.Context, pdfBytes []byte, repo Category
 	// 4) Parse JSON into a generic value.
 	var parsed interface{}
 	if err := json.Unmarshal([]byte(clean), &parsed); err != nil {
-		return nil, fmt.Errorf("parseStatementWithModel: unmarshal JSON: %w\nraw response: %s", err, rawText)
+		return nil, "", fmt.Errorf("parseStatementWithModel: unmarshal JSON: %w\nraw response: %s", err, rawText)
 	}
 
 	// Expect top-level array; for flexibility we just wrap it under "transactions".
 	return map[string]interface{}{
 		"transactions": parsed,
-	}, nil
+	}, fullPrompt, nil
 }
 
 func cleanModelJSON(raw string) string {
@@ -179,7 +179,7 @@ func cleanModelJSON(raw string) string {
 
 // extractAccountHeaderWithModel sends the PDF to Gemini and returns the parsed account metadata.
 // It expects the model to return a STRICT JSON object with account fields.
-func extractAccountHeaderWithModel(ctx context.Context, pdfBytes []byte) (map[string]interface{}, error) {
+func extractAccountHeaderWithModel(ctx context.Context, pdfBytes []byte) (map[string]interface{}, string, error) {
 	// Use the account header extraction prompt
 	prompt := buildAccountHeaderPrompt()
 
@@ -188,7 +188,7 @@ func extractAccountHeaderWithModel(ctx context.Context, pdfBytes []byte) (map[st
 		HTTPOptions: genai.HTTPOptions{APIVersion: "v1"},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("extractAccountHeaderWithModel: create genai client: %w", err)
+		return nil, "", fmt.Errorf("extractAccountHeaderWithModel: create genai client: %w", err)
 	}
 
 	contents := []*genai.Content{
@@ -208,12 +208,12 @@ func extractAccountHeaderWithModel(ctx context.Context, pdfBytes []byte) (map[st
 
 	resp, err := loggedGenerateContent(ctx, client, "extract_account_header", prompt, contents)
 	if err != nil {
-		return nil, fmt.Errorf("extractAccountHeaderWithModel: generate content: %w", err)
+		return nil, "", fmt.Errorf("extractAccountHeaderWithModel: generate content: %w", err)
 	}
 
 	rawText := resp.Text()
 	if rawText == "" {
-		return nil, fmt.Errorf("extractAccountHeaderWithModel: empty response from model")
+		return nil, "", fmt.Errorf("extractAccountHeaderWithModel: empty response from model")
 	}
 
 	// Clean up Markdown fences / extra text
@@ -222,26 +222,26 @@ func extractAccountHeaderWithModel(ctx context.Context, pdfBytes []byte) (map[st
 	// Parse JSON into a generic value
 	var parsed interface{}
 	if err := json.Unmarshal([]byte(clean), &parsed); err != nil {
-		return nil, fmt.Errorf("extractAccountHeaderWithModel: unmarshal JSON: %w\nraw response: %s", err, rawText)
+		return nil, "", fmt.Errorf("extractAccountHeaderWithModel: unmarshal JSON: %w\nraw response: %s", err, rawText)
 	}
 
 	// Expect a JSON object (not array)
 	accountObj, ok := parsed.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("extractAccountHeaderWithModel: expected JSON object, got %T", parsed)
+		return nil, "", fmt.Errorf("extractAccountHeaderWithModel: expected JSON object, got %T", parsed)
 	}
 
-	return accountObj, nil
+	return accountObj, prompt, nil
 }
 
 // categorizeMerchantWithModel sends a merchant name to Gemini and returns the selected category_id.
 // Returns an empty string if no category is selected.
-func categorizeMerchantsWithModel(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, error) {
+func categorizeMerchantsWithModel(ctx context.Context, merchantNames []string, categories []bigquery.CategoryRow) (map[string]string, string, error) {
 	if len(merchantNames) == 0 {
-		return map[string]string{}, nil
+		return map[string]string{}, "", nil
 	}
 	if len(categories) == 0 {
-		return nil, fmt.Errorf("categorizeMerchantsWithModel: categories list is empty")
+		return nil, "", fmt.Errorf("categorizeMerchantsWithModel: categories list is empty")
 	}
 
 	categoryLines := make([]string, 0, len(categories))
@@ -259,7 +259,7 @@ func categorizeMerchantsWithModel(ctx context.Context, merchantNames []string, c
 		HTTPOptions: genai.HTTPOptions{APIVersion: "v1"},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("categorizeMerchantsWithModel: create genai client: %w", err)
+		return nil, "", fmt.Errorf("categorizeMerchantsWithModel: create genai client: %w", err)
 	}
 
 	contents := []*genai.Content{
@@ -271,19 +271,19 @@ func categorizeMerchantsWithModel(ctx context.Context, merchantNames []string, c
 
 	resp, err := loggedGenerateContent(ctx, client, "categorize_merchants", prompt, contents)
 	if err != nil {
-		return nil, fmt.Errorf("categorizeMerchantsWithModel: generate content: %w", err)
+		return nil, "", fmt.Errorf("categorizeMerchantsWithModel: generate content: %w", err)
 	}
 
 	rawText := resp.Text()
 	if rawText == "" {
-		return nil, fmt.Errorf("categorizeMerchantsWithModel: empty response from model")
+		return nil, "", fmt.Errorf("categorizeMerchantsWithModel: empty response from model")
 	}
 
 	clean := cleanModelJSON(rawText)
 
 	var parsed interface{}
 	if err := json.Unmarshal([]byte(clean), &parsed); err != nil {
-		return nil, fmt.Errorf("categorizeMerchantsWithModel: unmarshal JSON: %w\nraw response: %s", err, rawText)
+		return nil, "", fmt.Errorf("categorizeMerchantsWithModel: unmarshal JSON: %w\nraw response: %s", err, rawText)
 	}
 
 	var items []interface{}
@@ -291,23 +291,23 @@ func categorizeMerchantsWithModel(ctx context.Context, merchantNames []string, c
 		if arr, ok := obj["merchants"].([]interface{}); ok {
 			items = arr
 		} else {
-			return nil, fmt.Errorf("categorizeMerchantsWithModel: expected merchants array")
+			return nil, "", fmt.Errorf("categorizeMerchantsWithModel: expected merchants array")
 		}
 	} else if arr, ok := parsed.([]interface{}); ok {
 		items = arr
 	} else {
-		return nil, fmt.Errorf("categorizeMerchantsWithModel: expected JSON object or array, got %T", parsed)
+		return nil, "", fmt.Errorf("categorizeMerchantsWithModel: expected JSON object or array, got %T", parsed)
 	}
 
 	results := make(map[string]string, len(items))
 	for i, item := range items {
 		entry, ok := item.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("categorizeMerchantsWithModel: merchants[%d] is %T, want object", i, item)
+			return nil, "", fmt.Errorf("categorizeMerchantsWithModel: merchants[%d] is %T, want object", i, item)
 		}
 		nameVal, ok := entry["merchant_name"].(string)
 		if !ok {
-			return nil, fmt.Errorf("categorizeMerchantsWithModel: merchants[%d] missing merchant_name", i)
+			return nil, "", fmt.Errorf("categorizeMerchantsWithModel: merchants[%d] missing merchant_name", i)
 		}
 		categoryVal := ""
 		if entry["category_id"] != nil {
@@ -318,5 +318,5 @@ func categorizeMerchantsWithModel(ctx context.Context, merchantNames []string, c
 		results[strings.TrimSpace(nameVal)] = categoryVal
 	}
 
-	return results, nil
+	return results, prompt, nil
 }

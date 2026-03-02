@@ -94,11 +94,14 @@ func IngestStatementFromGCSWithDeps(
 // ──────────────────────────────────────────────────────────────
 //
 
-// storeModelOutputWithRepo inserts raw model output into the model_outputs table using the provided repository.
+// storeModelOutputWithRepo inserts raw model output into the model_outputs table.
+// operation: e.g. extract_account_header, parse_statement, categorize_merchants
 func storeModelOutputWithRepo(
 	ctx context.Context,
 	parsingRunID string,
 	documentID string,
+	operation string,
+	prompt string,
 	rawOutput map[string]interface{},
 	repo bigquery.DocumentRepository,
 ) (string, error) {
@@ -113,15 +116,15 @@ func storeModelOutputWithRepo(
 		OutputID:     outputID,
 		ParsingRunID: parsingRunID,
 		DocumentID:   documentID,
-
-		ModelName: DefaultModelName,
+		Operation:    operation,
+		Prompt:       prompt,
+		ModelName:    DefaultModelName,
 		CreatedTS: bigquerylib.NullTimestamp{
 			Timestamp: time.Now(),
 			Valid:     true,
 		},
-
 		RawJSON: bigquerylib.NullJSON{
-			JSONVal: string(jsonBytes), // <<<< correct
+			JSONVal: string(jsonBytes),
 			Valid:   true,
 		},
 	}

@@ -27,12 +27,12 @@ func InsertModelOutputWithClient(ctx context.Context, client *bigquery.Client, r
 	q := client.Query(`
 		INSERT INTO ` + "`" + projectID + "." + datasetID + ".model_outputs" + "`" + ` (
 			output_id, parsing_run_id, document_id,
-			model_name, raw_json,
+			operation, prompt, model_name, raw_json,
 			created_ts
 		)
 		VALUES (
 			@output_id, @parsing_run_id, @document_id,
-			@model_name, @raw_json,
+			@operation, @prompt, @model_name, @raw_json,
 			@created_ts
 		)
 	`)
@@ -41,6 +41,8 @@ func InsertModelOutputWithClient(ctx context.Context, client *bigquery.Client, r
 		{Name: "output_id", Value: row.OutputID},
 		{Name: "parsing_run_id", Value: row.ParsingRunID},
 		{Name: "document_id", Value: row.DocumentID},
+		{Name: "operation", Value: row.Operation},
+		{Name: "prompt", Value: row.Prompt},
 		{Name: "model_name", Value: row.ModelName},
 		{Name: "raw_json", Value: row.RawJSON},
 		{Name: "created_ts", Value: row.CreatedTS},
