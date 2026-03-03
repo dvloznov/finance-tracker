@@ -9,6 +9,7 @@ import { useTransactions } from '@/features/transactions/hooks/useTransactions';
 import { useAccountScope } from '@/shared/account-scope/context';
 import { detectTransferIds } from '@/features/dashboard/analytics/transfers';
 import { useState, useMemo } from 'react';
+import { Inbox } from 'lucide-react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -143,7 +144,10 @@ export default function TransactionsPage() {
                 </div>
               </>
             ) : (
-              <p className="p-6 text-sm text-slate-600">No transactions found</p>
+              <div className="flex flex-col items-center justify-center p-6 text-center">
+              <Inbox className="w-10 h-10 text-slate-300 mb-3" />
+              <p className="text-base text-slate-600">No transactions found</p>
+            </div>
             )}
           </div>
         </div>

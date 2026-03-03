@@ -19,8 +19,9 @@ import type { TransactionVM } from '@/features/transactions/types';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
 import { ResponsivePie } from '@nivo/pie';
+import { Inbox, FileQuestion } from 'lucide-react';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+const CHART_COLORS = ['#475569', '#10b981', '#f43f5e', '#f59e0b', '#64748b', '#94a3b8'];
 
 function getMonthOptions(): { value: string; label: string }[] {
   const options: { value: string; label: string }[] = [{ value: 'all', label: 'All time' }];
@@ -42,21 +43,21 @@ type StatCardsProps = {
 function StatCards({ stats }: StatCardsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className={`${cardClass} flex flex-col gap-3`}>
+      <div className={`${cardClass} flex flex-col gap-3 border-t-4 border-t-emerald-500 bg-emerald-50/30`}>
         <p className={statLabelClass}>Total Income</p>
         <p className={`${statValueClass} text-emerald-600 flex items-baseline gap-1`}>
           <span className={currencyClass}>£</span>
           <span>{formatCurrency(stats.totalIncome).replace('£', '')}</span>
         </p>
       </div>
-      <div className={`${cardClass} flex flex-col gap-3`}>
+      <div className={`${cardClass} flex flex-col gap-3 border-t-4 border-t-rose-500 bg-rose-50/30`}>
         <p className={statLabelClass}>Total Expenses</p>
         <p className={`${statValueClass} text-rose-600 flex items-baseline gap-1`}>
           <span className={currencyClass}>£</span>
           <span>{formatCurrency(stats.totalExpenses).replace('£', '')}</span>
         </p>
       </div>
-      <div className={`${cardClass} flex flex-col gap-3`}>
+      <div className={`${cardClass} flex flex-col gap-3 border-t-4 border-t-slate-500 bg-slate-50/50`}>
         <p className={statLabelClass}>Net Worth</p>
         <p className={`${statValueClass} flex items-baseline gap-1`}>
           <span className={currencyClass}>£</span>
@@ -81,7 +82,7 @@ function BalanceChartCard({ balanceData, institutions }: BalanceChartCardProps) 
   );
   return (
     <div className={cardClass}>
-      <h2 className="text-sm font-semibold text-slate-900 mb-6">Account Balance Over Time</h2>
+      <h2 className="text-base font-semibold text-slate-900 mb-6">Account Balance Over Time</h2>
       {balanceData.length > 0 && balanceData[0].data.length > 0 ? (
         <div style={{ height: 300 }}>
           <ResponsiveLine
@@ -115,7 +116,7 @@ function BalanceChartCard({ balanceData, institutions }: BalanceChartCardProps) 
               legendOffset: -50,
               legendPosition: 'middle'
             }}
-            colors={['#3b82f6']}
+            colors={['#475569']}
             lineWidth={2}
             pointSize={0}
             enableGridX={false}
@@ -172,9 +173,10 @@ function BalanceChartCard({ balanceData, institutions }: BalanceChartCardProps) 
           />
         </div>
       ) : (
-        <p className="text-sm text-slate-500 text-center py-12">
-          No transaction history available
-        </p>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Inbox className="w-10 h-10 text-slate-300 mb-3" />
+          <p className="text-base text-slate-500">No transaction history available</p>
+        </div>
       )}
     </div>
   );
@@ -208,8 +210,8 @@ function MonthlyOverviewCard({ data, indexBy, title, onBarClick }: MonthlyOvervi
   };
 
   return (
-    <div className={cardClass}>
-      <h2 className="text-sm font-semibold text-slate-900 mb-6">{title}</h2>
+    <div className={`${cardClass} hover:shadow-md`}>
+      <h2 className="text-base font-semibold text-slate-900 mb-6">{title}</h2>
       {chartData.length > 0 ? (
         <div style={{ height: 300 }} className={onBarClick ? 'cursor-pointer' : ''}>
           <ResponsiveBar
@@ -301,7 +303,10 @@ function MonthlyOverviewCard({ data, indexBy, title, onBarClick }: MonthlyOvervi
           />
         </div>
       ) : (
-        <p className="text-sm text-slate-500 text-center py-12">No data available</p>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <FileQuestion className="w-10 h-10 text-slate-300 mb-3" />
+          <p className="text-base text-slate-500">No data available</p>
+        </div>
       )}
     </div>
   );
@@ -329,9 +334,9 @@ function SpendingByCategoryCard({
   const activeData = selectedCategory ? subcategoryData : categoryData;
 
   return (
-    <div className={cardClass}>
+    <div className={`${cardClass} hover:shadow-md`}>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-sm font-semibold text-slate-900">
+        <h2 className="text-base font-semibold text-slate-900">
           {selectedSubcategory
             ? `${selectedCategory} › ${selectedSubcategory}`
             : selectedCategory
@@ -342,7 +347,7 @@ function SpendingByCategoryCard({
           <button
             type="button"
             onClick={onClearCategory}
-            className="text-xs font-medium text-slate-600 hover:text-slate-900"
+            className="text-xs font-medium text-slate-600 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 rounded"
           >
             ← Back to categories
           </button>
@@ -357,7 +362,7 @@ function SpendingByCategoryCard({
             padAngle={1}
             cornerRadius={4}
             activeOuterRadiusOffset={8}
-            colors={COLORS}
+            colors={CHART_COLORS}
             borderWidth={0}
             arcLinkLabelsSkipAngle={10}
             arcLinkLabelsTextColor="#64748b"
@@ -399,9 +404,12 @@ function SpendingByCategoryCard({
           />
         </div>
       ) : (
-        <p className="text-sm text-slate-500 text-center py-12">
-          {selectedCategory ? 'No subcategory data available' : 'No categorized expenses yet'}
-        </p>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <FileQuestion className="w-10 h-10 text-slate-300 mb-3" />
+          <p className="text-base text-slate-500">
+            {selectedCategory ? 'No subcategory data available' : 'No categorized expenses yet'}
+          </p>
+        </div>
       )}
     </div>
   );
@@ -486,7 +494,7 @@ function RecentTransactionsCard({
     <div className={cardClass}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <h2 className="text-sm font-semibold text-slate-900">Recent Transactions</h2>
+          <h2 className="text-base font-semibold text-slate-900">Recent Transactions</h2>
           {filterLabel && (
             <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 text-xs font-medium px-2.5 py-1 rounded-full">
               {filterLabel}
@@ -496,7 +504,7 @@ function RecentTransactionsCard({
                   onClearFilter();
                   onClearBarFilter();
                 }}
-                className="text-slate-400 hover:text-slate-700 leading-none"
+                className="text-slate-400 hover:text-slate-700 leading-none focus:outline-none focus:ring-2 focus:ring-slate-900/10 rounded"
                 aria-label="Clear filters"
               >
                 ×
@@ -510,9 +518,12 @@ function RecentTransactionsCard({
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-slate-500 py-6 text-center">
-          {filterLabel ? `No transactions in "${filterLabel}"` : 'No transactions yet'}
-        </p>
+        <div className="flex flex-col items-center justify-center py-6 text-center">
+          <Inbox className="w-10 h-10 text-slate-300 mb-3" />
+          <p className="text-base text-slate-500">
+            {filterLabel ? `No transactions in "${filterLabel}"` : 'No transactions yet'}
+          </p>
+        </div>
       ) : (
         <>
           <div className="divide-y divide-slate-100">
@@ -520,7 +531,7 @@ function RecentTransactionsCard({
               const amount = parseFloat(txn.amount);
               const isTransfer = transferIds.has(txn.transaction_id);
               return (
-                <div key={txn.transaction_id} className="flex items-center justify-between py-3 gap-4">
+                <div key={txn.transaction_id} className="flex items-center justify-between py-3 gap-4 hover:bg-slate-50 rounded-lg -mx-2 px-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">
                       {txn.merchant_name || txn.raw_description}
@@ -564,7 +575,7 @@ function RecentTransactionsCard({
                   type="button"
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={safePage === 0}
-                  className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-700 disabled:opacity-40 hover:bg-slate-50"
+                  className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                 >
                   Previous
                 </button>
@@ -572,7 +583,7 @@ function RecentTransactionsCard({
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={safePage === totalPages - 1}
-                  className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-700 disabled:opacity-40 hover:bg-slate-50"
+                  className="rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                 >
                   Next
                 </button>
@@ -675,7 +686,7 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
               <p className="text-sm text-slate-600">Overview of your financial activity</p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="bg-white rounded-xl px-4 py-2 shadow-sm flex flex-wrap items-center gap-3 ring-1 ring-black/5">
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
@@ -687,6 +698,7 @@ export default function DashboardPage() {
                   </option>
                 ))}
               </select>
+              <div className="h-4 w-px bg-slate-200" aria-hidden="true" />
               <AccountScopeSelect />
             </div>
           </div>
@@ -732,7 +744,10 @@ export default function DashboardPage() {
               />
             </div>
           ) : (
-            <p className="text-sm text-slate-600">No data available</p>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <FileQuestion className="w-10 h-10 text-slate-300 mb-3" />
+              <p className="text-base text-slate-600">No data available</p>
+            </div>
           )}
         </div>
       </main>

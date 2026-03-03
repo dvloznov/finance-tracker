@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
-const linkBase = 'px-4 py-2 text-sm font-medium border-b-2';
-const activeLink = `${linkBase} text-slate-900 border-slate-900`;
+const linkBase = 'px-5 py-2.5 text-sm font-medium border-b-2 transition-colors duration-150';
+const activeLink = `${linkBase} text-slate-900 border-slate-900 bg-slate-50`;
 const inactiveLink = `${linkBase} text-slate-600 hover:text-slate-900 border-transparent`;
 
 type AppNavProps = {

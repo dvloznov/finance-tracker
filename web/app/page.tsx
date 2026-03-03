@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BarChart3, Wallet, Building2 } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -43,9 +44,9 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-6 mt-12">
             <Link
               href="/dashboard"
-              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
+              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:ring-2 hover:ring-slate-200"
             >
-              <div className="text-3xl mb-3">📊</div>
+              <BarChart3 className="w-8 h-8 text-slate-600 mb-3" />
               <h3 className="text-lg font-semibold mb-2">Dashboard</h3>
               <p className="text-slate-600 text-sm">
                 View spending charts and financial overview
@@ -54,9 +55,9 @@ export default function Home() {
 
             <Link
               href="/transactions"
-              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
+              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:ring-2 hover:ring-slate-200"
             >
-              <div className="text-3xl mb-3">💰</div>
+              <Wallet className="w-8 h-8 text-slate-600 mb-3" />
               <h3 className="text-lg font-semibold mb-2">Transactions</h3>
               <p className="text-slate-600 text-sm">
                 View and categorize your transactions
@@ -65,9 +66,9 @@ export default function Home() {
 
             <Link
               href="/accounts"
-              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
+              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:ring-2 hover:ring-slate-200"
             >
-              <div className="text-3xl mb-3">🏦</div>
+              <Building2 className="w-8 h-8 text-slate-600 mb-3" />
               <h3 className="text-lg font-semibold mb-2">Accounts</h3>
               <p className="text-slate-600 text-sm">
                 Manage institutions, accounts, and upload statements
