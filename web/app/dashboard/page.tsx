@@ -14,6 +14,7 @@ import { getStatsSummary, type StatsSummary } from '@/features/dashboard/analyti
 import { detectTransferIds } from '@/features/dashboard/analytics/transfers';
 import { useAccountScope } from '@/shared/account-scope/context';
 import { useAccountOptions } from '@/shared/account-scope/useAccountOptions';
+import { AccountScopeSelect } from '@/shared/ui/AccountScopeSelect';
 import type { TransactionVM } from '@/features/transactions/types';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsiveBar } from '@nivo/bar';
@@ -674,17 +675,20 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
               <p className="text-sm text-slate-600">Overview of your financial activity</p>
             </div>
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm bg-white w-fit"
-            >
-              {getMonthOptions().map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 text-sm font-medium text-slate-900 bg-white w-fit"
+              >
+                {getMonthOptions().map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <AccountScopeSelect />
+            </div>
           </div>
 
           {error && (

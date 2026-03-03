@@ -1,12 +1,11 @@
 import Link from 'next/link';
-import { AccountScopeSelect } from '@/shared/ui/AccountScopeSelect';
 
 const linkBase = 'px-4 py-2 text-sm font-medium border-b-2';
 const activeLink = `${linkBase} text-slate-900 border-slate-900`;
 const inactiveLink = `${linkBase} text-slate-600 hover:text-slate-900 border-transparent`;
 
 type AppNavProps = {
-  active: 'dashboard' | 'documents' | 'transactions' | 'merchants' | 'accounts';
+  active: 'dashboard' | 'transactions' | 'merchants' | 'accounts';
 };
 
 export function AppNav({ active }: AppNavProps) {
@@ -21,9 +20,6 @@ export function AppNav({ active }: AppNavProps) {
             <Link href="/dashboard" className={active === 'dashboard' ? activeLink : inactiveLink}>
               Dashboard
             </Link>
-            <Link href="/documents" className={active === 'documents' ? activeLink : inactiveLink}>
-              Documents
-            </Link>
             <Link href="/transactions" className={active === 'transactions' ? activeLink : inactiveLink}>
               Transactions
             </Link>
@@ -33,7 +29,6 @@ export function AppNav({ active }: AppNavProps) {
             <Link href="/accounts" className={active === 'accounts' ? activeLink : inactiveLink}>
               Accounts
             </Link>
-            <AccountScopeSelect />
           </div>
         </div>
       </div>

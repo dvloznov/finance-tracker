@@ -18,7 +18,7 @@ export function AccountScopeSelect() {
       <select
         value={scope.mode}
         onChange={(e) => setMode(e.target.value as typeof scope.mode)}
-        className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+        className="px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
       >
         <option value="all">All accounts</option>
         <option value="institution">Institution</option>
@@ -45,7 +45,7 @@ export function AccountScopeSelect() {
         <select
           value={scope.accountId ?? ''}
           onChange={(e) => setAccountId(e.target.value || null)}
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+          className="px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
           disabled={!hasAccounts || isLoading}
         >
           <option value="">Select account</option>
