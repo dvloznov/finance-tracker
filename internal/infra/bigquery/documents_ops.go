@@ -3,8 +3,11 @@ package bigquery
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"cloud.google.com/go/bigquery"
+	"cloud.google.com/go/civil"
 	bq "github.com/dvloznov/finance-tracker/internal/bigquery"
 )
 
@@ -157,6 +160,67 @@ func UpdateDocumentAccountAndInstitutionWithClient(ctx context.Context, client *
 
 	if status.Err() != nil {
 		return fmt.Errorf("UpdateDocumentAccountAndInstitution: job error: %w", status.Err())
+	}
+
+	return nil
+}
+
+// UpdateDocumentStatementDates updates the statement_start_date and statement_end_date for a document.
+func UpdateDocumentStatementDates(ctx context.Context, documentID, startDate, endDate string) error {
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("UpdateDocumentStatementDates: bigquery client: %w", err)
+	}
+	defer client.Close()
+
+	return UpdateDocumentStatementDatesWithClient(ctx, client, documentID, startDate, endDate)
+}
+
+// UpdateDocumentStatementDatesWithClient updates statement dates using the provided BigQuery client.
+func UpdateDocumentStatementDatesWithClient(ctx context.Context, client *bigquery.Client, documentID, startDate, endDate string) error {
+	if strings.TrimSpace(startDate) == "" && strings.TrimSpace(endDate) == "" {
+		return nil // no-op when both empty
+	}
+
+	var startParam, endParam interface{}
+	if strings.TrimSpace(startDate) != "" {
+		t, err := time.Parse("2006-01-02", strings.TrimSpace(startDate))
+		if err == nil {
+			startParam = civil.DateOf(t)
+		}
+	}
+	if strings.TrimSpace(endDate) != "" {
+		t, err := time.Parse("2006-01-02", strings.TrimSpace(endDate))
+		if err == nil {
+			endParam = civil.DateOf(t)
+		}
+	}
+
+	query := client.Query(`
+		UPDATE ` + "`" + projectID + "." + datasetID + "." + documentsTable + "`" + `
+		SET statement_start_date = @start_date,
+			statement_end_date = @end_date
+		WHERE document_id = @document_id
+	`)
+	params := []bigquery.QueryParameter{
+		{Name: "document_id", Value: documentID},
+		{Name: "start_date", Value: startParam},
+		{Name: "end_date", Value: endParam},
+	}
+	query.Parameters = params
+
+	job, err := query.Run(ctx)
+	if err != nil {
+		return fmt.Errorf("UpdateDocumentStatementDates: query run: %w", err)
+	}
+
+	status, err := job.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("UpdateDocumentStatementDates: job wait: %w", err)
+	}
+
+	if status.Err() != nil {
+		return fmt.Errorf("UpdateDocumentStatementDates: job error: %w", status.Err())
 	}
 
 	return nil

@@ -47,6 +47,9 @@ func (r *stubRepo) UpdateDocumentParsingStatus(_ context.Context, _, _ string) e
 func (r *stubRepo) UpdateDocumentAccountAndInstitution(_ context.Context, _, _, _ string) error {
 	return nil
 }
+func (r *stubRepo) UpdateDocumentStatementDates(_ context.Context, _, _, _ string) error {
+	return nil
+}
 func (r *stubRepo) InsertTransactions(_ context.Context, _ []*bigquery.TransactionRow) error {
 	return nil
 }

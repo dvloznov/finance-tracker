@@ -184,6 +184,30 @@ func getOptionalFloat64Field(m map[string]interface{}, key string) (*float64, er
 	}
 }
 
+// getStatementDatesFromAccountInfo extracts statement_start_date and statement_end_date from raw account header output.
+// Returns empty strings if missing, null, or invalid format (YYYY-MM-DD). Logs and skips invalid dates.
+func getStatementDatesFromAccountInfo(rawOutput map[string]interface{}) (start, end string) {
+	startPtr, err := getOptionalStringField(rawOutput, "statement_start_date")
+	if err != nil || startPtr == nil {
+		return "", ""
+	}
+	if _, parseErr := time.Parse("2006-01-02", *startPtr); parseErr != nil {
+		return "", ""
+	}
+	start = *startPtr
+
+	endPtr, err := getOptionalStringField(rawOutput, "statement_end_date")
+	if err != nil || endPtr == nil {
+		return start, ""
+	}
+	if _, parseErr := time.Parse("2006-01-02", *endPtr); parseErr != nil {
+		return start, ""
+	}
+	end = *endPtr
+
+	return start, end
+}
+
 // transformAccountInfo converts raw LLM account extraction output into an AccountRow.
 // Returns nil if the extraction failed or data is invalid.
 func transformAccountInfo(rawOutput map[string]interface{}, documentID string) (*bigquery.AccountRow, *string, error) {

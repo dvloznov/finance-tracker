@@ -224,6 +224,10 @@ func (m *mockDocumentRepo) UpdateDocumentAccountAndInstitution(ctx context.Conte
 	return nil
 }
 
+func (m *mockDocumentRepo) UpdateDocumentStatementDates(ctx context.Context, documentID, startDate, endDate string) error {
+	return nil
+}
+
 func (m *mockDocumentRepo) GetDocumentByID(ctx context.Context, documentID string) (*bigquery.DocumentRow, error) {
 	return nil, nil
 }

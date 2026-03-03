@@ -31,6 +31,9 @@ type DocumentRepository interface {
 	// UpdateDocumentAccountAndInstitution updates the account_id and institution_id for a document.
 	UpdateDocumentAccountAndInstitution(ctx context.Context, documentID, accountID, institutionID string) error
 
+	// UpdateDocumentStatementDates updates the statement_start_date and statement_end_date for a document.
+	UpdateDocumentStatementDates(ctx context.Context, documentID, startDate, endDate string) error
+
 	// InsertTransactions inserts a batch of TransactionRow into the database.
 	InsertTransactions(ctx context.Context, rows []*TransactionRow) error
 
@@ -175,6 +178,9 @@ type DocumentRow struct {
 
 	OriginalFilename string `bigquery:"original_filename" json:"original_filename"`
 	FileMimeType     string `bigquery:"file_mime_type" json:"file_mime_type,omitempty"`
+
+	StatementStartDate string `bigquery:"statement_start_date" json:"statement_start_date,omitempty"`
+	StatementEndDate   string `bigquery:"statement_end_date" json:"statement_end_date,omitempty"`
 
 	// Latest error message from the most recent failed parsing run (populated from parsing_runs join).
 	ErrorMessage string `bigquery:"error_message" json:"error_message,omitempty"`

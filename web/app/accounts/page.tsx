@@ -25,6 +25,7 @@ import {
 } from '@/features/documents/services/documentsApi';
 import { ConfirmModal } from '@/features/accounts/components/ConfirmModal';
 import { DocumentStatusBadge } from '@/shared/ui/DocumentStatusBadge';
+import { formatStatementDateRange } from '@/shared/formatters/date';
 import type { Account, Institution, Document } from '@/shared/types/api';
 import { Pencil, Plus, Trash2, FileText, Upload, RotateCw, AlertCircle } from 'lucide-react';
 
@@ -588,21 +589,35 @@ function AccountRow({
           </div>
         ) : (
           <ul className="space-y-1">
-            {documents.map((doc: { document_id: string; original_filename?: string; parsing_status?: string }) => (
+            {documents.map((doc: Document) => (
               <li
                 key={doc.document_id}
                 className="flex items-center justify-between text-sm py-1.5 px-2 rounded bg-white border border-slate-100"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <FileText size={14} className="text-slate-400 shrink-0" />
-                  <span className="font-medium text-slate-900">
-                    {doc.original_filename || doc.document_id}
-                  </span>
+                  <div className="flex flex-col min-w-0">
+                    {doc.statement_start_date && doc.statement_end_date ? (
+                      <>
+                        <span className="font-medium text-slate-900">
+                          {formatStatementDateRange(doc.statement_start_date, doc.statement_end_date)}
+                        </span>
+                        {(doc.original_filename || doc.document_id) && (
+                          <span className="text-xs text-slate-500 truncate">
+                            {doc.original_filename || doc.document_id}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="font-medium text-slate-900">
+                        {doc.original_filename || doc.document_id}
+                      </span>
+                    )}
+                  </div>
                   <DocumentStatusBadge status={doc.parsing_status} />
-                  {(doc as Document).parsing_status === 'FAILED' &&
-                    (doc as Document).error_message && (
+                  {doc.parsing_status === 'FAILED' && doc.error_message && (
                       <span
-                        title={(doc as Document).error_message}
+                        title={doc.error_message}
                         className="text-red-500 cursor-help"
                       >
                         <AlertCircle size={14} />
@@ -610,12 +625,12 @@ function AccountRow({
                     )}
                 </div>
                 <div className="flex items-center gap-1">
-                  {(doc as Document).parsing_status === 'FAILED' && (
+                  {doc.parsing_status === 'FAILED' && (
                     <button
-                      onClick={() => onRetryDoc(doc as Document)}
+                      onClick={() => onRetryDoc(doc)}
                       disabled={
                         retryState.isPending &&
-                        retryState.documentId === (doc as Document).document_id
+                        retryState.documentId === doc.document_id
                       }
                       className="text-xs text-slate-600 hover:underline flex items-center gap-1 disabled:opacity-50"
                       title="Retry parsing"
@@ -624,7 +639,7 @@ function AccountRow({
                         size={12}
                         className={
                           retryState.isPending &&
-                          retryState.documentId === (doc as Document).document_id
+                          retryState.documentId === doc.document_id
                             ? 'animate-spin'
                             : ''
                         }
@@ -633,13 +648,13 @@ function AccountRow({
                     </button>
                   )}
                   <button
-                    onClick={() => onReassignDoc(doc as Document)}
+                    onClick={() => onReassignDoc(doc)}
                     className="text-xs text-slate-600 hover:underline"
                   >
                     Reassign
                   </button>
                   <button
-                    onClick={() => onDeleteDoc(doc as Document)}
+                    onClick={() => onDeleteDoc(doc)}
                     className="p-1 text-red-600 hover:bg-red-50 rounded"
                   >
                     <Trash2 size={12} />

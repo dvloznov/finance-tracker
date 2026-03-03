@@ -33,7 +33,9 @@ func GetDocumentByIDWithClient(ctx context.Context, client *bigquery.Client, doc
 			upload_ts,
 			parsing_status,
 			original_filename,
-			file_mime_type
+			file_mime_type,
+			COALESCE(FORMAT_DATE('%%Y-%%m-%%d', statement_start_date), '') AS statement_start_date,
+			COALESCE(FORMAT_DATE('%%Y-%%m-%%d', statement_end_date), '') AS statement_end_date
 		FROM `+"`%s.%s.documents`"+`
 		WHERE document_id = @document_id
 		LIMIT 1
@@ -85,6 +87,8 @@ func ListAllDocumentsWithClient(ctx context.Context, client *bigquery.Client) ([
 			d.parsing_status,
 			d.original_filename,
 			d.file_mime_type,
+			COALESCE(FORMAT_DATE('%%Y-%%m-%%d', d.statement_start_date), '') AS statement_start_date,
+			COALESCE(FORMAT_DATE('%%Y-%%m-%%d', d.statement_end_date), '') AS statement_end_date,
 			COALESCE(pr.error_message, '') AS error_message
 		FROM `+"`%s.%s.documents`"+` d
 		LEFT JOIN (

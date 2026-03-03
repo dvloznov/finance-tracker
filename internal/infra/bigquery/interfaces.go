@@ -286,6 +286,11 @@ func (r *BigQueryDocumentRepository) UpdateDocumentAccountAndInstitution(ctx con
 	return UpdateDocumentAccountAndInstitutionWithClient(ctx, r.client, documentID, accountID, institutionID)
 }
 
+// UpdateDocumentStatementDates delegates to UpdateDocumentStatementDatesWithClient.
+func (r *BigQueryDocumentRepository) UpdateDocumentStatementDates(ctx context.Context, documentID, startDate, endDate string) error {
+	return UpdateDocumentStatementDatesWithClient(ctx, r.client, documentID, startDate, endDate)
+}
+
 // ListMerchants delegates to the existing ListMerchantsWithClient function with the shared client.
 func (r *BigQueryDocumentRepository) ListMerchants(ctx context.Context, opts bq.MerchantQuery) ([]*bq.MerchantWithCount, error) {
 	return ListMerchantsWithClient(ctx, r.client, opts)

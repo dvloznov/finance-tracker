@@ -171,6 +171,10 @@ func (s *UpsertAccountStep) Execute(ctx context.Context, state *PipelineState) e
 	if doc != nil && strings.TrimSpace(doc.AccountID) != "" && strings.TrimSpace(doc.InstitutionID) != "" {
 		state.AccountID = doc.AccountID
 		state.InstitutionID = doc.InstitutionID
+		start, end := getStatementDatesFromAccountInfo(state.ExtractedAccountInfo)
+		if start != "" || end != "" {
+			_ = state.DocumentRepo.UpdateDocumentStatementDates(ctx, state.DocumentID, start, end)
+		}
 		return nil
 	}
 
@@ -216,6 +220,11 @@ func (s *UpsertAccountStep) Execute(ctx context.Context, state *PipelineState) e
 	if err := state.DocumentRepo.UpdateDocumentAccountAndInstitution(ctx, state.DocumentID, accountID, state.InstitutionID); err != nil {
 		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
 		return err
+	}
+
+	start, end := getStatementDatesFromAccountInfo(state.ExtractedAccountInfo)
+	if start != "" || end != "" {
+		_ = state.DocumentRepo.UpdateDocumentStatementDates(ctx, state.DocumentID, start, end)
 	}
 
 	state.AccountID = accountID
