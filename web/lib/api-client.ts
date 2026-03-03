@@ -37,10 +37,25 @@ class ApiClient {
     return response.documents || [];
   }
 
-  async createUploadUrl(filename: string): Promise<{ upload_url: string; document_id: string; gcs_uri: string; object_name: string }> {
+  async createUploadUrl(
+    filename: string,
+    accountId?: string
+  ): Promise<{ upload_url: string; document_id: string; gcs_uri: string; object_name: string; account_id?: string }> {
+    const body: { filename: string; account_id?: string } = { filename };
+    if (accountId) body.account_id = accountId;
     return this.fetch('/api/documents/upload-url', {
       method: 'POST',
-      body: JSON.stringify({ filename }),
+      body: JSON.stringify(body),
+    });
+  }
+
+  async updateDocument(
+    documentId: string,
+    payload: { account_id?: string | null }
+  ): Promise<{ document_id: string; account_id: string; institution_id: string; status: string }> {
+    return this.fetch(`/api/documents/${documentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
     });
   }
 
@@ -107,10 +122,72 @@ class ApiClient {
     return response.accounts || [];
   }
 
+  async createAccount(payload: {
+    institution_id: string;
+    account_name?: string;
+    account_number?: string;
+    sort_code?: string;
+    iban?: string;
+    currency?: string;
+    account_type?: string;
+  }): Promise<{ account_id: string; account: Account }> {
+    return this.fetch('/api/accounts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateAccount(
+    accountId: string,
+    payload: Partial<{
+      institution_id: string;
+      account_name: string;
+      account_number: string;
+      sort_code: string;
+      iban: string;
+      currency: string;
+      account_type: string;
+    }>
+  ): Promise<{ account_id: string; status: string }> {
+    return this.fetch(`/api/accounts/${accountId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteAccount(accountId: string): Promise<{ account_id: string; status: string }> {
+    return this.fetch(`/api/accounts/${accountId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Institutions
   async listInstitutions(): Promise<Institution[]> {
     const response = await this.fetch<{ institutions: Institution[] }>('/api/institutions');
     return response.institutions || [];
+  }
+
+  async createInstitution(name: string): Promise<{ institution_id: string; name: string }> {
+    return this.fetch('/api/institutions', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  async updateInstitution(
+    institutionId: string,
+    name: string
+  ): Promise<{ institution_id: string; status: string }> {
+    return this.fetch(`/api/institutions/${institutionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  async deleteInstitution(institutionId: string): Promise<{ institution_id: string; status: string }> {
+    return this.fetch(`/api/institutions/${institutionId}`, {
+      method: 'DELETE',
+    });
   }
 
   // Jobs

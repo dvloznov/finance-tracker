@@ -66,6 +66,42 @@ func (r *stubRepo) QueryTransactions(_ context.Context, _ bigquery.TransactionQu
 func (r *stubRepo) ListAllAccounts(_ context.Context) ([]*bigquery.AccountRow, error) {
 	return r.accounts, nil
 }
+func (r *stubRepo) ListMerchants(_ context.Context, _ bigquery.MerchantQuery) ([]*bigquery.MerchantWithCount, error) {
+	return nil, nil
+}
+func (r *stubRepo) UpdateMerchantCategory(_ context.Context, _, _ string) error { return nil }
+func (r *stubRepo) UpdateMerchantMergeInto(_ context.Context, _, _ string) error { return nil }
+func (r *stubRepo) ClearMerchantMergeInto(_ context.Context, _ string) error     { return nil }
+
+// stubAccountRepo implements AccountRepository for tests.
+type stubAccountRepo struct {
+	account *bigquery.AccountRow
+}
+
+func (r *stubAccountRepo) UpsertAccount(_ context.Context, _ *bigquery.AccountRow) (string, error) {
+	return "stub-account-id", nil
+}
+func (r *stubAccountRepo) CreateAccount(_ context.Context, _ *bigquery.AccountRow) (string, error) {
+	return "stub-account-id", nil
+}
+func (r *stubAccountRepo) GetAccountByID(_ context.Context, accountID string) (*bigquery.AccountRow, error) {
+	if r.account != nil && r.account.AccountID == accountID {
+		return r.account, nil
+	}
+	return nil, nil
+}
+func (r *stubAccountRepo) UpdateAccount(_ context.Context, _ string, _ *bigquery.AccountRow) error {
+	return nil
+}
+func (r *stubAccountRepo) DeleteAccount(_ context.Context, _ string) error {
+	return nil
+}
+func (r *stubAccountRepo) FindAccountByNumberAndCurrency(_ context.Context, _, _, _ string) (*bigquery.AccountRow, error) {
+	return nil, nil
+}
+func (r *stubAccountRepo) ListAllAccounts(_ context.Context) ([]*bigquery.AccountRow, error) {
+	return nil, nil
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -84,7 +120,7 @@ func decodeJSON(t *testing.T, body *strings.Reader) map[string]interface{} {
 
 func TestListDocuments_Empty(t *testing.T) {
 	repo := &stubRepo{}
-	h := handlers.NewDocumentsHandler(repo, nil, "test-bucket", newLogger())
+	h := handlers.NewDocumentsHandler(repo, &stubAccountRepo{}, nil, "test-bucket", newLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/documents", nil)
 	rr := httptest.NewRecorder()
@@ -101,7 +137,7 @@ func TestListDocuments_ReturnsDocuments(t *testing.T) {
 			{DocumentID: "doc-1", UserID: "denis", ParsingStatus: "PENDING"},
 		},
 	}
-	h := handlers.NewDocumentsHandler(repo, nil, "test-bucket", newLogger())
+	h := handlers.NewDocumentsHandler(repo, &stubAccountRepo{}, nil, "test-bucket", newLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/documents", nil)
 	rr := httptest.NewRecorder()
@@ -128,7 +164,7 @@ func TestListDocuments_ReturnsDocuments(t *testing.T) {
 
 func TestDeleteDocument_NotFound(t *testing.T) {
 	repo := &stubRepo{getDocumentNil: true}
-	h := handlers.NewDocumentsHandler(repo, nil, "test-bucket", newLogger())
+	h := handlers.NewDocumentsHandler(repo, &stubAccountRepo{}, nil, "test-bucket", newLogger())
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/documents/missing-id", nil)
 	rr := httptest.NewRecorder()
@@ -145,7 +181,7 @@ func TestDeleteDocument_Success(t *testing.T) {
 			{DocumentID: "doc-1", GCSURI: "gs://bucket/doc.pdf"},
 		},
 	}
-	h := handlers.NewDocumentsHandler(repo, nil, "test-bucket", newLogger())
+	h := handlers.NewDocumentsHandler(repo, &stubAccountRepo{}, nil, "test-bucket", newLogger())
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/documents/doc-1", nil)
 	rr := httptest.NewRecorder()

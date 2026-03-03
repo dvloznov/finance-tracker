@@ -162,6 +162,18 @@ func (s *UpsertAccountStep) Name() string {
 }
 
 func (s *UpsertAccountStep) Execute(ctx context.Context, state *PipelineState) error {
+	// If document already has account_id and institution_id (e.g. user-assigned at upload), use them
+	doc, err := state.DocumentRepo.GetDocumentByID(ctx, state.DocumentID)
+	if err != nil {
+		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)
+		return err
+	}
+	if doc != nil && strings.TrimSpace(doc.AccountID) != "" && strings.TrimSpace(doc.InstitutionID) != "" {
+		state.AccountID = doc.AccountID
+		state.InstitutionID = doc.InstitutionID
+		return nil
+	}
+
 	accountRow, institutionName, err := transformAccountInfo(state.ExtractedAccountInfo, state.DocumentID)
 	if err != nil {
 		_ = state.DocumentRepo.MarkParsingRunFailed(ctx, state.ParsingRunID, err)

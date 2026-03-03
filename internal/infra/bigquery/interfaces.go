@@ -93,6 +93,26 @@ func (r *BigQueryAccountRepository) UpsertAccount(ctx context.Context, row *bq.A
 	return UpsertAccountWithClient(ctx, r.client, row)
 }
 
+// CreateAccount delegates to CreateAccountWithClient.
+func (r *BigQueryAccountRepository) CreateAccount(ctx context.Context, row *bq.AccountRow) (string, error) {
+	return CreateAccountWithClient(ctx, r.client, row)
+}
+
+// GetAccountByID delegates to GetAccountByIDWithClient.
+func (r *BigQueryAccountRepository) GetAccountByID(ctx context.Context, accountID string) (*bq.AccountRow, error) {
+	return GetAccountByIDWithClient(ctx, r.client, accountID)
+}
+
+// UpdateAccount delegates to UpdateAccountWithClient.
+func (r *BigQueryAccountRepository) UpdateAccount(ctx context.Context, accountID string, row *bq.AccountRow) error {
+	return UpdateAccountWithClient(ctx, r.client, accountID, row)
+}
+
+// DeleteAccount delegates to DeleteAccountWithClient.
+func (r *BigQueryAccountRepository) DeleteAccount(ctx context.Context, accountID string) error {
+	return DeleteAccountWithClient(ctx, r.client, accountID)
+}
+
 // FindAccountByNumberAndCurrency delegates to the existing function with the shared client.
 func (r *BigQueryAccountRepository) FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency, institutionID string) (*bq.AccountRow, error) {
 	return FindAccountByNumberAndCurrencyWithClient(ctx, r.client, accountNumber, currency, institutionID)
@@ -106,6 +126,26 @@ func (r *BigQueryAccountRepository) ListAllAccounts(ctx context.Context) ([]*bq.
 // UpsertInstitution delegates to the existing UpsertInstitution function with the shared client.
 func (r *BigQueryInstitutionRepository) UpsertInstitution(ctx context.Context, row *bq.InstitutionRow) (string, error) {
 	return UpsertInstitutionWithClient(ctx, r.client, row)
+}
+
+// CreateInstitution delegates to CreateInstitutionWithClient.
+func (r *BigQueryInstitutionRepository) CreateInstitution(ctx context.Context, row *bq.InstitutionRow) (string, error) {
+	return CreateInstitutionWithClient(ctx, r.client, row)
+}
+
+// GetInstitutionByID delegates to GetInstitutionByIDWithClient.
+func (r *BigQueryInstitutionRepository) GetInstitutionByID(ctx context.Context, institutionID string) (*bq.InstitutionRow, error) {
+	return GetInstitutionByIDWithClient(ctx, r.client, institutionID)
+}
+
+// UpdateInstitution delegates to UpdateInstitutionWithClient.
+func (r *BigQueryInstitutionRepository) UpdateInstitution(ctx context.Context, institutionID, name string) error {
+	return UpdateInstitutionWithClient(ctx, r.client, institutionID, name)
+}
+
+// DeleteInstitution delegates to DeleteInstitutionWithClient.
+func (r *BigQueryInstitutionRepository) DeleteInstitution(ctx context.Context, institutionID string) error {
+	return DeleteInstitutionWithClient(ctx, r.client, institutionID)
 }
 
 // ListAllInstitutions delegates to the existing ListAllInstitutions function with the shared client.

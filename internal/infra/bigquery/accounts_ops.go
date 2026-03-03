@@ -135,6 +135,176 @@ func FindAccountByNumberAndCurrencyWithClient(ctx context.Context, client *bigqu
 	return &row, nil
 }
 
+// GetAccountByID retrieves an account by account_id.
+func GetAccountByID(ctx context.Context, accountID string) (*bq.AccountRow, error) {
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("GetAccountByID: creating client: %w", err)
+	}
+	defer client.Close()
+
+	return GetAccountByIDWithClient(ctx, client, accountID)
+}
+
+// GetAccountByIDWithClient retrieves an account using the provided BigQuery client.
+func GetAccountByIDWithClient(ctx context.Context, client *bigquery.Client, accountID string) (*bq.AccountRow, error) {
+	if accountID == "" {
+		return nil, fmt.Errorf("GetAccountByIDWithClient: account_id cannot be empty")
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			account_id,
+			user_id,
+			institution_id,
+			account_name,
+			account_number,
+			sort_code,
+			iban,
+			currency,
+			account_type
+		FROM `+"`%s.%s.accounts`"+`
+		WHERE account_id = @account_id
+		LIMIT 1
+	`, projectID, datasetID)
+
+	q := client.Query(query)
+	q.Parameters = []bigquery.QueryParameter{
+		{Name: "account_id", Value: accountID},
+	}
+
+	it, err := q.Read(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("GetAccountByIDWithClient: reading query: %w", err)
+	}
+
+	var row bq.AccountRow
+	err = it.Next(&row)
+	if err == iterator.Done {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("GetAccountByIDWithClient: iterating: %w", err)
+	}
+
+	return &row, nil
+}
+
+// CreateAccount inserts a new account and returns its ID.
+func CreateAccount(ctx context.Context, row *bq.AccountRow) (string, error) {
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return "", fmt.Errorf("CreateAccount: creating client: %w", err)
+	}
+	defer client.Close()
+
+	return CreateAccountWithClient(ctx, client, row)
+}
+
+// CreateAccountWithClient inserts a new account using the provided BigQuery client.
+func CreateAccountWithClient(ctx context.Context, client *bigquery.Client, row *bq.AccountRow) (string, error) {
+	if row.AccountID == "" {
+		row.AccountID = uuid.NewString()
+	}
+
+	q := client.Query(`
+		INSERT INTO ` + "`" + projectID + "." + datasetID + ".accounts" + "`" + ` (
+			account_id, user_id, institution_id,
+			account_name, account_number, sort_code, iban,
+			currency, account_type
+		)
+		VALUES (
+			@account_id, @user_id, @institution_id,
+			@account_name, @account_number, @sort_code, @iban,
+			@currency, @account_type
+		)
+	`)
+
+	q.Parameters = []bigquery.QueryParameter{
+		{Name: "account_id", Value: row.AccountID},
+		{Name: "user_id", Value: row.UserID},
+		{Name: "institution_id", Value: row.InstitutionID},
+		{Name: "account_name", Value: row.AccountName},
+		{Name: "account_number", Value: row.AccountNumber},
+		{Name: "sort_code", Value: row.SortCode},
+		{Name: "iban", Value: row.IBAN},
+		{Name: "currency", Value: row.Currency},
+		{Name: "account_type", Value: row.AccountType},
+	}
+
+	job, err := q.Run(ctx)
+	if err != nil {
+		return "", fmt.Errorf("CreateAccountWithClient: running insert query: %w", err)
+	}
+
+	status, err := job.Wait(ctx)
+	if err != nil {
+		return "", fmt.Errorf("CreateAccountWithClient: waiting for job: %w", err)
+	}
+	if err := status.Err(); err != nil {
+		return "", fmt.Errorf("CreateAccountWithClient: job error: %w", err)
+	}
+
+	return row.AccountID, nil
+}
+
+// UpdateAccount updates an account by account_id.
+func UpdateAccount(ctx context.Context, accountID string, row *bq.AccountRow) error {
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("UpdateAccount: creating client: %w", err)
+	}
+	defer client.Close()
+
+	return UpdateAccountWithClient(ctx, client, accountID, row)
+}
+
+// UpdateAccountWithClient updates an account using the provided BigQuery client.
+func UpdateAccountWithClient(ctx context.Context, client *bigquery.Client, accountID string, row *bq.AccountRow) error {
+	if accountID == "" {
+		return fmt.Errorf("UpdateAccountWithClient: account_id cannot be empty")
+	}
+
+	q := client.Query(`
+		UPDATE ` + "`" + projectID + "." + datasetID + ".accounts" + "`" + `
+		SET
+			institution_id = @institution_id,
+			account_name = @account_name,
+			account_number = @account_number,
+			sort_code = @sort_code,
+			iban = @iban,
+			currency = @currency,
+			account_type = @account_type
+		WHERE account_id = @account_id
+	`)
+
+	q.Parameters = []bigquery.QueryParameter{
+		{Name: "account_id", Value: accountID},
+		{Name: "institution_id", Value: row.InstitutionID},
+		{Name: "account_name", Value: row.AccountName},
+		{Name: "account_number", Value: row.AccountNumber},
+		{Name: "sort_code", Value: row.SortCode},
+		{Name: "iban", Value: row.IBAN},
+		{Name: "currency", Value: row.Currency},
+		{Name: "account_type", Value: row.AccountType},
+	}
+
+	job, err := q.Run(ctx)
+	if err != nil {
+		return fmt.Errorf("UpdateAccountWithClient: running update query: %w", err)
+	}
+
+	status, err := job.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("UpdateAccountWithClient: waiting for job: %w", err)
+	}
+	if err := status.Err(); err != nil {
+		return fmt.Errorf("UpdateAccountWithClient: job error: %w", err)
+	}
+
+	return nil
+}
+
 // UpsertAccount finds an existing account by (account_number, currency, institution_id) or creates a new one.
 // Returns the account_id of the found or created account.
 // If account_number is empty/null, always creates a new account (for document-scoped defaults).

@@ -50,6 +50,10 @@ func (m *MockStorageService) ExtractFilenameFromGCSURI(uri string) string {
 // MockAccountRepository is a mock implementation of AccountRepository for testing.
 type MockAccountRepository struct {
 	UpsertAccountFunc                  func(ctx context.Context, row *bigquery.AccountRow) (string, error)
+	CreateAccountFunc                  func(ctx context.Context, row *bigquery.AccountRow) (string, error)
+	GetAccountByIDFunc                 func(ctx context.Context, accountID string) (*bigquery.AccountRow, error)
+	UpdateAccountFunc                  func(ctx context.Context, accountID string, row *bigquery.AccountRow) error
+	DeleteAccountFunc                  func(ctx context.Context, accountID string) error
 	FindAccountByNumberAndCurrencyFunc func(ctx context.Context, accountNumber, currency, institutionID string) (*bigquery.AccountRow, error)
 	ListAllAccountsFunc                func(ctx context.Context) ([]*bigquery.AccountRow, error)
 }
@@ -57,6 +61,10 @@ type MockAccountRepository struct {
 // MockInstitutionRepository is a mock implementation of InstitutionRepository for testing.
 type MockInstitutionRepository struct {
 	UpsertInstitutionFunc   func(ctx context.Context, row *bigquery.InstitutionRow) (string, error)
+	CreateInstitutionFunc   func(ctx context.Context, row *bigquery.InstitutionRow) (string, error)
+	GetInstitutionByIDFunc  func(ctx context.Context, institutionID string) (*bigquery.InstitutionRow, error)
+	UpdateInstitutionFunc   func(ctx context.Context, institutionID, name string) error
+	DeleteInstitutionFunc   func(ctx context.Context, institutionID string) error
 	ListAllInstitutionsFunc func(ctx context.Context) ([]*bigquery.InstitutionRow, error)
 }
 
@@ -72,6 +80,34 @@ func (m *MockInstitutionRepository) ListAllInstitutions(ctx context.Context) ([]
 		return m.ListAllInstitutionsFunc(ctx)
 	}
 	return []*bigquery.InstitutionRow{}, nil
+}
+
+func (m *MockInstitutionRepository) CreateInstitution(ctx context.Context, row *bigquery.InstitutionRow) (string, error) {
+	if m.CreateInstitutionFunc != nil {
+		return m.CreateInstitutionFunc(ctx, row)
+	}
+	return "mock-institution-id", nil
+}
+
+func (m *MockInstitutionRepository) GetInstitutionByID(ctx context.Context, institutionID string) (*bigquery.InstitutionRow, error) {
+	if m.GetInstitutionByIDFunc != nil {
+		return m.GetInstitutionByIDFunc(ctx, institutionID)
+	}
+	return nil, nil
+}
+
+func (m *MockInstitutionRepository) UpdateInstitution(ctx context.Context, institutionID, name string) error {
+	if m.UpdateInstitutionFunc != nil {
+		return m.UpdateInstitutionFunc(ctx, institutionID, name)
+	}
+	return nil
+}
+
+func (m *MockInstitutionRepository) DeleteInstitution(ctx context.Context, institutionID string) error {
+	if m.DeleteInstitutionFunc != nil {
+		return m.DeleteInstitutionFunc(ctx, institutionID)
+	}
+	return nil
 }
 
 func (m *MockAccountRepository) UpsertAccount(ctx context.Context, row *bigquery.AccountRow) (string, error) {
@@ -93,6 +129,34 @@ func (m *MockAccountRepository) ListAllAccounts(ctx context.Context) ([]*bigquer
 		return m.ListAllAccountsFunc(ctx)
 	}
 	return []*bigquery.AccountRow{}, nil
+}
+
+func (m *MockAccountRepository) CreateAccount(ctx context.Context, row *bigquery.AccountRow) (string, error) {
+	if m.CreateAccountFunc != nil {
+		return m.CreateAccountFunc(ctx, row)
+	}
+	return "mock-account-id", nil
+}
+
+func (m *MockAccountRepository) GetAccountByID(ctx context.Context, accountID string) (*bigquery.AccountRow, error) {
+	if m.GetAccountByIDFunc != nil {
+		return m.GetAccountByIDFunc(ctx, accountID)
+	}
+	return nil, nil
+}
+
+func (m *MockAccountRepository) UpdateAccount(ctx context.Context, accountID string, row *bigquery.AccountRow) error {
+	if m.UpdateAccountFunc != nil {
+		return m.UpdateAccountFunc(ctx, accountID, row)
+	}
+	return nil
+}
+
+func (m *MockAccountRepository) DeleteAccount(ctx context.Context, accountID string) error {
+	if m.DeleteAccountFunc != nil {
+		return m.DeleteAccountFunc(ctx, accountID)
+	}
+	return nil
 }
 
 // MockAIParser is a mock implementation of AIParser for testing.

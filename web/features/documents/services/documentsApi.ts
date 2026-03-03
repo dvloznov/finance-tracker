@@ -6,6 +6,7 @@ type UploadUrlResponse = {
   document_id: string;
   gcs_uri: string;
   object_name: string;
+  account_id?: string;
 };
 
 type ListDocumentsParams = {
@@ -17,8 +18,8 @@ export async function listDocuments(params?: ListDocumentsParams): Promise<Docum
   return apiClient.listDocuments(params);
 }
 
-export async function createUploadUrl(filename: string): Promise<UploadUrlResponse> {
-  return apiClient.createUploadUrl(filename);
+export async function createUploadUrl(filename: string, accountId?: string): Promise<UploadUrlResponse> {
+  return apiClient.createUploadUrl(filename, accountId);
 }
 
 export async function enqueueParsing(documentId: string, gcsUri: string): Promise<{ job_id: string }> {
@@ -27,4 +28,11 @@ export async function enqueueParsing(documentId: string, gcsUri: string): Promis
 
 export async function deleteDocument(documentId: string): Promise<{ document_id: string; status: string }> {
   return apiClient.deleteDocument(documentId);
+}
+
+export async function updateDocument(
+  documentId: string,
+  payload: { account_id?: string | null }
+): Promise<{ document_id: string; account_id: string; institution_id: string; status: string }> {
+  return apiClient.updateDocument(documentId, payload);
 }

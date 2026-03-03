@@ -72,21 +72,33 @@ func ListAllDocuments(ctx context.Context) ([]*bq.DocumentRow, error) {
 }
 
 // ListAllDocumentsWithClient retrieves all documents using the provided BigQuery client.
+// Includes error_message from the most recent failed parsing run when available.
 func ListAllDocumentsWithClient(ctx context.Context, client *bigquery.Client) ([]*bq.DocumentRow, error) {
 	query := fmt.Sprintf(`
 		SELECT
-			document_id,
-			user_id,
-			gcs_uri,
-			institution_id,
-			account_id,
-			upload_ts,
-			parsing_status,
-			original_filename,
-			file_mime_type
-		FROM `+"`%s.%s.documents`"+`
-		ORDER BY upload_ts DESC
-	`, projectID, datasetID)
+			d.document_id,
+			d.user_id,
+			d.gcs_uri,
+			d.institution_id,
+			d.account_id,
+			d.upload_ts,
+			d.parsing_status,
+			d.original_filename,
+			d.file_mime_type,
+			COALESCE(pr.error_message, '') AS error_message
+		FROM `+"`%s.%s.documents`"+` d
+		LEFT JOIN (
+			SELECT document_id, error_message
+			FROM (
+				SELECT document_id, error_message,
+					ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY finished_ts DESC NULLS LAST) AS rn
+				FROM `+"`%s.%s.parsing_runs`"+`
+				WHERE status = 'FAILED' AND error_message IS NOT NULL AND error_message != ''
+			)
+			WHERE rn = 1
+		) pr ON d.document_id = pr.document_id
+		ORDER BY d.upload_ts DESC
+	`, projectID, datasetID, projectID, datasetID)
 
 	q := client.Query(query)
 	it, err := q.Read(ctx)

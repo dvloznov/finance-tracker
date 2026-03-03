@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"cloud.google.com/go/pubsub/v2"
+	"cloud.google.com/go/storage"
 	"github.com/dvloznov/finance-tracker/internal/events"
 	"github.com/dvloznov/finance-tracker/internal/gcsuploader"
 	infraBQ "github.com/dvloznov/finance-tracker/internal/infra/bigquery"
@@ -154,6 +157,11 @@ func main() {
 				log.Error().Err(updateErr).Str("document_id", event.DocumentID).Msg("Failed to update document status to FAILED")
 			}
 
+			// Ack unrecoverable errors (e.g. GCS object deleted) so Pub/Sub stops redelivering.
+			if errors.Is(err, storage.ErrObjectNotExist) || strings.Contains(err.Error(), "object doesn't exist") {
+				msg.Ack()
+				return
+			}
 			msg.Nack()
 			return
 		}

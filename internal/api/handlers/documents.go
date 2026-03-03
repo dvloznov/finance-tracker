@@ -26,15 +26,17 @@ const defaultUserID = "denis"
 // DocumentsHandler handles document-related endpoints.
 type DocumentsHandler struct {
 	repo           bigquery.DocumentRepository
+	accountRepo    bigquery.AccountRepository
 	eventPublisher events.Publisher
 	bucket         string
 	log            zerolog.Logger
 }
 
 // NewDocumentsHandler creates a new documents handler.
-func NewDocumentsHandler(repo bigquery.DocumentRepository, publisher events.Publisher, bucket string, log zerolog.Logger) *DocumentsHandler {
+func NewDocumentsHandler(repo bigquery.DocumentRepository, accountRepo bigquery.AccountRepository, publisher events.Publisher, bucket string, log zerolog.Logger) *DocumentsHandler {
 	return &DocumentsHandler{
 		repo:           repo,
+		accountRepo:    accountRepo,
 		eventPublisher: publisher,
 		bucket:         bucket,
 		log:            log,
@@ -79,8 +81,9 @@ func (h *DocumentsHandler) ListDocuments(w http.ResponseWriter, r *http.Request)
 // CreateUploadURL handles POST /api/documents/upload-url
 func (h *DocumentsHandler) CreateUploadURL(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Filename    string `json:"filename"`
-		ContentType string `json:"content_type"`
+		Filename    string  `json:"filename"`
+		ContentType string  `json:"content_type"`
+		AccountID   *string `json:"account_id"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -98,15 +101,18 @@ func (h *DocumentsHandler) CreateUploadURL(w http.ResponseWriter, r *http.Reques
 	gcsURI := fmt.Sprintf("gs://%s/%s", h.bucket, objectName)
 	documentID := uuid.New().String()
 
-	// For local development with user credentials, return direct upload URL
-	// In production with service accounts, this would use signed URLs
+	// Build upload URL with optional account_id for document assignment
 	uploadURL := fmt.Sprintf("/api/documents/upload/%s?object_name=%s&filename=%s", documentID, url.QueryEscape(objectName), url.QueryEscape(req.Filename))
+	if req.AccountID != nil && *req.AccountID != "" {
+		uploadURL += "&account_id=" + url.QueryEscape(*req.AccountID)
+	}
 
-	middleware.WriteJSON(w, http.StatusOK, map[string]string{
+	middleware.WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"upload_url":  uploadURL,
 		"gcs_uri":     gcsURI,
 		"object_name": objectName,
 		"document_id": documentID,
+		"account_id":  req.AccountID,
 	})
 }
 
@@ -180,6 +186,20 @@ func (h *DocumentsHandler) UploadDocument(w http.ResponseWriter, r *http.Request
 		UploadTS:         time.Now(),
 		ParsingStatus:    "PENDING",
 		FileMimeType:     contentType,
+	}
+
+	// Optional: assign to account if account_id provided in query
+	if accountID := strings.TrimSpace(r.URL.Query().Get("account_id")); accountID != "" {
+		account, err := h.accountRepo.GetAccountByID(ctx, accountID)
+		if err != nil {
+			h.log.Error().Err(err).Str("account_id", accountID).Msg("Failed to retrieve account for document assignment")
+			middleware.WriteError(w, http.StatusInternalServerError, "Failed to retrieve account")
+			return
+		}
+		if account != nil {
+			doc.AccountID = account.AccountID
+			doc.InstitutionID = account.InstitutionID
+		}
 	}
 
 	if err := h.repo.InsertDocument(ctx, doc); err != nil {
@@ -265,6 +285,66 @@ func (h *DocumentsHandler) EnqueueParsing(w http.ResponseWriter, r *http.Request
 		"event_id":    event.EventID,
 		"document_id": req.DocumentID,
 		"status":      "queued",
+	})
+}
+
+// UpdateDocument handles PATCH /api/documents/:documentId
+// Reassigns a document to an account. Body: { "account_id": "..." } or { "account_id": null } to unassign.
+func (h *DocumentsHandler) UpdateDocument(w http.ResponseWriter, r *http.Request, documentID string) {
+	ctx := r.Context()
+
+	if r.Method != http.MethodPatch && r.Method != http.MethodPut {
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	var req struct {
+		AccountID *string `json:"account_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	doc, err := h.repo.GetDocumentByID(ctx, documentID)
+	if err != nil {
+		h.log.Error().Err(err).Msg("Failed to retrieve document")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to retrieve document")
+		return
+	}
+	if doc == nil {
+		middleware.WriteError(w, http.StatusNotFound, "Document not found")
+		return
+	}
+
+	accountID := ""
+	institutionID := ""
+	if req.AccountID != nil && *req.AccountID != "" {
+		account, err := h.accountRepo.GetAccountByID(ctx, *req.AccountID)
+		if err != nil {
+			h.log.Error().Err(err).Str("account_id", *req.AccountID).Msg("Failed to retrieve account")
+			middleware.WriteError(w, http.StatusInternalServerError, "Failed to retrieve account")
+			return
+		}
+		if account == nil {
+			middleware.WriteError(w, http.StatusNotFound, "Account not found")
+			return
+		}
+		accountID = account.AccountID
+		institutionID = account.InstitutionID
+	}
+
+	if err := h.repo.UpdateDocumentAccountAndInstitution(ctx, documentID, accountID, institutionID); err != nil {
+		h.log.Error().Err(err).Str("document_id", documentID).Msg("Failed to update document")
+		middleware.WriteError(w, http.StatusInternalServerError, "Failed to update document")
+		return
+	}
+
+	middleware.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"document_id":     documentID,
+		"account_id":      accountID,
+		"institution_id":  institutionID,
+		"status":          "updated",
 	})
 }
 

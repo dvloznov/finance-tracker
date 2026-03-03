@@ -16,6 +16,8 @@ export interface Document {
   text_gcs_uri?: string;
   checksum_sha256?: string;
   metadata?: Record<string, any>;
+  /** Latest error message from the most recent failed parsing run. */
+  error_message?: string;
 }
 
 export interface Transaction {

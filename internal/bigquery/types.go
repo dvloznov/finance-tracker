@@ -78,6 +78,18 @@ type AccountRepository interface {
 	// UpsertAccount finds an existing account by (account_number, currency) or creates a new one.
 	UpsertAccount(ctx context.Context, row *AccountRow) (string, error)
 
+	// CreateAccount inserts a new account and returns its ID.
+	CreateAccount(ctx context.Context, row *AccountRow) (string, error)
+
+	// GetAccountByID retrieves an account by account_id.
+	GetAccountByID(ctx context.Context, accountID string) (*AccountRow, error)
+
+	// UpdateAccount updates an account by account_id.
+	UpdateAccount(ctx context.Context, accountID string, row *AccountRow) error
+
+	// DeleteAccount deletes an account and all associated documents, parsing runs, model outputs, and transactions.
+	DeleteAccount(ctx context.Context, accountID string) error
+
 	// FindAccountByNumberAndCurrency finds an account by normalized account_number, currency, and institution_id.
 	FindAccountByNumberAndCurrency(ctx context.Context, accountNumber, currency, institutionID string) (*AccountRow, error)
 
@@ -89,6 +101,18 @@ type AccountRepository interface {
 type InstitutionRepository interface {
 	// UpsertInstitution creates or updates an institution and returns its ID.
 	UpsertInstitution(ctx context.Context, row *InstitutionRow) (string, error)
+
+	// CreateInstitution inserts a new institution and returns its ID.
+	CreateInstitution(ctx context.Context, row *InstitutionRow) (string, error)
+
+	// GetInstitutionByID retrieves an institution by institution_id.
+	GetInstitutionByID(ctx context.Context, institutionID string) (*InstitutionRow, error)
+
+	// UpdateInstitution updates an institution's name by institution_id.
+	UpdateInstitution(ctx context.Context, institutionID, name string) error
+
+	// DeleteInstitution deletes an institution and all associated accounts, documents, and transactions.
+	DeleteInstitution(ctx context.Context, institutionID string) error
 
 	// ListAllInstitutions retrieves all institutions from the database.
 	ListAllInstitutions(ctx context.Context) ([]*InstitutionRow, error)
@@ -151,6 +175,9 @@ type DocumentRow struct {
 
 	OriginalFilename string `bigquery:"original_filename" json:"original_filename"`
 	FileMimeType     string `bigquery:"file_mime_type" json:"file_mime_type,omitempty"`
+
+	// Latest error message from the most recent failed parsing run (populated from parsing_runs join).
+	ErrorMessage string `bigquery:"error_message" json:"error_message,omitempty"`
 }
 
 // InstitutionRow represents an institution record in BigQuery.

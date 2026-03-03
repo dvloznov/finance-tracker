@@ -56,6 +56,12 @@ func main() {
 	}
 	defer docRepo.Close()
 
+	accountRepo, err := infraBQ.NewBigQueryAccountRepository(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create account repository")
+	}
+	defer accountRepo.Close()
+
 	institutionRepo, err := infraBQ.NewBigQueryInstitutionRepository(ctx)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create institution repository")
@@ -74,10 +80,10 @@ func main() {
 		defer eventPublisher.Close()
 	}
 
-	documentsHandler := handlers.NewDocumentsHandler(docRepo, eventPublisher, *bucket, log)
+	documentsHandler := handlers.NewDocumentsHandler(docRepo, accountRepo, eventPublisher, *bucket, log)
 	transactionsHandler := handlers.NewTransactionsHandler(docRepo, log)
 	categoriesHandler := handlers.NewCategoriesHandler(docRepo, log)
-	accountsHandler := handlers.NewAccountsHandler(docRepo, log)
+	accountsHandler := handlers.NewAccountsHandler(docRepo, accountRepo, institutionRepo, log)
 	institutionsHandler := handlers.NewInstitutionsHandler(institutionRepo, log)
 	merchantsHandler := handlers.NewMerchantsHandler(docRepo, log)
 
@@ -92,6 +98,14 @@ func main() {
 	})
 	mux.HandleFunc("PUT /api/documents/upload/{documentID}", func(w http.ResponseWriter, r *http.Request) {
 		documentsHandler.UploadDocument(w, r, r.PathValue("documentID"))
+	})
+	mux.HandleFunc("PATCH /api/documents/{documentID}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("documentID")
+		if strings.Contains(id, "/") {
+			middleware.WriteError(w, http.StatusBadRequest, "Invalid document ID")
+			return
+		}
+		documentsHandler.UpdateDocument(w, r, id)
 	})
 	mux.HandleFunc("DELETE /api/documents/{documentID}", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("documentID")
@@ -110,9 +124,43 @@ func main() {
 
 	// Accounts
 	mux.HandleFunc("GET /api/accounts", accountsHandler.ListAccounts)
+	mux.HandleFunc("POST /api/accounts", accountsHandler.CreateAccount)
+	mux.HandleFunc("PATCH /api/accounts/{accountID}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("accountID")
+		if strings.Contains(id, "/") {
+			middleware.WriteError(w, http.StatusBadRequest, "Invalid account ID")
+			return
+		}
+		accountsHandler.UpdateAccount(w, r, id)
+	})
+	mux.HandleFunc("DELETE /api/accounts/{accountID}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("accountID")
+		if strings.Contains(id, "/") {
+			middleware.WriteError(w, http.StatusBadRequest, "Invalid account ID")
+			return
+		}
+		accountsHandler.DeleteAccount(w, r, id)
+	})
 
 	// Institutions
 	mux.HandleFunc("GET /api/institutions", institutionsHandler.ListInstitutions)
+	mux.HandleFunc("POST /api/institutions", institutionsHandler.CreateInstitution)
+	mux.HandleFunc("PATCH /api/institutions/{institutionID}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("institutionID")
+		if strings.Contains(id, "/") {
+			middleware.WriteError(w, http.StatusBadRequest, "Invalid institution ID")
+			return
+		}
+		institutionsHandler.UpdateInstitution(w, r, id)
+	})
+	mux.HandleFunc("DELETE /api/institutions/{institutionID}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("institutionID")
+		if strings.Contains(id, "/") {
+			middleware.WriteError(w, http.StatusBadRequest, "Invalid institution ID")
+			return
+		}
+		institutionsHandler.DeleteInstitution(w, r, id)
+	})
 
 	// Merchants
 	mux.HandleFunc("GET /api/merchants", merchantsHandler.ListMerchants)

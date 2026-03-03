@@ -1,6 +1,7 @@
 import { createColumnHelper, type CellContext } from '@tanstack/react-table';
-import { Trash2 } from 'lucide-react';
+import { Trash2, AlertCircle } from 'lucide-react';
 import { formatMonthDay, formatShortDateTime } from '@/shared/formatters/date';
+import { DocumentStatusBadge } from '@/shared/ui/DocumentStatusBadge';
 import type { DocumentVM } from '@/features/documents/types';
 import type { Institution } from '@/shared/types/api';
 
@@ -78,23 +79,28 @@ export function getDocumentColumns(
       header: 'Status',
       cell: (info) => {
         const status = info.getValue();
+        const doc = info.row.original;
         return (
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-medium inline-block ${
-              status === 'COMPLETED'
-                ? 'bg-green-100 text-green-800'
-                : status === 'FAILED'
-                ? 'bg-red-100 text-red-800'
-                : status === 'RUNNING'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-yellow-100 text-yellow-800'
-            }`}
-          >
-            {status}
-          </span>
+          <div className="flex items-center gap-2">
+            <DocumentStatusBadge status={status} />
+            {status === 'FAILED' && doc.error_message && (
+              <span
+                title={doc.error_message}
+                className="text-red-500 cursor-help inline-flex"
+              >
+                <AlertCircle size={16} />
+              </span>
+            )}
+          </div>
         );
       },
-      filterFn: 'equals',
+      filterFn: (row, columnId, filterValue) => {
+        const status = row.getValue(columnId) as string;
+        if (filterValue === 'RUNNING') {
+          return status === 'RUNNING' || status === 'PROCESSING';
+        }
+        return status === filterValue;
+      },
     }),
     columnHelper.accessor('file_mime_type', {
       header: 'File Type',
